@@ -4,25 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { SearchIcon } from "@/components/icons";
 import { PRIORITY_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/labels";
+import { SORTS, type FilterValues } from "@/lib/post-options";
 import { POST_STATUSES, POST_TYPES, PRIORITIES, type Person, type Warehouse } from "@/lib/types";
-
-export type FilterValues = {
-  q: string;
-  type: string;
-  status: string;
-  warehouse: string;
-  assignee: string;
-  priority: string;
-  overdue: boolean;
-  sort: string;
-};
-
-export const SORTS = [
-  { value: "updated", label: "Last update" },
-  { value: "due", label: "Due date" },
-  { value: "created", label: "Newest" },
-  { value: "priority", label: "Priority" },
-] as const;
 
 function toQuery(v: FilterValues): string {
   const params = new URLSearchParams();

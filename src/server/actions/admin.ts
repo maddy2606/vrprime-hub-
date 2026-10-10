@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getActiveUser } from "@/lib/auth";
-import { createAdminClient, MISSING_SECRET_MESSAGE } from "@/lib/supabase/admin";
+import { createAdminClient, MISSING_SECRET_MESSAGE, secretKeyProblem } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/types";
 import { createUserSchema, fieldErrors, updateUserSchema } from "@/lib/validation";
 
@@ -12,8 +12,9 @@ async function ownerAdmin() {
   const fail = (message: string) => ({ error: { ok: false as const, message }, user: null, admin: null });
   const user = await getActiveUser();
   if (!user || user.role !== "owner") return fail("Only the owner can manage users.");
+  const keyProblem = secretKeyProblem();
   const admin = createAdminClient();
-  if (!admin) return fail(MISSING_SECRET_MESSAGE);
+  if (keyProblem || !admin) return fail(keyProblem ?? MISSING_SECRET_MESSAGE);
   return { error: null, user, admin };
 }
 
@@ -34,10 +35,13 @@ export async function createUser(input: unknown): Promise<ActionResult> {
     email_confirm: true,
   });
   if (authError || !created.user) {
+    console.error("[admin] createUser failed", { status: authError?.status, code: authError?.code, message: authError?.message });
     const exists = authError?.code === "email_exists";
     return {
       ok: false,
-      message: exists ? "A user with this email already exists." : "Could not create the user.",
+      message: exists
+        ? "A user with this email already exists."
+        : `Could not create the user (${authError?.status ?? "error"}: ${authError?.message ?? "no details"}).`,
       fieldErrors: exists ? { email: "Already in use" } : undefined,
     };
   }

@@ -5,35 +5,10 @@ import { useState, useTransition } from "react";
 import { useToast } from "@/components/toast";
 import { buttonClass, Field } from "@/components/ui";
 import { PLATFORM_LABEL, PRIORITY_LABEL, TYPE_HINT, TYPE_LABEL } from "@/lib/labels";
-import { PLATFORMS, POST_TYPES, PRIORITIES, type Person, type PostType, type Priority, type Warehouse } from "@/lib/types";
+import type { PostFormValues } from "@/lib/post-options";
+import { PLATFORMS, POST_TYPES, PRIORITIES, type Person, type Warehouse } from "@/lib/types";
 import { fieldErrors, postSchema } from "@/lib/validation";
 import { createPost, updatePost } from "@/server/actions/posts";
-
-export type PostFormValues = {
-  type: PostType | null;
-  title: string;
-  details: string;
-  priority: Priority;
-  sku: string;
-  warehouse_id: string;
-  platform: string;
-  qty_needed: string;
-  assignee_id: string;
-  due_date: string;
-};
-
-export const EMPTY_POST: PostFormValues = {
-  type: null,
-  title: "",
-  details: "",
-  priority: "normal",
-  sku: "",
-  warehouse_id: "",
-  platform: "",
-  qty_needed: "",
-  assignee_id: "",
-  due_date: "",
-};
 
 type Props = {
   postId?: string;

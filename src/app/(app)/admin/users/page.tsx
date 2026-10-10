@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { UsersAdmin, type AdminUser } from "@/components/admin/users-admin";
 import { EmptyState } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { createAdminClient, MISSING_SECRET_MESSAGE } from "@/lib/supabase/admin";
+import { adminErrorMessage, createAdminClient, MISSING_SECRET_MESSAGE, secretKeyProblem } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Users" };
@@ -12,8 +12,12 @@ export default async function UsersPage() {
   const me = await requireUser();
   if (me.role !== "owner") notFound();
 
+  const keyProblem = secretKeyProblem();
   const admin = createAdminClient();
-  if (!admin) return <EmptyState title="One setup step is missing" body={MISSING_SECRET_MESSAGE} />;
+  if (keyProblem || !admin) {
+    console.error("[admin/users] secret key problem:", keyProblem);
+    return <EmptyState title="One setup step is missing" body={keyProblem ?? MISSING_SECRET_MESSAGE} />;
+  }
 
   const supabase = await createClient();
   const [profiles, links, warehouses, authUsers] = await Promise.all([
@@ -23,7 +27,25 @@ export default async function UsersPage() {
     // Emails live in Supabase Auth, which only the service client can list.
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
-  if (profiles.error || authUsers.error) throw new Error("Could not load users");
+  // Log status and message only. The key itself is never logged.
+  if (authUsers.error) {
+    const { status, code, message } = authUsers.error;
+    console.error("[admin/users] auth.admin.listUsers failed", { status, code, message });
+    return <EmptyState title="Could not load users" body={adminErrorMessage({ status, code, message })} />;
+  }
+  for (const [name, result] of Object.entries({ profiles, links, warehouses })) {
+    if (result.error) {
+      const { code, message, details, hint } = result.error;
+      console.error(`[admin/users] ${name} query failed`, { code, message, details, hint });
+      return (
+        <EmptyState
+          title="Could not load users"
+          body={`The database refused the ${name} list (${code || "error"}: ${message}). Try again, and tell the developer if it keeps happening.`}
+        />
+      );
+    }
+  }
+  if (!profiles.data) throw new Error("Could not load users");
 
   const emailById = new Map(authUsers.data.users.map((u) => [u.id, u.email ?? ""]));
   const users: AdminUser[] = profiles.data.map((p) => ({

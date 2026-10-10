@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Filters, SORTS, type FilterValues } from "@/components/posts/filters";
+import { Filters } from "@/components/posts/filters";
 import { PostGrid } from "@/components/posts/post-card";
 import { buttonClass, EmptyState, PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
 import { formatNumber, todayIST } from "@/lib/format";
+import { SORTS, type FilterValues } from "@/lib/post-options";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_STATUSES, POST_STATUSES, POST_TYPES, PRIORITIES, type PostStatus, type PostType, type Priority } from "@/lib/types";
 

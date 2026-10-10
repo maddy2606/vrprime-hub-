@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { EMPTY_POST, PostForm, type PostFormValues } from "@/components/posts/post-form";
+import { PostForm } from "@/components/posts/post-form";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
+import { EMPTY_POST, type PostFormValues } from "@/lib/post-options";
 import { POST_TYPES, type PostType } from "@/lib/types";
 
 export const metadata: Metadata = { title: "New post" };

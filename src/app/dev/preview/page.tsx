@@ -6,12 +6,13 @@ import { ChangePasswordForm } from "@/components/auth/auth-forms";
 import { Filters } from "@/components/posts/filters";
 import { MyWork } from "@/components/posts/my-work";
 import { PostGrid } from "@/components/posts/post-card";
-import { EMPTY_POST, PostForm } from "@/components/posts/post-form";
+import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
 import { PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
 import { FAKE_COMMENTS, FAKE_EVENTS, FAKE_PEOPLE, FAKE_POSTS, FAKE_WAREHOUSES } from "@/lib/dev-fixtures";
 import { todayIST } from "@/lib/format";
+import { EMPTY_POST } from "@/lib/post-options";
 import { POST_TYPES, type PostType } from "@/lib/types";
 
 // Local-only screen for checking layout (360px, dark mode) with fake data,

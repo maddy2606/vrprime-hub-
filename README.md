@@ -55,8 +55,15 @@ that has real users. Never run it against production.
 Checks before pushing:
 
 ```bash
-npx tsc --noEmit && npm run lint && npm run build
+npm test && npx tsc --noEmit && npm run lint && npm run build
 ```
+
+## Secrets in error messages
+
+Libraries sometimes put a key inside an error message (for example a mis-pasted key in a header error).
+No raw error text may be shown on a page, returned from a server action or logged. Use `logError()` to log
+and `redactSecrets()` on any dynamic text shown to a person (both in `src/lib/redact.ts`). As a safety net,
+`src/instrumentation.ts` redacts everything written to the server console. `npm test` checks the redaction.
 
 ## Database changes
 

@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { createAdminClient, MISSING_SECRET_MESSAGE } from "@/lib/supabase/admin";
+import { logError } from "@/lib/redact";
+import { getAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { changePasswordSchema, fieldErrors, loginSchema } from "@/lib/validation";
@@ -46,8 +47,8 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
     return { ok: false, message: "Check the highlighted fields.", fieldErrors: fieldErrors(parsed.error) };
   }
 
-  const admin = createAdminClient();
-  if (!admin) return { ok: false, message: MISSING_SECRET_MESSAGE };
+  const { admin, problem } = getAdmin();
+  if (problem !== null) return { ok: false, message: problem };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
@@ -67,7 +68,7 @@ export async function changePassword(input: unknown): Promise<ActionResult> {
     .update({ must_change_password: false })
     .eq("id", user.id);
   if (flagError) {
-    console.error("[auth] could not clear must_change_password", flagError);
+    logError("auth clear must_change_password", flagError);
     return { ok: false, message: "Password changed, but the app could not finish. Try again." };
   }
   return { ok: true, message: "Password changed" };

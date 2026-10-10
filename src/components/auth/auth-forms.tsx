@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useToast } from "@/components/toast";
 import { buttonClass, Field } from "@/components/ui";
+import { redactSecrets } from "@/lib/redact";
 import { changePassword, signIn } from "@/server/actions/auth";
 
 export function LoginForm({ notice }: { notice?: string }) {
@@ -26,7 +27,7 @@ export function LoginForm({ notice }: { notice?: string }) {
             router.refresh();
             return;
           }
-          setError(result.message);
+          setError(redactSecrets(result.message));
           setErrors(result.fieldErrors ?? {});
         });
       }}

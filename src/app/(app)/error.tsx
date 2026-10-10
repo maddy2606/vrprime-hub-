@@ -2,10 +2,11 @@
 
 import { useEffect } from "react";
 import { buttonClass, EmptyState } from "@/components/ui";
+import { safeError } from "@/lib/redact";
 
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error(error);
+    console.error(safeError(error));
   }, [error]);
 
   return (

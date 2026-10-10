@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { getActiveUser } from "@/lib/auth";
+import { logError } from "@/lib/redact";
 import { postNumber } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
@@ -23,7 +24,7 @@ const NOT_SIGNED_IN: ActionResult<never> = {
 };
 
 function dbError(error: PostgrestError | { message: string; code?: string }, what: string): ActionResult<never> {
-  console.error(`[posts] ${what} failed`, error);
+  logError(`posts ${what}`, error);
   if ("code" in error && error.code === "42501") {
     return { ok: false, message: "You do not have access to do that." };
   }
@@ -229,7 +230,7 @@ export async function removeAttachment(attachmentId: unknown): Promise<ActionRes
 
   // Best effort: the record is already gone, so a leftover file is only wasted space.
   const { error: storageError } = await supabase.storage.from("post-attachments").remove([removed[0].path]);
-  if (storageError) console.error("[posts] could not delete stored photo", storageError);
+  if (storageError) logError("posts delete stored photo", storageError);
 
   revalidatePath(`/posts/${removed[0].post_id}`);
   return { ok: true, message: "Photo removed" };

@@ -6,6 +6,7 @@ import { useRef, useState, useTransition } from "react";
 import { CameraIcon, CloseIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
+import { safeError } from "@/lib/redact";
 import { createClient } from "@/lib/supabase/client";
 import { addAttachment, removeAttachment } from "@/server/actions/posts";
 
@@ -42,7 +43,7 @@ export function Photos({ postId, photos }: { postId: string; photos: Photo[] }) 
         if (!result.ok) throw new Error(result.message);
         added += 1;
       } catch (error) {
-        console.error("Photo upload failed", error);
+        console.error("Photo upload failed", safeError(error));
       }
     }
     setProgress(null);

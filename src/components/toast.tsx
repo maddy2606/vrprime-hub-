@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { redactSecrets } from "@/lib/redact";
 import type { ActionResult } from "@/lib/types";
 
 type Toast = { id: number; message: string; tone: "ok" | "bad" };
@@ -29,7 +30,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     () => ({
       show,
       result: (result) => {
-        show(result.message, result.ok ? "ok" : "bad");
+        // Last line of defence: nothing key-shaped is ever put on screen.
+        show(redactSecrets(result.message), result.ok ? "ok" : "bad");
         return result.ok;
       },
     }),

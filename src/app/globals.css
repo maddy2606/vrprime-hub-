@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+:root {
+  --canvas: #f2f4f1;
+  --surface: #ffffff;
+  --surface2: #e8ece7;
+  --line: #d6dcd5;
+  --ink: #1a211e;
+  --muted: #5b6862;
+  --accent: #17695a;
+  --accent-ink: #ffffff;
+  --accent-soft: #d9ebe5;
+  --accent-text: #125548;
+  --bad: #a8261d;
+  --bad-soft: #fae6e3;
+  --warn: #7d5200;
+  --warn-soft: #fbedcc;
+  --ok: #1c6b36;
+  --ok-soft: #dff1e3;
+  --info: #22529c;
+  --info-soft: #e1ebfa;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0e1312;
+    --surface: #161c1a;
+    --surface2: #202826;
+    --line: #2c3633;
+    --ink: #e5ebe8;
+    --muted: #96a39e;
+    --accent: #2f9c85;
+    --accent-ink: #04201a;
+    --accent-soft: #15332c;
+    --accent-text: #6fd0ba;
+    --bad: #ff9389;
+    --bad-soft: #3b1b18;
+    --warn: #f0be5e;
+    --warn-soft: #3a2b0e;
+    --ok: #7fd699;
+    --ok-soft: #14301e;
+    --info: #92b8f6;
+    --info-soft: #172743;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* In the components layer so Tailwind utilities (pl-10, text-sm, font-mono) can override. */
+@layer components {
+  /* Form controls share one look. 16px text stops iOS zooming in on focus. */
+  .input {
+    width: 100%;
+    min-height: 2.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+  .input::placeholder {
+    color: var(--muted);
+    opacity: 0.8;
+  }
+  .input:focus-visible,
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .input[aria-invalid="true"] {
+    border-color: var(--bad);
+  }
+  textarea.input {
+    min-height: 6rem;
+    resize: vertical;
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.skeleton {
+  border-radius: 0.5rem;
+  background: var(--surface2);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.toast {
+  animation: toast-in 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .toast { animation: none; }
+}

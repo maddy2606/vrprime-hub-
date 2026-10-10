@@ -43,3 +43,6 @@ next-env.d.ts
 # local tooling
 .claude
 !.env.example
+
+.vercel
+.env*

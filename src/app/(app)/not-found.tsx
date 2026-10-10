@@ -7,7 +7,7 @@ export default function NotFound() {
       title="Not found"
       body="This post does not exist, or it belongs to a warehouse you are not assigned to. Ask the person who shared it."
       action={
-        <Link href="/" className={buttonClass("primary")}>
+        <Link prefetch={false} href="/" className={buttonClass("primary")}>
           Go to My work
         </Link>
       }

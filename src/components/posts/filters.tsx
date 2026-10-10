@@ -74,7 +74,7 @@ export function Filters({ values, effectiveStatus, people, warehouses, meId }: P
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 2xl:grid-cols-6">
         <select aria-label="Status" className={select} value={values.status || effectiveStatus} onChange={(e) => set({ status: e.target.value })}>
           <option value="active">Active</option>
           <option value="any">Any status</option>

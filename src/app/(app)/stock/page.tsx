@@ -12,7 +12,7 @@ export default function StockPage() {
         title="The stock desk arrives in Phase 3"
         body="It will sync from Flipkart every morning at 8:00 and show low stock, out of stock and weight alerts. Until then, ask for stock with a restock post."
         action={
-          <Link href="/posts/new?type=restock" className={buttonClass("secondary")}>
+          <Link prefetch={false} href="/posts/new?type=restock" className={buttonClass("secondary")}>
             Create restock post
           </Link>
         }

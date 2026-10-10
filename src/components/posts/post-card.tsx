@@ -16,7 +16,7 @@ export function PostCard({ post, lookups, today }: { post: Post; lookups: Lookup
   const overdue =
     post.status !== "done" && post.status !== "cancelled" && dueState(post.due_date, today) === "overdue";
   return (
-    <Link
+    <Link prefetch={false}
       href={`/posts/${post.id}`}
       className={`focus-ring block min-w-0 rounded-xl border bg-surface p-3 transition hover:border-accent ${
         overdue ? "border-bad/50" : "border-line"

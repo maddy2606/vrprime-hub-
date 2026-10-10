@@ -24,7 +24,7 @@ export default async function MyWorkPage() {
         <span className="flex min-h-10 flex-1 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-ink">
           My work
         </span>
-        <Link href="/all" className="focus-ring flex min-h-10 flex-1 items-center justify-center rounded-md text-sm font-bold text-muted">
+        <Link prefetch={false} href="/all" className="focus-ring flex min-h-10 flex-1 items-center justify-center rounded-md text-sm font-bold text-muted">
           Everything
         </Link>
       </div>

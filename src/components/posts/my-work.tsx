@@ -72,10 +72,10 @@ export function MyWork({ posts, lookups, today, firstName }: Props) {
           body="Posts assigned to you show up here. Create one, or look at everything the team is working on."
           action={
             <div className="flex flex-wrap justify-center gap-2">
-              <Link href="/posts/new" className={buttonClass("primary")}>
+              <Link prefetch={false} href="/posts/new" className={buttonClass("primary")}>
                 + Post
               </Link>
-              <Link href="/all" className={buttonClass("secondary")}>
+              <Link prefetch={false} href="/all" className={buttonClass("secondary")}>
                 See everything
               </Link>
             </div>

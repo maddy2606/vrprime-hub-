@@ -35,7 +35,7 @@ export function BottomNav() {
           const isPost = item.href === "/posts/new";
           return (
             <li key={item.href}>
-              <Link
+              <Link prefetch={false}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={`focus-ring flex h-16 flex-col items-center justify-center gap-0.5 text-[11px] font-bold ${
@@ -69,7 +69,7 @@ export function SideNav({ showAdmin }: { showAdmin: boolean }) {
         const active = isActive(pathname, item.href);
         if (item.href === "/posts/new") {
           return (
-            <Link
+            <Link prefetch={false}
               key={item.href}
               href={item.href}
               className="focus-ring my-2 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-accent px-3 text-sm font-bold text-accent-ink hover:opacity-90"
@@ -79,7 +79,7 @@ export function SideNav({ showAdmin }: { showAdmin: boolean }) {
           );
         }
         return (
-          <Link
+          <Link prefetch={false}
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}

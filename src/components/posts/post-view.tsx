@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { BackIcon } from "@/components/icons";
-import { CommentForm } from "@/components/posts/comment-form";
+import { CommentThread } from "@/components/posts/comment-form";
 import { Photos, type Photo } from "@/components/posts/photos";
 import { PostActions } from "@/components/posts/post-actions";
 import { DueChip } from "@/components/posts/post-card";
@@ -81,10 +81,10 @@ export function PostView({ post, lookups, today, comments, events, photos }: Pro
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <Link href="/all" className={buttonClass("ghost", "-ml-3 px-3")}>
+        <Link prefetch={false} href="/all" className={buttonClass("ghost", "-ml-3 px-3")}>
           <BackIcon className="h-5 w-5" /> All posts
         </Link>
-        <Link href={`/posts/${post.id}/edit`} className={buttonClass("secondary")}>
+        <Link prefetch={false} href={`/posts/${post.id}/edit`} className={buttonClass("secondary")}>
           Edit
         </Link>
       </div>
@@ -159,25 +159,11 @@ export function PostView({ post, lookups, today, comments, events, photos }: Pro
 
         <div className="flex min-w-0 flex-col gap-4">
           <Card className="p-4">
-            <h2 className="mb-3 text-base font-extrabold">
-              Comments{comments.length ? <span className="font-semibold text-muted"> · {comments.length}</span> : null}
-            </h2>
-            {comments.length ? (
-              <ul className="mb-4 flex flex-col gap-3">
-                {comments.map((comment) => (
-                  <li key={comment.id} className="rounded-lg bg-canvas p-3">
-                    <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                      <span className="font-bold">{lookups.personName(comment.author_id)}</span>
-                      <span className="text-xs text-muted">{formatDateTime(comment.created_at)}</span>
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed">{comment.body}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mb-4 text-sm text-muted">No comments yet. Ask a question or post an update here.</p>
-            )}
-            <CommentForm postId={post.id} />
+            <CommentThread
+              postId={post.id}
+              comments={comments}
+              names={Object.fromEntries(lookups.people.map((person) => [person.id, person.name]))}
+            />
           </Card>
 
           <Card className="p-4">

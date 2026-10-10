@@ -8,7 +8,7 @@ import { signOut } from "@/server/actions/auth";
 
 function Brand() {
   return (
-    <Link href="/" className="focus-ring flex items-center gap-2 rounded-lg">
+    <Link prefetch={false} href="/" className="focus-ring flex items-center gap-2 rounded-lg">
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-accent-ink">
         VR
       </span>
@@ -47,7 +47,7 @@ export function AppShell({
             {ROLE_LABEL[user.role]}
             {user.email ? ` · ${user.email}` : ""}
           </p>
-          <Link href="/change-password" className={buttonClass("ghost", "mt-2 w-full")}>
+          <Link prefetch={false} href="/change-password" className={buttonClass("ghost", "mt-2 w-full")}>
             Change password
           </Link>
           <form action={signOut} className="mt-1">
@@ -76,11 +76,11 @@ export function AppShell({
                 {user.email ? ` · ${user.email}` : ""}
               </p>
               {isOwner ? (
-                <Link href="/admin/users" className={buttonClass("secondary", "mt-3 w-full")}>
+                <Link prefetch={false} href="/admin/users" className={buttonClass("secondary", "mt-3 w-full")}>
                   Manage users
                 </Link>
               ) : null}
-              <Link href="/change-password" className={buttonClass("secondary", "mt-2 w-full")}>
+              <Link prefetch={false} href="/change-password" className={buttonClass("secondary", "mt-2 w-full")}>
                 Change password
               </Link>
               <form action={signOut} className="mt-2">

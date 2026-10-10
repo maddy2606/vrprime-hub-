@@ -50,7 +50,7 @@ export default async function PreviewPage({
       <nav className="mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">
         <span>Preview (fake data):</span>
         {VIEWS.map((v) => (
-          <Link key={v} href={`/dev/preview?view=${v}`} className="underline">
+          <Link prefetch={false} key={v} href={`/dev/preview?view=${v}`} className="underline">
             {v}
           </Link>
         ))}

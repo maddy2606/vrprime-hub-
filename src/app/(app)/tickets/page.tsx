@@ -12,7 +12,7 @@ export default function TicketsPage() {
         title="Tickets arrive in Phase 2"
         body="For now, when you mark a problem done, enter the marketplace ticket ID. You can find it later by searching for it in All posts."
         action={
-          <Link href="/all?type=problem" className={buttonClass("secondary")}>
+          <Link prefetch={false} href="/all?type=problem" className={buttonClass("secondary")}>
             See problems
           </Link>
         }

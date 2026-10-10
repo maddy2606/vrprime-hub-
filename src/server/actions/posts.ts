@@ -7,7 +7,7 @@ import { logError } from "@/lib/redact";
 import { postNumber } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
-import type { ActionResult, Post } from "@/lib/types";
+import type { ActionResult, Post, PostComment } from "@/lib/types";
 import {
   attachmentSchema,
   commentSchema,
@@ -178,20 +178,23 @@ export async function markDone(input: unknown): Promise<ActionResult> {
   return { ok: true, message: `${postNumber(post.number)} marked done` };
 }
 
-export async function addComment(input: unknown): Promise<ActionResult> {
+export async function addComment(input: unknown): Promise<ActionResult<PostComment>> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   const parsed = commentSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("post_comments")
-    .insert({ post_id: parsed.data.postId, author_id: user.id, body: parsed.data.body });
+    .insert({ post_id: parsed.data.postId, author_id: user.id, body: parsed.data.body })
+    .select("*")
+    .single();
   if (error) return dbError(error, "post the comment");
 
-  revalidatePath(`/posts/${parsed.data.postId}`);
-  return { ok: true, message: "Comment posted" };
+  revalidatePath("/", "layout");
+  // The new comment goes back to the browser so it can be shown at once.
+  return { ok: true, message: "Comment posted", data };
 }
 
 /** Called after the browser has uploaded a compressed photo to Storage. */
@@ -209,7 +212,7 @@ export async function addAttachment(input: unknown): Promise<ActionResult> {
     .insert({ post_id: parsed.data.postId, path: parsed.data.path, uploaded_by: user.id });
   if (error) return dbError(error, "attach the photo");
 
-  revalidatePath(`/posts/${parsed.data.postId}`);
+  revalidatePath("/", "layout");
   return { ok: true, message: "Photo added" };
 }
 
@@ -232,6 +235,6 @@ export async function removeAttachment(attachmentId: unknown): Promise<ActionRes
   const { error: storageError } = await supabase.storage.from("post-attachments").remove([removed[0].path]);
   if (storageError) logError("posts delete stored photo", storageError);
 
-  revalidatePath(`/posts/${removed[0].post_id}`);
+  revalidatePath("/", "layout");
   return { ok: true, message: "Photo removed" };
 }

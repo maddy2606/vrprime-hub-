@@ -77,7 +77,7 @@ export default async function AllPostsPage({
   return (
     <>
       <div className="mb-4 flex gap-1 rounded-lg border border-line bg-surface p-1 lg:hidden">
-        <Link href="/" className="focus-ring flex min-h-10 flex-1 items-center justify-center rounded-md text-sm font-bold text-muted">
+        <Link prefetch={false} href="/" className="focus-ring flex min-h-10 flex-1 items-center justify-center rounded-md text-sm font-bold text-muted">
           My work
         </Link>
         <span className="flex min-h-10 flex-1 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-ink">
@@ -113,7 +113,7 @@ export default async function AllPostsPage({
           title="No open posts"
           body="When someone posts a task, problem, new listing or restock, it shows up here."
           action={
-            <Link href="/posts/new" className={buttonClass("primary")}>
+            <Link prefetch={false} href="/posts/new" className={buttonClass("primary")}>
               + Post
             </Link>
           }

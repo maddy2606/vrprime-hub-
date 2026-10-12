@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { BellIcon, BoxIcon, InboxIcon, ListIcon, PlusIcon, TicketIcon, UsersIcon } from "@/components/icons";
+import { BellIcon, BoxIcon, InboxIcon, ListIcon, PlusIcon, SlidersIcon, TicketIcon, UsersIcon } from "@/components/icons";
 import { UnreadBadge } from "@/components/ui";
 
 type Item = { href: string; label: string; icon: (p: { className?: string }) => ReactNode };
@@ -66,7 +66,12 @@ export function SideNav({ showAdmin, unread }: { showAdmin: boolean; unread: num
   const items: Item[] = [
     ...ITEMS,
     { href: "/notifications", label: "Notifications", icon: BellIcon },
-    ...(showAdmin ? [{ href: "/admin/users", label: "Users", icon: UsersIcon }] : []),
+    ...(showAdmin
+      ? [
+          { href: "/admin/users", label: "Users", icon: UsersIcon },
+          { href: "/admin/settings", label: "Settings", icon: SlidersIcon },
+        ]
+      : []),
   ];
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">

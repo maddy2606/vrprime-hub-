@@ -147,6 +147,54 @@ export type AppSetting = {
   updated_by: string | null;
 };
 
+export type StockRun = {
+  id: string;
+  platform: Platform;
+  trigger: "cron" | "manual";
+  requested_by: string | null;
+  status: "queued" | "running" | "done" | "failed";
+  stage: string | null;
+  snapshot_date: string | null;
+  first_sync: boolean;
+  skus: string[];
+  total: number;
+  cursor: number;
+  processed: number;
+  skipped_fbf: number;
+  missing: number;
+  unmapped_locations: number;
+  attempts: number;
+  lease_until: string | null;
+  error: string | null;
+  notes: Json;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+};
+
+export type StockListing = {
+  platform: Platform;
+  sku: string;
+  listing_id: string | null;
+  product_id: string | null;
+  title: string | null;
+  product_url: string | null;
+  status: string;
+  mrp: number | null;
+  selling_price: number | null;
+  currency: string | null;
+  fulfillment_profile: string | null;
+  fulfillment: Json | null;
+  packages: Json;
+  archived_status: string | null;
+  first_seen_date: string;
+  last_seen_date: string;
+  last_run_id: string | null;
+  inactive_since: string | null;
+  inactive_before_tracking: boolean;
+  updated_at: string;
+};
+
 type Table<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 
 export type Database = {
@@ -163,6 +211,8 @@ export type Database = {
       push_subscriptions: Table<PushSubscriptionRow>;
       notifications: Table<NotificationRow>;
       app_settings: Table<AppSetting>;
+      stock_runs: Table<StockRun>;
+      stock_listings: Table<StockListing>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -172,6 +222,8 @@ export type Database = {
         Args: { q?: string; p_platform?: string | null; p_issue?: string | null };
         Returns: { open_count: number; waiting_count: number; follow_up_due: number; closed_count: number }[];
       };
+      stock_snapshot: { Args: { p_date: string }; Returns: Json };
+      request_stock_sync: { Args: Record<string, never>; Returns: string };
       send_test_notification: { Args: Record<string, never>; Returns: undefined };
       register_push_subscription: {
         Args: { p_endpoint: string; p_p256dh: string; p_auth: string };

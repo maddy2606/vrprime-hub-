@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <EmptyState
       title="Not found"
-      body="This post does not exist, or it belongs to a warehouse you are not assigned to. Ask the person who shared it."
+      body="This page does not exist, or it is not available to you. If someone sent you the link, ask them to check it."
       action={
         <Link prefetch={false} href="/" className={buttonClass("primary")}>
           Go to My work

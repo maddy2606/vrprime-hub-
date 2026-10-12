@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test src/lib/redact.test.ts"
+    "test": "node --test \"src/**/*.test.ts\" \"supabase/functions/**/*.test.ts\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

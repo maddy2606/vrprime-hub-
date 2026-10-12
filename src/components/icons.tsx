@@ -93,3 +93,12 @@ export const BellIcon = (p: IconProps) => (
     <path d="M10 20.5a2 2 0 0 0 4 0" />
   </Icon>
 );
+
+export const SlidersIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M5 6h14M5 12h14M5 18h14" />
+    <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="18" r="2" fill="currentColor" stroke="none" />
+  </Icon>
+);

@@ -1,4 +1,6 @@
 // Obviously fake data for the local-only /dev/preview screen. Never used in production.
+import type { DeskData, DeskListing } from "@/lib/stock-analysis";
+import type { SyncSummary } from "@/lib/stock-sync";
 import type { NotificationRow, Person, Post, PostComment, PostEvent, Ticket, Warehouse } from "@/lib/types";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -212,3 +214,62 @@ export const FAKE_NOTIFICATIONS: NotificationRow[] = [
   note(3, { kind: "follow_up", title: "1 ticket follow-up due", body: "VR-T-119 (FAKE-FK-CASE-0004712)", ticket_id: id(3002), read_at: new Date().toISOString() }),
   note(4, { kind: "done", title: "VR-1039 marked done", body: "Fake Warehouse BLR marked it done: Restock FAKE-SKU-GRN-S × 400 to Delhi", post_id: id(1006), read_at: new Date().toISOString() }),
 ];
+
+// --- Stock (fake) -----------------------------------------------------------------------------------
+
+export const FAKE_SYNC: SyncSummary = {
+  id: id(5000),
+  status: "done",
+  trigger: "cron",
+  total: 66,
+  cursor: 66,
+  processed: 60,
+  skippedFbf: 6,
+  missing: 0,
+  snapshotDate: day(0),
+  finishedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+  createdAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+  error: null,
+};
+
+/** 60 made-up SKUs with a mix of empty, low, healthy, inactive and heavy ones. */
+export function fakeDesk(): DeskData {
+  const warehouses = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
+  const listings: DeskListing[] = Array.from({ length: 60 }, (_, k) => {
+    const n = k + 1;
+    const out = n % 11 === 0;
+    const levels = (shift: number) =>
+      warehouses.map((_, i) => {
+        if ((n + i) % 6 === 0) return null;
+        if (out) return 0;
+        let qty = (n * 37 + i * 91 + shift) % 400;
+        if ((n + i) % 5 === 0) qty = 0;
+        else if ((n + i) % 4 === 0) qty %= 90;
+        if (n === 3) qty = 120000 + i * 1500; // a big number, to check the Indian format
+        return qty;
+      });
+    const now = levels(0);
+    const inactive = n % 7 === 0;
+    return {
+      sku: n === 5 ? "FAKE-SKU-WITH-A-VERY-LONG-CODE-0005-EXTRA-LONG-PART" : `FAKE-SKU-${String(n).padStart(4, "0")}`,
+      title: n === 5 ? "A pretend product with a very long title that has to wrap neatly onto more than one line in a narrow column" : `Fake Test Product ${n}`,
+      status: inactive ? "INACTIVE" : "ACTIVE",
+      listingId: `LSTFAKE${n}`,
+      inactiveSince: inactive ? day(n % 14 === 0 ? 0 : -(n % 5)) : null,
+      beforeTracking: inactive && n % 21 === 0,
+      dims: n % 17 === 0 ? null : n % 13 === 0 ? { l: 30, b: 20, h: 10, kg: 1.2 } : { l: 3 + (n % 6), b: 3 + (n % 5), h: 2 + (n % 4), kg: 0.1 + (n % 5) * 0.2 },
+      now,
+      prev: levels(7).map((v, i) => (v === null ? null : n % 9 === 0 && i === 0 ? Math.max(v, 40) : v)),
+      prevStatus: inactive && n % 14 === 0 ? "ACTIVE" : inactive ? "INACTIVE" : "ACTIVE",
+    };
+  });
+  return {
+    warehouses,
+    listings,
+    settings: { low: 100, weightLimit: 2000, newInactiveDays: 2 },
+    today: day(0),
+    snapshotDate: day(0),
+    previousDate: day(-1),
+    fullAccess: true,
+  };
+}

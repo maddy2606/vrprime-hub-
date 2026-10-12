@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { UsersAdmin, type AdminUser } from "@/components/admin/users-admin";
+import { OwnerOnly } from "@/components/owner-only";
 import { EmptyState } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { logError, redactSecrets } from "@/lib/redact";
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Users" };
 
 export default async function UsersPage() {
   const me = await requireUser();
-  if (me.role !== "owner") notFound();
+  if (me.role !== "owner") return <OwnerOnly />;
 
   const { admin, problem } = getAdmin();
   if (problem !== null) {

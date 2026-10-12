@@ -8,6 +8,9 @@ import { MyWork } from "@/components/posts/my-work";
 import { PostGrid } from "@/components/posts/post-card";
 import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
+import { SettingsForm } from "@/components/admin/settings-form";
+import { StockDesk } from "@/components/stock/stock-desk";
+import { SyncBar } from "@/components/stock/sync-bar";
 import { MarkAllReadButton, NotificationList } from "@/components/notifications/notification-list";
 import { PushSettings } from "@/components/notifications/push-settings";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
@@ -22,11 +25,14 @@ import {
   FAKE_NOTIFICATIONS,
   FAKE_PEOPLE,
   FAKE_POSTS,
+  FAKE_SYNC,
+  fakeDesk,
   FAKE_TICKETS,
   FAKE_WAREHOUSES,
 } from "@/lib/dev-fixtures";
 import { todayIST } from "@/lib/format";
 import { EMPTY_POST } from "@/lib/post-options";
+import { isViewKey } from "@/lib/stock-views";
 import { emptyTicket } from "@/lib/ticket-options";
 import { POST_TYPES, type PostType } from "@/lib/types";
 
@@ -43,6 +49,10 @@ const VIEWS = [
   "ticket",
   "newticket",
   "notifications",
+  "stock",
+  "stockempty",
+  "stockrunning",
+  "settings",
   "users",
   "password",
   "loading",
@@ -162,6 +172,41 @@ export default async function PreviewPage({
           <PageTitle title="Notifications" sub="3 unread" action={<MarkAllReadButton />} />
           <PushSettings userId={me.id} />
           <NotificationList items={FAKE_NOTIFICATIONS} />
+        </div>
+      ) : null}
+      {view === "stock" ? (
+        <>
+          <PageTitle title="Stock" sub="Flipkart stock across the warehouses" />
+          <StockDesk
+            data={fakeDesk()}
+            latest={FAKE_SYNC}
+            lastDone={FAKE_SYNC}
+            canSync
+            initial={{
+              view: isViewKey(sp.sv) ? sp.sv : "low",
+              warehouseId: typeof sp.wh === "string" ? sp.wh : "",
+              q: "",
+              hide: false,
+            }}
+          />
+        </>
+      ) : null}
+      {view === "stockempty" ? (
+        <>
+          <PageTitle title="Stock" sub="Flipkart stock across the warehouses" />
+          <SyncBar latest={null} lastDone={null} snapshotDate={null} previousDate={null} canSync />
+        </>
+      ) : null}
+      {view === "stockrunning" ? (
+        <>
+          <PageTitle title="Stock" sub="Flipkart stock across the warehouses" />
+          <SyncBar latest={{ ...FAKE_SYNC, status: "running", cursor: 24, total: 66 }} lastDone={FAKE_SYNC} snapshotDate={FAKE_SYNC.snapshotDate} previousDate={null} canSync />
+        </>
+      ) : null}
+      {view === "settings" ? (
+        <div className="mx-auto max-w-2xl">
+          <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
+          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2" }} />
         </div>
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}

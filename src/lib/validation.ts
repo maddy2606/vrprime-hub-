@@ -159,6 +159,20 @@ export const pushSubscriptionSchema = z.object({
   auth: z.string().min(8).max(100),
 });
 
+const wholeNumber = (label: string, min: number, max: number) =>
+  z.coerce
+    .number({ error: `Enter a number for ${label}` })
+    .int(`${label} must be a whole number`)
+    .min(min, `${label} must be at least ${min}`)
+    .max(max, `${label} must be at most ${max.toLocaleString("en-IN")}`);
+
+/** The thresholds on the Stock page (owner only). */
+export const settingsSchema = z.object({
+  low_stock_threshold: wholeNumber("the low-stock level", 1, 1_000_000),
+  weight_alert_limit: wholeNumber("the weight limit", 1, 10_000_000),
+  new_inactive_days: wholeNumber("the number of days", 1, 365),
+});
+
 /** First message per field, for showing under form inputs. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {
   const out: Record<string, string> = {};

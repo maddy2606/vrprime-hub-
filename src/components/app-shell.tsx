@@ -104,6 +104,11 @@ export function AppShell({
                     Manage users
                   </Link>
                 ) : null}
+                {isOwner ? (
+                  <Link prefetch={false} href="/admin/settings" className={buttonClass("secondary", "mt-2 w-full")}>
+                    Settings
+                  </Link>
+                ) : null}
                 <Link prefetch={false} href="/change-password" className={buttonClass("secondary", "mt-2 w-full")}>
                   Change password
                 </Link>

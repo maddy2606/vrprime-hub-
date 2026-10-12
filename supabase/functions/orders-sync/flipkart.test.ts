@@ -89,13 +89,13 @@ test("reads returns with the source and date, and follows nextUrl on Flipkart's 
   ]);
   const first = await client.returnsPage({ source: "courier_return", since: "createdAfter", at: "2026-09-12T00:00:00.000Z" }, null);
   assert.equal(first.items.length, 1);
-  assert.equal(first.next, "/sellers/returns/search/ZXlKbWFXeDBaWElpT2lKYj09");
+  assert.equal(first.next, "/sellers/v2/returns/search/ZXlKbWFXeDBaWElpT2lKYj09");
   const second = await client.returnsPage({ source: "courier_return", since: "createdAfter", at: "x" }, first.next);
   assert.equal(second.next, null);
   const returns = calls.filter((c) => !c.url.includes("oauth"));
   assert.equal(returns[0].method, "GET");
   assert.equal(returns[0].url, "https://flipkart.test/sellers/v2/returns?source=courier_return&createdAfter=2026-09-12T00%3A00%3A00.000Z");
-  assert.equal(returns[1].url, "https://flipkart.test/sellers/returns/search/ZXlKbWFXeDBaWElpT2lKYj09");
+  assert.equal(returns[1].url, "https://flipkart.test/sellers/v2/returns/search/ZXlKbWFXeDBaWElpT2lKYj09");
 });
 
 test("says so when Flipkart claims there is more but gives no next page", async () => {
@@ -153,7 +153,7 @@ test("read-only by construction: only the allowed requests can be made", () => {
   assertReadOnly("POST", "/sellers/v3/shipments/filter/");
   assertReadOnly("GET", "/sellers/v3/shipments/filter?next_token=abc");
   assertReadOnly("GET", "/sellers/v2/returns?source=customer_return&createdAfter=x");
-  assertReadOnly("GET", "/sellers/returns/search/ZXlKbWFXeDBa+/==");
+  assertReadOnly("GET", "/sellers/v2/returns/search/ZXlKbWFXeDBa+/==");
 
   for (const [method, path] of [
     ["POST", "/sellers/v3/shipments/dispatch"],
@@ -168,6 +168,7 @@ test("read-only by construction: only the allowed requests can be made", () => {
     ["GET", "/sellers/v3/shipments/filter/"],
     ["POST", "/sellers/v3/shipments/filter"],
     ["POST", "/reports/sales_ledger"],
+    ["GET", "/sellers/returns/search/ZXlKbWFXeDBa"],
   ]) {
     assert.throws(() => assertReadOnly(method, path), /Blocked/, `${method} ${path} must be refused`);
   }

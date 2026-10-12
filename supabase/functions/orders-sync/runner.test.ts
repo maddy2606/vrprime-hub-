@@ -79,7 +79,7 @@ function fakeFlipkart(pagesPerPart: number, opts: { failOn?: number; message?: s
       n += 1;
       const page = next ? Number(next.split("=")[1]) : 1;
       asked.push(`returns:${request.source}#${page}`);
-      return { items: [{ orderItemId: `OI-R${n}`, returnId: `R${n}`, comments: "SECRET" }], next: page < pagesPerPart ? `/sellers/returns/search/x?page=${page + 1}` : null };
+      return { items: [{ orderItemId: `OI-R${n}`, returnId: `R${n}`, comments: "SECRET" }], next: page < pagesPerPart ? `/sellers/v2/returns/search/x?page=${page + 1}` : null };
     },
     stats: () => ({ calls: n, retries: 0, tokenRefreshes: 0 }),
   };

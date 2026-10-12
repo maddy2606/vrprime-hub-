@@ -6,13 +6,14 @@
 //   POST /sellers/v3/shipments/filter/         search shipments (a search, it changes nothing)
 //   GET  /sellers/v3/shipments/filter?next_token=...   the following pages (the address carries the whole search)
 //   GET  /sellers/v2/returns                   list returns (courier_return or customer_return)
-//   GET  /sellers/returns/search/<token>       the following pages of a returns list
+//   GET  /sellers/v2/returns/search/<token>    the following pages of a returns list
 //
 // Facts learned by testing against the real API (see README, Phase 4):
 //   * shipments come 20 to a page at most; a page takes about 5 to 16 seconds
 //   * a page of results ends with `hasMore` and `nextPageUrl`; that address lacks the /sellers
 //     prefix, which is added here, and it is only ever followed on Flipkart's own host
-//   * returns come 25 to a page, with `hasMore` and `nextUrl` (same prefix rule)
+//   * returns come 25 to a page, with `hasMore` and `nextUrl` ("/returns/search/<token>"); it is fetched under
+//     /sellers/v2, found by testing: under /sellers alone Flipkart answers 500
 //   * PACKING_IN_PROGRESS combined with the dispatchByDate sort answers 500, so that state is read unsorted
 //   * postDispatch needs shipmentTypes ["NORMAL"]; the cancelled state is spelled "Cancelled"
 //
@@ -48,7 +49,7 @@ export function assertReadOnly(method: string, pathAndQuery: string): void {
     (m === "POST" && path === SHIPMENTS_FIRST) ||
     (m === "GET" && path === "/sellers/v3/shipments/filter") ||
     (m === "GET" && path === RETURNS_FIRST) ||
-    (m === "GET" && /^\/sellers\/returns\/search\/[A-Za-z0-9+/=_-]+$/.test(path));
+    (m === "GET" && /^\/sellers\/v2\/returns\/search\/[A-Za-z0-9+/=_-]+$/.test(path));
   if (!ok) throw new FlipkartError(`Blocked: ${m} ${path} is not one of the read-only calls this app is allowed to make`);
 }
 
@@ -70,6 +71,12 @@ export function nextPath(url: string, baseUrl = DEFAULT_BASE_URL): string {
   const path = parsed.pathname.startsWith("/sellers/") ? parsed.pathname : `/sellers${parsed.pathname}`;
   const search = parsed.search === "?" ? "" : parsed.search;
   return path + search;
+}
+
+/** The next-page address of a returns list: Flipkart leaves out /sellers/v2. */
+export function nextReturnsPath(url: string, baseUrl = DEFAULT_BASE_URL): string {
+  const path = nextPath(url, baseUrl);
+  return path.startsWith("/sellers/returns/") ? path.replace("/sellers/returns/", "/sellers/v2/returns/") : path;
 }
 
 export type FlipkartOptions = {
@@ -264,7 +271,7 @@ export function createOrdersClient(options: FlipkartOptions): OrdersApi {
     const items = Array.isArray(data.returnItems) ? data.returnItems : [];
     const url = typeof data.nextUrl === "string" && data.nextUrl ? data.nextUrl : null;
     if (data.hasMore === true && !url) throw new FlipkartError("Flipkart said there are more returns but gave no next page");
-    return { items, next: data.hasMore === true && url ? nextPath(url, baseUrl) : null };
+    return { items, next: data.hasMore === true && url ? nextReturnsPath(url, baseUrl) : null };
   }
 
   return { shipmentsPage, returnsPage, stats: () => ({ ...stats }) };

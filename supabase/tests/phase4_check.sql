@@ -400,6 +400,18 @@ begin
   perform private.resume_stalled_orders();
   assert (select attempts from public.order_runs where id = run1) = (case when private.is_night_ist() then 1 else 0 end),
     'a paused backfill is only woken inside the nightly window (22:15 to 06:45 IST)';
+
+  -- ===== The schedule ====================================================================================================
+  select count(*) into n from cron.job where jobname = 'orders-pending-a' and schedule = '30 1-16 * * *' and active;
+  assert n = 1, 'pending orders are read at :30 UTC from 01:30 to 16:30 (07:00 to 22:00 IST)';
+  select count(*) into n from cron.job where jobname = 'orders-pending-b' and schedule = '0 2-16 * * *' and active;
+  assert n = 1, 'and at :00 UTC from 02:00 to 16:00 (07:30 to 21:30 IST): every 30 minutes, 7 AM to 10 PM';
+  select count(*) into n from cron.job where jobname = 'orders-daily' and schedule = '40 3 * * *' and active;
+  assert n = 1, 'the daily read is at 03:40 UTC (09:10 IST), after the 08:00 stock sync';
+  select count(*) into n from cron.job where jobname = 'orders-backfill' and schedule = '45 16 * * *' and active;
+  assert n = 1, 'the backfill is offered every night at 16:45 UTC (22:15 IST)';
+  select count(*) into n from cron.job where jobname = 'orders-watchdog' and active;
+  assert n = 1, 'the watchdog is scheduled';
 end $$;
 
 select 'All Phase 4 checks passed' as result;

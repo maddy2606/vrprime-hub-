@@ -9,13 +9,17 @@ import {
   computeCover,
   DEFAULT_FLIPKART_SETTINGS,
   isRed,
+  bucketOf,
   ordersByWarehouse,
   packageIssues,
+  pickList,
+  shortBy,
+  skuGroups,
+  upcomingVsStock,
   readSalesRates,
   readStockDrops,
   returnHistoryReady,
   soonestBySku,
-  statusGroup,
   urgency,
   type PendingOrder,
   type PriceInput,
@@ -202,17 +206,23 @@ test("return rate = returns / units sold, flagged above the setting once enough 
 // --- Orders --------------------------------------------------------------------------------------------------------
 
 const order = (over: Partial<PendingOrder>): PendingOrder => ({
-  orderItemId: "i", orderId: "o", sku: "A", quantity: 1, warehouseId: "w1", status: "APPROVED", hold: false, dispatchBy: at(5), ...over,
+  orderItemId: "i", orderId: "o", shipmentId: null, sku: "A", quantity: 1, warehouseId: "w1", status: "APPROVED", hold: false, dispatchBy: at(5), dispatchAfter: at(-20), ...over,
 });
 
-test("status groups and urgency", () => {
-  assert.equal(statusGroup("APPROVED"), "new");
-  assert.equal(statusGroup("PACKING_IN_PROGRESS"), "packed");
-  assert.equal(statusGroup("PACKED"), "packed");
-  assert.equal(statusGroup("READY_TO_DISPATCH"), "ready");
-  assert.equal(statusGroup("FORM_FAILED"), "other");
-  assert.equal(statusGroup(null), "other");
+test("Seller Hub tabs: Active (To Accept, To Pack, To Dispatch) by dispatch-after, Upcoming, Under Processing", () => {
+  assert.equal(bucketOf({ status: "APPROVED", dispatchAfter: at(-1) }, NOW), "to_accept");
+  assert.equal(bucketOf({ status: "FORM_FAILED", dispatchAfter: null }, NOW), "to_accept");
+  assert.equal(bucketOf({ status: "PACKED", dispatchAfter: at(-1) }, NOW), "to_pack");
+  assert.equal(bucketOf({ status: "READY_TO_DISPATCH", dispatchAfter: at(-1) }, NOW), "to_dispatch");
+  assert.equal(bucketOf({ status: "APPROVED", dispatchAfter: at(30) }, NOW), "upcoming", "dispatch-after in the future is Upcoming");
+  assert.equal(bucketOf({ status: "PACKED", dispatchAfter: at(30) }, NOW), "upcoming");
+  assert.equal(bucketOf({ status: "PACKING_IN_PROGRESS", dispatchAfter: at(-1) }, NOW), "processing");
+  assert.equal(bucketOf({ status: "PACKING_IN_PROGRESS", dispatchAfter: at(30) }, NOW), "processing", "Under Processing whatever its date");
+  assert.equal(bucketOf({ status: "CANCELLED", dispatchAfter: null }, NOW), null);
+  assert.equal(bucketOf({ status: null, dispatchAfter: null }, NOW), null);
+});
 
+test("urgency", () => {
   assert.equal(urgency(at(-1), NOW), "late");
   assert.equal(urgency(at(2), NOW), "today");        // 15:30 IST
   assert.equal(urgency(at(12), NOW), "tomorrow");    // 01:30 IST the next day
@@ -222,27 +232,94 @@ test("status groups and urgency", () => {
   assert.ok(isRed("late") && isRed("today") && !isRed("tomorrow"));
 });
 
-test("counts orders (not items) per warehouse by group and urgency, holds apart", () => {
+test("counts shipments per warehouse in Seller Hub's tabs; lateness only for Active orders not on hold", () => {
   const wh = [{ id: "w1", name: "Delhi" }, { id: "w2", name: "Pune" }];
   const rows = ordersByWarehouse(
     [
-      order({ orderItemId: "1", orderId: "A", status: "APPROVED", dispatchBy: at(-3) }),
-      order({ orderItemId: "2", orderId: "A", status: "APPROVED", dispatchBy: at(-3) }), // same order, second item
+      order({ orderItemId: "1", orderId: "A", shipmentId: "S1", status: "APPROVED", dispatchBy: at(-3) }),
+      order({ orderItemId: "2", orderId: "A", shipmentId: "S1", status: "APPROVED", dispatchBy: at(-3) }), // same shipment, second item
+      order({ orderItemId: "2b", orderId: "A", shipmentId: "S1b", status: "APPROVED", dispatchBy: at(-3) }), // same order, another shipment
       order({ orderItemId: "3", orderId: "B", status: "PACKED", dispatchBy: at(2) }),
       order({ orderItemId: "4", orderId: "C", status: "READY_TO_DISPATCH", dispatchBy: at(12) }),
       order({ orderItemId: "5", orderId: "D", status: "APPROVED", hold: true, dispatchBy: at(-9) }),
-      order({ orderItemId: "6", orderId: "E", warehouseId: null }),
-      order({ orderItemId: "7", orderId: "F", warehouseId: "w2", status: "APPROVED", dispatchBy: at(70) }),
+      order({ orderItemId: "6", orderId: "E", status: "PACKING_IN_PROGRESS", dispatchBy: at(-5) }),
+      order({ orderItemId: "7", orderId: "F", status: "APPROVED", dispatchAfter: at(40), dispatchBy: at(70) }),
+      order({ orderItemId: "8", orderId: "G", status: "CANCELLED" }),
+      order({ orderItemId: "9", orderId: "H", warehouseId: null }),
+      order({ orderItemId: "10", orderId: "I", warehouseId: "w2", status: "APPROVED", dispatchBy: at(70) }),
     ],
     wh,
     NOW,
+    { w1: 12 },
   );
   const delhi = rows.find((r) => r.name === "Delhi");
-  assert.deepEqual([delhi?.new, delhi?.packed, delhi?.ready, delhi?.held], [1, 1, 1, 1]);
-  assert.deepEqual([delhi?.late, delhi?.today, delhi?.tomorrow], [1, 1, 1]);
-  assert.equal(delhi?.nextDue, at(-3), "a hold does not set the next deadline");
-  assert.equal(rows.find((r) => r.name === "Pune")?.new, 1);
-  assert.equal(rows.find((r) => r.name === "Unknown warehouse")?.total, 1);
+  assert.deepEqual([delhi?.to_accept, delhi?.to_pack, delhi?.to_dispatch, delhi?.active], [3, 1, 1, 5], "To Accept counts shipments: S1, S1b and the held one");
+  assert.deepEqual([delhi?.upcoming, delhi?.processing, delhi?.inTransit, delhi?.held], [1, 1, 12, 1]);
+  assert.deepEqual([delhi?.late, delhi?.today, delhi?.tomorrow], [2, 1, 1], "Under Processing and Upcoming are never late; a hold is not late");
+  assert.equal(delhi?.nextDue, at(-3), "neither a hold nor Under Processing sets the next deadline");
+  assert.equal(rows.find((r) => r.name === "Pune")?.to_accept, 1);
+  assert.equal(rows.find((r) => r.name === "Unknown warehouse")?.active, 1);
+});
+
+const STOCK = { A: { title: "Steel bottle", units: { w1: 3, w2: 50 } }, B: { title: null, units: { w1: 10, w2: null } } };
+
+test("orders grouped by SKU: units per warehouse, earliest dispatch-by, counts per tab", () => {
+  const groups = skuGroups(
+    [
+      order({ orderItemId: "1", sku: "A", quantity: 2, warehouseId: "w1", dispatchBy: at(30) }),
+      order({ orderItemId: "2", sku: "A", quantity: 1, warehouseId: "w2", status: "PACKED", dispatchBy: at(-1) }),
+      order({ orderItemId: "3", sku: "A", quantity: 1, warehouseId: "w2", status: "READY_TO_DISPATCH", hold: true, dispatchBy: at(-9) }),
+      order({ orderItemId: "4", sku: "B", quantity: 5, warehouseId: "w1", dispatchBy: at(3) }),
+      order({ orderItemId: "5", sku: "B", status: "CANCELLED" }),
+    ],
+    NOW,
+  );
+  assert.deepEqual(groups.map((g) => g.sku), ["A", "B"], "most urgent first");
+  const a = groups[0];
+  assert.deepEqual([a.orderCount, a.units, a.unitsByWarehouse.w1, a.unitsByWarehouse.w2], [3, 4, 2, 2]);
+  assert.equal(a.earliestDue, at(-1), "a hold does not set the earliest dispatch-by");
+  assert.equal(skuGroups([order({ status: "PACKING_IN_PROGRESS", dispatchBy: at(-3) })], NOW)[0].earliestActiveDue, null, "Under Processing can never be late");
+  assert.deepEqual([a.counts.to_accept, a.counts.to_pack, a.counts.to_dispatch], [1, 1, 1]);
+  assert.equal(groups[1].orders.length, 1, "a cancelled item is left out");
+  assert.equal(shortBy(a.unitsByWarehouse.w1, STOCK.A.units.w1), 0);
+  assert.equal(shortBy(5, 3), 2);
+  assert.equal(shortBy(5, null), 0, "unknown stock is never short");
+});
+
+test("pick list: units still to pack at one warehouse, due today or late, or every Active order", () => {
+  const orders = [
+    order({ orderItemId: "1", sku: "A", quantity: 2, dispatchBy: at(2) }),                       // To Accept, today
+    order({ orderItemId: "2", sku: "A", quantity: 1, status: "PACKED", dispatchBy: at(-2) }),     // To Pack, late
+    order({ orderItemId: "3", sku: "A", quantity: 4, status: "READY_TO_DISPATCH", dispatchBy: at(2) }), // packed already
+    order({ orderItemId: "4", sku: "B", quantity: 3, dispatchBy: at(30) }),                      // tomorrow
+    order({ orderItemId: "5", sku: "B", quantity: 9, dispatchAfter: at(10), dispatchBy: at(40) }), // Upcoming
+    order({ orderItemId: "6", sku: "A", quantity: 7, warehouseId: "w2", dispatchBy: at(2) }),     // other warehouse
+    order({ orderItemId: "7", sku: "A", quantity: 1, status: "PACKING_IN_PROGRESS", dispatchBy: at(2) }),
+  ];
+  const today = pickList(orders, "w1", NOW, STOCK, TODAY);
+  assert.deepEqual(today.map((r) => [r.sku, r.units, r.toAccept, r.toPack, r.orders, r.stock, r.title]), [["A", 3, 2, 1, 2, 3, "Steel bottle"]]);
+  const all = pickList(orders, "w1", NOW, STOCK, null);
+  assert.deepEqual(all.map((r) => [r.sku, r.units]).sort(), [["A", 3], ["B", 3]]);
+});
+
+test("upcoming vs stock: upcoming units per SKU and warehouse against stock, shortfalls first", () => {
+  const rows = upcomingVsStock(
+    [
+      order({ orderItemId: "1", sku: "B", quantity: 4, dispatchAfter: at(20) }),
+      order({ orderItemId: "2", sku: "A", quantity: 2, dispatchAfter: at(30) }),
+      order({ orderItemId: "3", sku: "A", quantity: 3, dispatchAfter: at(10) }),
+      order({ orderItemId: "4", sku: "A", quantity: 6 }), // Active: context only
+      order({ orderItemId: "5", sku: "A", quantity: 1, warehouseId: "w2", dispatchAfter: at(10) }),
+    ],
+    NOW,
+    STOCK,
+  );
+  assert.deepEqual(rows.map((r) => [r.sku, r.warehouseId, r.upcoming, r.stock, r.short, r.active]), [
+    ["A", "w1", 5, 3, 2, 6],
+    ["A", "w2", 1, 50, 0, 0], // then the soonest to become Active
+    ["B", "w1", 4, 10, 0, 0],
+  ]);
+  assert.equal(rows[0].firstActive, at(10));
 });
 
 // --- Needs action ----------------------------------------------------------------------------------------------------
@@ -272,13 +349,15 @@ test("needs action: orders about to miss dispatch, most urgent first, with a lin
         order({ orderId: "A", warehouseId: "w2", dispatchBy: at(2) }),
         order({ orderId: "B", warehouseId: "w1", dispatchBy: at(-2) }),
         order({ orderId: "C", warehouseId: "w1", dispatchBy: at(70) }),
+        order({ orderItemId: "P", orderId: "P", warehouseId: "w1", status: "PACKING_IN_PROGRESS", dispatchBy: at(-5) }),
+        order({ orderItemId: "U", orderId: "U", warehouseId: "w2", dispatchAfter: at(1), dispatchBy: at(-1) }),
       ],
     },
     LINKS,
   );
   const s = sections.find((x) => x.key === "orders");
   assert.ok(s);
-  assert.deepEqual(s.rows.map((r) => r.title), ["Delhi: 1 late", "Pune: 1 due today"]);
+  assert.deepEqual(s.rows.map((r) => r.title), ["Delhi: 1 late", "Pune: 1 due today"], "Under Processing and Upcoming orders are left out");
   assert.ok(s.rows[0].actions.some((a) => a.external && a.href === "https://hub.test/orders"));
 });
 
@@ -287,7 +366,7 @@ test("needs action: a SKU empty at a warehouse with orders waiting for it", () =
     {
       ...baseInput,
       listings: [listing("A", [0, 50]), listing("B", [20, 0])],
-      orders: [order({ sku: "A", warehouseId: "w1", orderId: "1", quantity: 2 }), order({ sku: "A", warehouseId: "w1", orderId: "2" }), order({ sku: "B", warehouseId: "w1", orderId: "3" }), order({ sku: "A", warehouseId: "w2", orderId: "4" })],
+      orders: [order({ sku: "A", warehouseId: "w1", orderItemId: "1", quantity: 2 }), order({ sku: "A", warehouseId: "w1", orderItemId: "2" }), order({ sku: "B", warehouseId: "w1", orderItemId: "3" }), order({ sku: "A", warehouseId: "w2", orderItemId: "4" }), order({ sku: "A", warehouseId: "w1", orderItemId: "5", quantity: 9, status: "PACKING_IN_PROGRESS" })],
     },
     LINKS,
   );

@@ -11,7 +11,7 @@ import type { ReturnsRequest, ShipmentsRequest } from "./flipkart.ts";
 
 export type Topic =
   | { t: "pre"; state: string; loc?: string; from?: string; to?: string }
-  | { t: "post"; from: string; to: string; day?: string }
+  | { t: "post"; from: string; to: string; day?: string; only?: "SHIPPED" }
   | { t: "cancel"; type: "sellerCancellation" | "buyerCancellation"; from: string; to: string }
   | { t: "returns"; source: "courier_return" | "customer_return"; since: "createdAfter" | "modifiedAfter"; at: string };
 
@@ -31,7 +31,8 @@ export function readTopic(value: unknown): Topic | null {
       const loc = typeof value.loc === "string" && /^[A-Za-z0-9_-]{3,80}$/.test(value.loc) ? { loc: value.loc } : {};
       return iso(value.from) && iso(value.to) ? { t: "pre", state: value.state, ...loc, from: value.from, to: value.to } : { t: "pre", state: value.state, ...loc };
     case "post":
-      return iso(value.from) && iso(value.to) ? { t: "post", from: value.from, to: value.to } : null;
+      // `only: SHIPPED` is the nightly In Transit read: shipped and not yet delivered.
+      return iso(value.from) && iso(value.to) ? { t: "post", from: value.from, to: value.to, ...(value.only === "SHIPPED" ? { only: "SHIPPED" as const } : {}) } : null;
     case "cancel":
       return (value.type === "sellerCancellation" || value.type === "buyerCancellation") && iso(value.from) && iso(value.to)
         ? { t: "cancel", type: value.type, from: value.from, to: value.to }
@@ -64,7 +65,7 @@ export function requestFor(topic: Topic): { kind: "shipments"; request: Shipment
       return {
         kind: "shipments",
         request: {
-          filter: { type: "postDispatch", states: ["SHIPPED", "DELIVERED"], shipmentTypes: ["NORMAL"], orderDate: { from: topic.from, to: topic.to } },
+          filter: { type: "postDispatch", states: topic.only ? [topic.only] : ["SHIPPED", "DELIVERED"], shipmentTypes: ["NORMAL"], orderDate: { from: topic.from, to: topic.to } },
           sorted: true,
         },
       };

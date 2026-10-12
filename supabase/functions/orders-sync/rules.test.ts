@@ -177,6 +177,19 @@ test("the pending sweep can be asked for one warehouse at a time", () => {
   assert.deepEqual(readTopic({ t: "pre", state: "APPROVED", loc: "bad value!" }), { t: "pre", state: "APPROVED" }, "an odd location is dropped, not sent");
 });
 
+test("the nightly In Transit part asks for shipped orders only", () => {
+  const topic = readTopic({ t: "post", only: "SHIPPED", day: "2026-10-05", from: "2026-10-05T00:00:00.000Z", to: "2026-10-06T00:00:00.000Z" });
+  assert.deepEqual(topic, { t: "post", only: "SHIPPED", from: "2026-10-05T00:00:00.000Z", to: "2026-10-06T00:00:00.000Z" });
+  const r = requestFor(topic as NonNullable<typeof topic>);
+  assert.deepEqual(r.kind === "shipments" && r.request.filter, {
+    type: "postDispatch",
+    states: ["SHIPPED"],
+    shipmentTypes: ["NORMAL"],
+    orderDate: { from: "2026-10-05T00:00:00.000Z", to: "2026-10-06T00:00:00.000Z" },
+  });
+  assert.deepEqual(readTopic({ t: "post", only: "RETURNED", from: "2026-10-05T00:00:00.000Z", to: "2026-10-06T00:00:00.000Z" }), { t: "post", from: "2026-10-05T00:00:00.000Z", to: "2026-10-06T00:00:00.000Z" }, "any other value is dropped");
+});
+
 test("no part of any plan asks for marketplace cancellations (not confirmed to work)", () => {
   assert.equal(readTopic({ t: "cancel", type: "marketplaceCancellation", from: "2026-09-12T00:00:00.000Z", to: "2026-10-12T00:00:00.000Z" }), null);
 });

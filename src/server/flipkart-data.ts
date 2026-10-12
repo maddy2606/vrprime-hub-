@@ -19,6 +19,7 @@ import {
   type PriceInput,
   type PriceRow,
   type ReturnRate,
+  type StockBySku,
 } from "@/lib/flipkart-analysis";
 import { addDays, todayIST } from "@/lib/format";
 import { logError } from "@/lib/redact";
@@ -72,12 +73,14 @@ export async function loadFlipkartSettings(supabase: Supabase): Promise<Flipkart
 type PendingRow = {
   order_item_id: string;
   order_id: string;
+  shipment_id: string | null;
   sku: string | null;
   quantity: number;
   warehouse_id: string | null;
   item_status: string | null;
   hold: boolean;
   dispatch_by: string | null;
+  dispatch_after: string | null;
 };
 
 export async function loadPendingOrders(supabase: Supabase): Promise<PendingOrder[]> {
@@ -85,7 +88,7 @@ export async function loadPendingOrders(supabase: Supabase): Promise<PendingOrde
     const rows = await fetchAll<PendingRow>((from, to) =>
       supabase
         .from("fk_order_items")
-        .select("order_item_id, order_id, sku, quantity, warehouse_id, item_status, hold, dispatch_by")
+        .select("order_item_id, order_id, shipment_id, sku, quantity, warehouse_id, item_status, hold, dispatch_by, dispatch_after")
         .eq("platform", "flipkart")
         .eq("stage", "pending")
         .order("order_item_id")
@@ -94,31 +97,68 @@ export async function loadPendingOrders(supabase: Supabase): Promise<PendingOrde
     return rows.map((r) => ({
       orderItemId: r.order_item_id,
       orderId: r.order_id,
+      shipmentId: r.shipment_id,
       sku: r.sku,
       quantity: r.quantity,
       warehouseId: r.warehouse_id,
       status: r.item_status,
       hold: r.hold,
       dispatchBy: r.dispatch_by,
+      dispatchAfter: r.dispatch_after,
     }));
   } catch (error) {
     return fail("pending orders", error);
   }
 }
 
+/** Shipped and not yet delivered, per warehouse ID (Seller Hub's In Transit, as a count). */
+export async function loadInTransit(supabase: Supabase): Promise<Record<string, number>> {
+  const { data, error } = await supabase.rpc("flipkart_in_transit");
+  if (error) fail("in transit", error);
+  const out: Record<string, number> = {};
+  for (const r of (data ?? []) as { warehouse_id: string | null; shipments: number }[]) {
+    if (r.warehouse_id) out[r.warehouse_id] = Number(r.shipments) || 0;
+  }
+  return out;
+}
+
+/** Title and units per warehouse for every SKU in the latest stock snapshot. */
+export function stockBySku(data: DeskData | null): StockBySku {
+  const out: StockBySku = {};
+  if (!data) return out;
+  for (const l of data.listings) {
+    const units: Record<string, number | null> = {};
+    data.warehouses.forEach((w, i) => (units[w.id] = l.now[i] ?? null));
+    out[l.sku] = { title: l.title, units };
+  }
+  return out;
+}
+
 // --- Sync runs -------------------------------------------------------------------------------------------------------
 
-export async function loadOrderSyncState(supabase: Supabase, canSeeError: boolean): Promise<OrderSyncState> {
-  const [latest, pending, daily, backfill] = await Promise.all([
-    supabase.from("order_runs").select(RUN_COLUMNS).neq("kind", "backfill").order("created_at", { ascending: false }).limit(1),
-    supabase.from("order_runs").select(RUN_COLUMNS).eq("kind", "pending").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
-    supabase.from("order_runs").select(RUN_COLUMNS).eq("kind", "daily").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
-    supabase.from("order_runs").select(RUN_COLUMNS).eq("kind", "backfill").order("created_at", { ascending: false }).limit(1),
+/** The sync state for the page and for the progress poll. Throws on a database error. */
+export async function readOrderSyncState(supabase: Supabase, canSeeError: boolean): Promise<OrderSyncState> {
+  const runs = () => supabase.from("order_runs").select(RUN_COLUMNS);
+  const lastDone = (kind: "pending" | "daily" | "upcoming") => runs().eq("kind", kind).eq("status", "done").order("finished_at", { ascending: false }).limit(1);
+  const [latest, pending, daily, upcoming, backfill] = await Promise.all([
+    runs().neq("kind", "backfill").order("created_at", { ascending: false }).limit(1),
+    lastDone("pending"),
+    lastDone("daily"),
+    lastDone("upcoming"),
+    runs().eq("kind", "backfill").order("created_at", { ascending: false }).limit(1),
   ]);
-  const err = latest.error ?? pending.error ?? daily.error ?? backfill.error;
-  if (err) fail("order sync state", err);
+  const err = latest.error ?? pending.error ?? daily.error ?? upcoming.error ?? backfill.error;
+  if (err) throw new Error(err.message);
   const one = (r: { data: RunRowRaw[] | null }) => (r.data?.[0] ? toRun(r.data[0], canSeeError) : null);
-  return { latest: one(latest), lastPending: one(pending), lastDaily: one(daily), backfill: one(backfill) };
+  return { latest: one(latest), lastPending: one(pending), lastDaily: one(daily), lastUpcoming: one(upcoming), backfill: one(backfill) };
+}
+
+export async function loadOrderSyncState(supabase: Supabase, canSeeError: boolean): Promise<OrderSyncState> {
+  try {
+    return await readOrderSyncState(supabase, canSeeError);
+  } catch (error) {
+    return fail("order sync state", error);
+  }
 }
 
 // --- Cancellations -----------------------------------------------------------------------------------------------------

@@ -13,12 +13,27 @@ import { getOrdersSyncStatus, startOrdersSync } from "@/server/actions/orders";
 type Props = {
   state: OrderSyncState;
   canSync: boolean;
-  /** The Orders tab syncs pending orders; the Returns tab syncs shipped, cancelled and returns. */
-  kind: "pending" | "daily";
+  /**
+   * The Orders tab syncs pending orders (or, on Upcoming, every upcoming order however far ahead);
+   * the Returns tab syncs shipped, cancelled and returns.
+   */
+  kind: "pending" | "daily" | "upcoming";
   today: string;
 };
 
 const POLL_MS = 4000;
+
+const TITLE: Record<Props["kind"], string> = {
+  pending: "Orders",
+  upcoming: "All upcoming orders",
+  daily: "Returns and cancellations",
+};
+
+const HOW_OFTEN: Record<Props["kind"], string> = {
+  pending: "Orders due in the next 2 days are read every 30 minutes from 7 AM to 10 PM.",
+  upcoming: "Every pending order, however far ahead, is read each night at 10:30 PM (it takes about half an hour), along with orders in transit.",
+  daily: "Shipped orders, cancellations and returns are read every morning at about 9 AM.",
+};
 
 /** Says when the numbers are from, shows progress while a sync runs, and has the Sync now button. */
 export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
@@ -61,7 +76,7 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
       }
     });
 
-  const last: RunSummary | null = kind === "pending" ? state.lastPending : state.lastDaily;
+  const last: RunSummary | null = kind === "pending" ? state.lastPending : kind === "upcoming" ? state.lastUpcoming : state.lastDaily;
   const failed = latest?.status === "failed" && (!last || latest.createdAt > (last.finishedAt ?? ""));
   const waiting = latest?.status === "paused";
   const backfill = state.backfill;
@@ -80,19 +95,23 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
             </>
           ) : last?.finishedAt ? (
             <>
-              <p className="text-sm font-bold">{kind === "pending" ? "Orders" : "Returns and cancellations"} read {formatDateTime(last.finishedAt)}</p>
+              <p className="text-sm font-bold">{TITLE[kind]} read {formatDateTime(last.finishedAt)}</p>
               <p className="mt-0.5 text-xs text-muted">
-                {kind === "pending" ? "Pending orders are read every 30 minutes from 7 AM to 10 PM." : "Shipped orders, cancellations and returns are read every morning at about 9 AM."}
+                {HOW_OFTEN[kind]}
+                {kind === "pending" ? (state.lastUpcoming?.finishedAt ? ` All upcoming orders last read ${formatDateTime(state.lastUpcoming.finishedAt)}.` : " All upcoming orders are read every night at 10:30 PM.") : ""}
                 {waiting ? " A new read is waiting for another sync to finish." : ""}
               </p>
             </>
           ) : (
-            <p className="text-sm font-bold">Not read from Flipkart yet</p>
+            <>
+              <p className="text-sm font-bold">{kind === "upcoming" ? "All upcoming orders not read yet" : "Not read from Flipkart yet"}</p>
+              <p className="mt-0.5 text-xs text-muted">{HOW_OFTEN[kind]}</p>
+            </>
           )}
         </div>
         {canSync ? (
           <button type="button" onClick={start} disabled={running || pending} className={buttonClass("secondary", "shrink-0")}>
-            {running || pending ? "Syncing…" : "Sync now"}
+            {running || pending ? "Syncing…" : kind === "upcoming" ? "Read all upcoming" : "Sync now"}
           </button>
         ) : null}
       </div>

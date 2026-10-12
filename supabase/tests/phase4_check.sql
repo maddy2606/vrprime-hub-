@@ -120,6 +120,9 @@ begin
   assert (private.order_plan('backfill') -> 29 ->> 'day')::date = today - 29, 'and ends 29 days ago';
   assert jsonb_array_length(private.order_plan('backfill', today - 10)) = 4 + 19, 'a restarted backfill skips days it already finished';
   assert not (private.order_plan('pending') @> '[{"t":"post"}]'::jsonb), 'a pending sweep does not read shipped orders';
+  assert jsonb_array_length(private.order_plan('upcoming')) = 12 * (select count(*) from public.warehouses where flipkart_location_id is not null) + 14,
+    'the upcoming sweep reads APPROVED in 8 date chunks and the other 4 states whole, at each warehouse, plus 14 days of shipped orders';
+  assert (private.order_plan('upcoming') @> '[{"t":"post","only":"SHIPPED"}]'::jsonb), 'the upcoming sweep reads orders in transit';
 
   run1 := private.start_order_run('pending', 'manual', u_mgr);
   run2 := private.start_order_run('pending', 'cron', null);
@@ -143,9 +146,13 @@ begin
     jsonb_build_object('order_item_id', '', 'order_id', 'P4-OD-6', 'sku', 'P4-A'),
     jsonb_build_object('order_item_id', 'P4-OI-J', 'order_id', 'P4-OD-11', 'sku', 'P4-A', 'quantity', 1,
       'order_date', yday, 'location_id', loc_blr, 'status', 'APPROVED', 'dispatch_by', ago30m),
-    jsonb_build_object('order_item_id', 'P4-OI-F', 'order_id', 'P4-OD-7', 'sku', 'P4-A', 'location_id', 'LOCunknown', 'status', 'APPROVED', 'dispatch_by', later)
-  ), null, 'next-page-address', 8);
-  assert (res ->> 'saved')::int = 7, 'seven orders saved; the one with no order item ID is skipped';
+    jsonb_build_object('order_item_id', 'P4-OI-F', 'order_id', 'P4-OD-7', 'sku', 'P4-A', 'location_id', 'LOCunknown', 'status', 'APPROVED', 'dispatch_by', later),
+    -- K: Bangalore, dispatch-after and dispatch-by 10 days away (Upcoming). P: Under Processing, due in 2 hours.
+    jsonb_build_object('order_item_id', 'P4-OI-K', 'order_id', 'P4-OD-12', 'sku', 'P4-A', 'location_id', loc_blr, 'status', 'APPROVED',
+      'dispatch_after', to_char(now() + interval '9 days', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), 'dispatch_by', to_char(now() + interval '10 days', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')),
+    jsonb_build_object('order_item_id', 'P4-OI-P', 'order_id', 'P4-OD-13', 'sku', 'P4-A', 'location_id', loc_blr, 'status', 'PACKING_IN_PROGRESS', 'dispatch_by', soon, 'dispatch_after', ago2)
+  ), null, 'next-page-address', 10);
+  assert (res ->> 'saved')::int = 9, 'nine orders saved; the one with no order item ID is skipped';
   assert (select step from public.order_runs where id = run1) = 0, 'with a next page the run stays on the same part';
   assert (select next_path from public.order_runs where id = run1) = 'next-page-address', 'and remembers the next page';
 
@@ -173,7 +180,8 @@ begin
   assert (res ->> 'ok')::boolean, 'a run that read everything finishes';
 
   -- alerts
-  assert (res ->> 'alerted')::int = 2, 'two orders need an alert: A (due in 2 hours) and J (30 minutes late); B is far away, E is on hold';
+  assert (res ->> 'alerted')::int = 2, 'two orders need an alert: A (due in 2 hours) and J (30 minutes late); B is far away, E is on hold, P is Under Processing';
+  assert (select alerted_at from public.fk_order_items where order_item_id = 'P4-OI-P') is null, 'Under Processing is never alerted';
   select count(*) into n from public.notifications where kind = 'dispatch_risk';
   assert n = v_staff + 2, 'every active owner and manager is told (the two test ones and any real ones), nobody else';
   assert not exists (select 1 from public.notifications where kind = 'dispatch_risk' and user_id in (u_lst, u_blr)), 'listing and warehouse users get no dispatch alert';
@@ -204,7 +212,11 @@ begin
   assert (select stage from public.fk_order_items where order_item_id = 'P4-OI-A') = 'pending'
      and (select item_status from public.fk_order_items where order_item_id = 'P4-OI-A') = 'PACKED', 'an order''s status is updated in place';
   assert (select stage from public.fk_order_items where order_item_id = 'P4-OI-C') = 'left_pending', 'orders no longer listed as pending are marked left_pending';
-  assert (res ->> 'left_pending')::int = 5, 'C, D, E, F and J left the pending list';
+  assert (res ->> 'left_pending')::int = 5, 'C, D, E, J and P left the pending list';
+  assert (select stage from public.fk_order_items where order_item_id = 'P4-OI-K') = 'pending',
+    'an order due later than the sweep looked (10 days) is still Upcoming, not gone';
+  assert (select stage from public.fk_order_items where order_item_id = 'P4-OI-F') = 'pending',
+    'an order at a warehouse the sweep did not read is not marked gone';
 
   -- ===== Shipped and cancelled orders ==================================================================
   run3 := private.start_order_run('daily', 'cron', null);

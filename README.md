@@ -15,7 +15,7 @@ phones first; installable from the browser.
 | 1 | Work board, search, filters, photos, users admin, PWA shell | Built |
 | 2 | Tickets, push notifications, notification bell, daily 9:30 AM jobs | Built |
 | 3 | Flipkart stock desk and daily sync | Live |
-| 4 | The Flipkart page: needs action, orders, returns, prices, listing health, running out soon | Built (Phase 4b); see [The Flipkart page](#the-flipkart-page) |
+| 4 | The Flipkart page: needs action, orders, returns, prices, listing health, running out soon | Built (Phase 4b, with Seller Hub's order tabs); see [The Flipkart page](#the-flipkart-page) |
 
 ## Environment variables
 
@@ -289,8 +289,8 @@ four, for their own warehouses only (enforced in the database); owner, manager a
 
 | Tab | What it shows |
 |---|---|
-| Needs action | A short list, each line with a button: orders about to miss dispatch (today or tomorrow, most urgent first), SKUs empty at a warehouse that has orders waiting, price errors, new inactive listings, SKUs with a high return rate, SKUs running out soon |
-| Orders | Pending orders per warehouse (new / packed / ready to dispatch, next dispatch-by, red when today or late), a searchable list with CSV, and cancellations (seller and buyer apart, counts per day) |
+| Needs action | A short list, each line with a button: Active orders about to miss dispatch (today or tomorrow, most urgent first), SKUs empty at a warehouse that has Active orders waiting, price errors, new inactive listings, SKUs with a high return rate, SKUs running out soon. Upcoming and Under Processing orders never appear here |
+| Orders | Seller Hub's tabs per warehouse, orders grouped by SKU, an order list, a pick list, upcoming vs stock, and cancellations. See [The Orders tab](#the-orders-tab) |
 | Stock | The Phase 3 stock desk, plus a **Days left** column |
 | Returns | Courier and customer returns with reason and SKU, and return rate per SKU. **Raise ticket** from a return pre-fills the SKU, Flipkart and "Wrong return" |
 | Prices | Selling price, MRP, discount, last change and the history of changes, with flags for selling price at or above MRP, a big overnight drop, and a missing price |
@@ -301,7 +301,8 @@ four, for their own warehouses only (enforced in the database); owner, manager a
 | Data | How often | Edge Function |
 |---|---|---|
 | Stock, prices, tax details | Every day 8:00 AM IST, and Sync now | `stock-sync` (Phase 3) |
-| Pending orders (before dispatch) | Every 30 minutes from 7 AM to 10 PM IST, and Sync now on the Orders tab | `orders-sync` |
+| Pending orders due in the next 2 days | Every 30 minutes from 7 AM to 10 PM IST, and Sync now on the Orders tab | `orders-sync` |
+| Every pending order however far ahead (Upcoming), and orders in transit (shipped in the last 14 days) | Every night at 10:30 PM IST, and "Read all upcoming" on the Upcoming tab | `orders-sync` |
 | Shipped orders (last 4 days), cancellations, returns | Every day about 9:10 AM IST, and Sync now on the Returns tab | `orders-sync` |
 | The last 30 days of shipped orders, cancellations and returns (one time) | Nightly from 10:15 PM to 6:45 AM IST until done | `orders-sync` |
 
@@ -309,8 +310,9 @@ The order code can make exactly four kinds of request (get a token, search shipm
 and refuses anything else before it is sent. Flipkart facts that shaped it, all found by testing the real API: shipments come 20
 to a page and returns 25; a page takes 2 to 16 seconds; the "next page" address must be fetched (GET), not searched again; Flipkart
 stops any single search at 5,000 results, so the pending sweep reads each state at each warehouse separately, only orders due in the
-next 2 days (Flipkart lists orders scheduled weeks ahead, thousands of them), and the run stops with an error rather than save a
-list that was cut short; `PACKING_IN_PROGRESS` combined with the dispatch-date sort answers 500, so that state is read unsorted;
+next 2 days (Flipkart lists orders scheduled about two weeks ahead, over a thousand at a busy warehouse), the nightly upcoming sweep
+reads APPROVED orders in dispatch-date chunks (up to 2 days, then 3-day and weekly chunks, then the rest of the year) at each warehouse,
+and any run stops with an error rather than save a list that was cut short; `PACKING_IN_PROGRESS` combined with the dispatch-date sort answers 500, so that state is read unsorted;
 returns carry no SKU, so it is found from the order (returns for orders older than our history show "not known").
 Marketplace cancellations are not read (not confirmed to work).
 
@@ -326,11 +328,47 @@ missing one. One run works at a time; it waits (without failing) while a stock s
 (every 5 minutes) restarts a run whose worker was cut off. The backfill additionally waits for the night, newest day first, so
 the recent days are complete first.
 
+### When an order counts as gone (`left_pending`)
+
+A sweep only says an order has left the pending list if it looked where the order would be: the order's warehouse, in every
+pre-dispatch state (it may have moved on), over a dispatch-by window that holds the order's dispatch-by, and the order was not in it.
+The daytime sweep looks 2 days ahead, so it never marks an order due later than that as gone; those stay Upcoming until the nightly
+sweep, which covers everything, decides. (Before this, the 2-day sweep marked 1,469 orders as gone that Seller Hub still showed as
+Upcoming.)
+
 ### Alerts
 
-When a pending sweep finishes, every order that is within 4 hours of its dispatch deadline (or just past it) and not on hold is
-counted once, ever (`alerted_at`), and the owner and managers get one push per sweep: "3 orders may miss their dispatch deadline:
-Delhi 2 · Bhiwandi 1 · earliest 2:30 pm". Orders first found already more than an hour late are marked without an alert.
+When a pending or upcoming sweep finishes, every Active order (dispatch-after reached) that is within 4 hours of its dispatch
+deadline (or just past it), not on hold and not Under Processing is counted once, ever (`alerted_at`), and the owner and managers get
+one push per sweep: "3 orders may miss their dispatch deadline: Delhi 2 · Bhiwandi 1 · earliest 2:30 pm". Orders first found already
+more than an hour late are marked without an alert. Under Processing (`PACKING_IN_PROGRESS`) is Flipkart's own work; Seller Hub says
+those delays do not affect account health, so they never alert.
+
+### The Orders tab
+
+It uses Seller Hub's tabs and words, per warehouse. Counts are orders as Seller Hub counts them: shipments.
+
+| Tab | Which orders |
+|---|---|
+| To Accept | APPROVED (or FORM_FAILED), dispatch-after now or past |
+| To Pack | PACKED, dispatch-after now or past |
+| To Dispatch | READY_TO_DISPATCH, dispatch-after now or past |
+| Upcoming | Any of those with dispatch-after still in the future |
+| Under Processing | PACKING_IN_PROGRESS, whatever its dates. Shown on its own, never late, never in Needs action |
+| In Transit (count only) | Shipped, not yet delivered, as last read (nightly for 14 days of orders, every morning for 4) |
+
+To Accept + To Pack + To Dispatch = Active. A warehouse card shows the three Active counts, Upcoming, Under Processing and In
+Transit, and the next dispatch-by among Active orders (red when today or late). Tap a card to look at one warehouse.
+
+Views:
+
+| View | What it shows |
+|---|---|
+| By SKU | One row per SKU (like Seller Hub's Smart Groups) for the chosen tab: title, orders, units, units per warehouse, earliest dispatch-by (red if an Active one is today or late), counts per tab. Tap it for its orders (order ID, qty, warehouse, status, dispatch-by) and stock at each warehouse vs units ordered there, with a red "short by N" |
+| Order list | Every order line in the chosen tab, sortable, with CSV |
+| Pick list | One warehouse: SKU x units still to pack (To Accept and To Pack, not on hold) for Active orders due today or late, or all Active; stock next to it; sortable, CSV |
+| Upcoming vs stock | Per SKU and warehouse: units in Upcoming orders against current stock, shortfalls first ("Short of stock" filter), with when the first becomes Active |
+| Cancelled | Cancellations in 30 days, seller and buyer apart, counts per day |
 
 ### Days left ("running out soon")
 
@@ -355,8 +393,9 @@ were sold. Shown only once 30 days of shipped orders are loaded.
 
 ### Checking and running it by hand
 
-- Last runs: `select kind, status, step, parts, pages, items_saved, error, created_at, finished_at from order_runs order by created_at desc limit 8;`
-- Start one: `select private.start_order_run('pending', 'manual', null);` (or `'daily'`)
+- Last runs: `select kind, status, step, parts, pages, items_saved, error, notes, created_at, finished_at from order_runs order by created_at desc limit 8;` (`notes` says how many orders each sweep marked gone)
+- Start one: `select private.start_order_run('pending', 'manual', null);` (or `'daily'`, or `'upcoming'` for the full nightly sweep, about 30 minutes)
+- Seller Hub counts per warehouse, to compare: see the query in `supabase/tests/seller_hub_counts.sql`.
 - The backfill: `select private.start_order_backfill();` creates it (it also starts itself every night until it has finished once).
 - Schedule: `select jobname, schedule from cron.job where jobname like 'orders-%';` (UTC; IST is UTC + 5:30).
 - Logs: Supabase > Edge Functions > orders-sync > Logs (every line is scrubbed of secrets).

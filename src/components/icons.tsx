@@ -102,3 +102,9 @@ export const SlidersIcon = (p: IconProps) => (
     <circle cx="8" cy="18" r="2" fill="currentColor" stroke="none" />
   </Icon>
 );
+
+export const ChevronDownIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Icon>
+);

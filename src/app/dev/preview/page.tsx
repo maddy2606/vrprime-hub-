@@ -39,13 +39,16 @@ import {
 import {
   fakeCancellations,
   fakeHealthRows,
+  fakeInTransit,
   fakeNeedsAction,
   fakeOrders,
   fakeOrderSync,
   fakePriceRows,
   fakeReturnRates,
   fakeReturns,
+  fakeStockBySku,
 } from "@/lib/dev-fixtures-flipkart";
+import type { OrderView, StatusFilter } from "@/lib/flipkart-analysis";
 import { todayIST } from "@/lib/format";
 import { EMPTY_POST } from "@/lib/post-options";
 import { isViewKey } from "@/lib/stock-views";
@@ -70,6 +73,10 @@ const VIEWS = [
   "stockrunning",
   "fneeds",
   "forders",
+  "flist",
+  "fpick",
+  "fupcoming",
+  "fprocessing",
   "fcancelled",
   "freturns",
   "frates",
@@ -80,6 +87,15 @@ const VIEWS = [
   "password",
   "loading",
 ] as const;
+
+const FAKE_ORDER_VIEW: Record<string, { view: OrderView; status: StatusFilter } | undefined> = {
+  forders: { view: "sku", status: "active" },
+  flist: { view: "list", status: "to_accept" },
+  fpick: { view: "pick", status: "active" },
+  fupcoming: { view: "upcoming", status: "active" },
+  fprocessing: { view: "sku", status: "processing" },
+  fcancelled: { view: "cancelled", status: "active" },
+};
 
 export default async function PreviewPage({
   searchParams,
@@ -252,7 +268,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
   const today = todayIST();
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
-  const active = view === "fneeds" ? "needs" : view === "forders" || view === "fcancelled" ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : "health";
+  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : "health";
   const needs = view === "fneeds" ? fakeNeedsAction() : null;
   const health = view === "fhealth" ? fakeHealthRows() : null;
   return (
@@ -266,8 +282,19 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
           asOf={{ stock: today, today }}
         />
       ) : null}
-      {view === "forders" || view === "fcancelled" ? (
-        <OrdersTab orders={fakeOrders()} cancellations={fakeCancellations()} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} nowIso={new Date().toISOString()} initial={{ warehouseId: "", view: view === "fcancelled" ? "cancelled" : "pending" }} />
+      {FAKE_ORDER_VIEW[view] ? (
+        <OrdersTab
+          orders={fakeOrders()}
+          cancellations={fakeCancellations()}
+          warehouses={wh}
+          state={fakeOrderSync(stage)}
+          canSync
+          today={today}
+          nowIso={new Date().toISOString()}
+          stock={fakeStockBySku()}
+          inTransit={fakeInTransit()}
+          initial={{ warehouseId: "", ...FAKE_ORDER_VIEW[view] }}
+        />
       ) : null}
       {view === "freturns" || view === "frates" ? (
         <ReturnsTab returns={fakeReturns()} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />

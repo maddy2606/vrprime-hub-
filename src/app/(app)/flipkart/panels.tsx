@@ -6,7 +6,7 @@ import { ReturnsTab } from "@/components/flipkart/returns-tab";
 import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { EmptyState } from "@/components/ui";
-import { buildNeedsAction } from "@/lib/flipkart-analysis";
+import { buildNeedsAction, ORDER_VIEWS, STATUS_FILTERS, type OrderView, type StatusFilter } from "@/lib/flipkart-analysis";
 import { formatDate, todayIST } from "@/lib/format";
 import { SELLER_HUB } from "@/lib/seller-hub";
 import { analyze } from "@/lib/stock-analysis";
@@ -21,11 +21,13 @@ import {
   loadCover,
   loadFlipkartSettings,
   loadHealthRows,
+  loadInTransit,
   loadOrderSyncState,
   loadPendingOrders,
   loadPriceRows,
   loadReturnRates,
   loadReturns,
+  stockBySku,
   warehousesFor,
 } from "@/server/flipkart-data";
 import { loadStockPage } from "@/server/stock-data";
@@ -97,13 +99,17 @@ export async function OrdersPanel({ user, sp }: { user: SessionUser; sp: Search 
   const canSync = canSyncOrders(user);
   const now = new Date();
   const today = todayIST(now);
-  const [orders, cancellations, state, warehouses] = await Promise.all([
+  const [orders, cancellations, state, warehouses, inTransit, stock] = await Promise.all([
     loadPendingOrders(supabase),
     loadCancellations(supabase, today),
     loadOrderSyncState(supabase, canSync),
     warehousesFor(user),
+    loadInTransit(supabase),
+    loadStockPage(user, canSync),
   ]);
   const wh = one(sp.wh);
+  const view = one(sp.view);
+  const status = one(sp.status);
   return (
     <OrdersTab
       orders={orders}
@@ -113,7 +119,13 @@ export async function OrdersPanel({ user, sp }: { user: SessionUser; sp: Search 
       canSync={canSync}
       today={today}
       nowIso={now.toISOString()}
-      initial={{ warehouseId: UUID.test(wh) && warehouses.some((w) => w.id === wh) ? wh : "", view: one(sp.view) === "cancelled" ? "cancelled" : "pending" }}
+      stock={stockBySku(stock.kind === "ready" ? stock.data : null)}
+      inTransit={inTransit}
+      initial={{
+        warehouseId: UUID.test(wh) && warehouses.some((w) => w.id === wh) ? wh : "",
+        view: (ORDER_VIEWS as readonly string[]).includes(view) ? (view as OrderView) : "sku",
+        status: (STATUS_FILTERS as string[]).includes(status) ? (status as StatusFilter) : "active",
+      }}
     />
   );
 }

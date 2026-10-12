@@ -42,11 +42,14 @@ export function isRunActive(status: RunSummary["status"] | undefined | null): bo
   return status === "queued" || status === "running";
 }
 
-/** The latest pending sweep or daily run, and the last ones that finished. */
+/** The latest pending sweep, daily or upcoming run, and the last ones that finished. */
 export type OrderSyncState = {
   latest: RunSummary | null;
   lastPending: RunSummary | null;
   lastDaily: RunSummary | null;
+  /** The last full read of every pending order, however far ahead (nightly). */
+  lastUpcoming: RunSummary | null;
   /** The one-time 30-day backfill, if it has been started. */
   backfill: RunSummary | null;
 };
+

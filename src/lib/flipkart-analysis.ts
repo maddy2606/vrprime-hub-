@@ -1,7 +1,8 @@
 // Everything the Flipkart page works out from the data. Pure functions: no database, no React.
 //
 // Contents: price flags, listing health, days of cover ("running out soon"), return rates,
-// pending orders by warehouse, and the "Needs action today" list built from all of them.
+// pending orders in Seller Hub's tabs (per warehouse, per SKU, pick list, upcoming vs stock), and the
+// "Needs action today" list built from all of them.
 
 import { addDays, formatDate, todayIST } from "./format.ts";
 import { daysBetween, restockHref, type DeskListing } from "./stock-analysis.ts";
@@ -333,6 +334,8 @@ export function returnHistoryReady(coverageFrom: string | null, today: string): 
 export type PendingOrder = {
   orderItemId: string;
   orderId: string;
+  /** Seller Hub counts shipments: one shipment can hold several items of one order. */
+  shipmentId: string | null;
   sku: string | null;
   quantity: number;
   warehouseId: string | null;
@@ -340,30 +343,50 @@ export type PendingOrder = {
   hold: boolean;
   /** An instant (ISO text). */
   dispatchBy: string | null;
+  /** Before this instant the order is Upcoming in Seller Hub; from then on it is Active. */
+  dispatchAfter: string | null;
 };
 
-export type StatusGroup = "new" | "packed" | "ready" | "other";
+/**
+ * Seller Hub's tabs. To Accept, To Pack and To Dispatch together are Active (dispatch-after reached);
+ * Upcoming is dispatch-after still in the future; Under Processing is Flipkart working on the order
+ * (PACKING_IN_PROGRESS), whose delays Seller Hub says do not count against account health.
+ */
+export type Bucket = "to_accept" | "to_pack" | "to_dispatch" | "upcoming" | "processing";
 
-export const STATUS_GROUP_LABEL: Record<StatusGroup, string> = {
-  new: "New",
-  packed: "Packed",
-  ready: "Ready to dispatch",
-  other: "Other",
+export const BUCKETS: Bucket[] = ["to_accept", "to_pack", "to_dispatch", "upcoming", "processing"];
+export const ACTIVE_BUCKETS: Bucket[] = ["to_accept", "to_pack", "to_dispatch"];
+
+export const BUCKET_LABEL: Record<Bucket, string> = {
+  to_accept: "To Accept",
+  to_pack: "To Pack",
+  to_dispatch: "To Dispatch",
+  upcoming: "Upcoming",
+  processing: "Under Processing",
 };
 
-export function statusGroup(status: string | null): StatusGroup {
-  switch ((status ?? "").toUpperCase()) {
-    case "APPROVED":
-      return "new";
-    case "PACKING_IN_PROGRESS":
-    case "PACKED":
-      return "packed";
-    case "READY_TO_DISPATCH":
-      return "ready";
-    default:
-      return "other";
-  }
+/** Which Seller Hub tab an order is in, or null for anything else (a cancelled item in a pending shipment). */
+export function bucketOf(o: Pick<PendingOrder, "status" | "dispatchAfter">, now: Date): Bucket | null {
+  const status = (o.status ?? "").toUpperCase();
+  if (status === "PACKING_IN_PROGRESS") return "processing";
+  if (!["APPROVED", "FORM_FAILED", "PACKED", "READY_TO_DISPATCH"].includes(status)) return null;
+  const after = o.dispatchAfter ? Date.parse(o.dispatchAfter) : NaN;
+  if (!Number.isNaN(after) && after > now.getTime()) return "upcoming";
+  if (status === "PACKED") return "to_pack";
+  if (status === "READY_TO_DISPATCH") return "to_dispatch";
+  return "to_accept";
 }
+
+/** The views of the Orders tab, and which Seller Hub tab its SKU and order lists show (one, or all Active). */
+export const ORDER_VIEWS = ["sku", "list", "pick", "upcoming", "cancelled"] as const;
+export type OrderView = (typeof ORDER_VIEWS)[number];
+export type StatusFilter = Bucket | "active";
+export const STATUS_FILTERS: StatusFilter[] = ["active", ...BUCKETS];
+
+export const isActiveBucket = (b: Bucket | null): boolean => b === "to_accept" || b === "to_pack" || b === "to_dispatch";
+
+/** What Seller Hub counts as one order: the shipment (falling back to the item when there is none). */
+export const shipmentKey = (o: Pick<PendingOrder, "shipmentId" | "orderItemId">) => o.shipmentId ?? o.orderItemId;
 
 export type Urgency = "late" | "today" | "tomorrow" | "later" | "none";
 
@@ -385,53 +408,210 @@ export function isRed(u: Urgency): boolean {
   return u === "late" || u === "today";
 }
 
-export type WarehouseOrders = {
+export type WarehouseOrders = Record<Bucket, number> & {
   warehouseId: string | null;
   name: string;
-  new: number;
-  packed: number;
-  ready: number;
-  other: number;
-  total: number;
+  /** To Accept + To Pack + To Dispatch. */
+  active: number;
+  /** Shipped, not yet delivered (count only). */
+  inTransit: number;
+  /** Active orders on hold: shown, never counted as late. */
   held: number;
   late: number;
   today: number;
   tomorrow: number;
-  /** The earliest deadline among orders that are not on hold. */
+  /** The earliest deadline among Active orders that are not on hold. */
   nextDue: string | null;
 };
 
-/** Counts of orders (not items) per warehouse. Orders on hold are counted apart: they are not at risk. */
-export function ordersByWarehouse(orders: PendingOrder[], warehouses: { id: string; name: string }[], now: Date): WarehouseOrders[] {
+/**
+ * Seller Hub's counts per warehouse, in shipments. Lateness only counts Active orders that are not on hold:
+ * Upcoming orders cannot be dispatched yet and Under Processing is Flipkart's own work.
+ */
+export function ordersByWarehouse(
+  orders: PendingOrder[],
+  warehouses: { id: string; name: string }[],
+  now: Date,
+  inTransit: Record<string, number> = {},
+): WarehouseOrders[] {
   const make = (warehouseId: string | null, name: string): WarehouseOrders => ({
-    warehouseId, name, new: 0, packed: 0, ready: 0, other: 0, total: 0, held: 0, late: 0, today: 0, tomorrow: 0, nextDue: null,
+    warehouseId, name, to_accept: 0, to_pack: 0, to_dispatch: 0, upcoming: 0, processing: 0,
+    active: 0, inTransit: warehouseId ? inTransit[warehouseId] ?? 0 : 0, held: 0, late: 0, today: 0, tomorrow: 0, nextDue: null,
   });
   const byId = new Map<string | null, WarehouseOrders>();
   for (const w of warehouses) byId.set(w.id, make(w.id, w.name));
   const seen = new Set<string>();
   for (const o of orders) {
+    const bucket = bucketOf(o, now);
+    if (!bucket) continue;
     const key = o.warehouseId && byId.has(o.warehouseId) ? o.warehouseId : null;
     if (!byId.has(key)) byId.set(key, make(null, "Unknown warehouse"));
     const row = byId.get(key) as WarehouseOrders;
-    const orderKey = `${key}|${o.orderId}`;
-    if (seen.has(orderKey)) {
-      if (!o.hold && o.dispatchBy && (row.nextDue === null || o.dispatchBy < row.nextDue)) row.nextDue = o.dispatchBy;
-      continue;
-    }
-    seen.add(orderKey);
-    row.total += 1;
+    const active = isActiveBucket(bucket);
+    if (active && !o.hold && o.dispatchBy && (row.nextDue === null || o.dispatchBy < row.nextDue)) row.nextDue = o.dispatchBy;
+    const k = `${key}|${shipmentKey(o)}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    row[bucket] += 1;
+    if (!active) continue;
+    row.active += 1;
     if (o.hold) {
       row.held += 1;
       continue;
     }
-    row[statusGroup(o.status)] += 1;
     const u = urgency(o.dispatchBy, now);
     if (u === "late") row.late += 1;
     else if (u === "today") row.today += 1;
     else if (u === "tomorrow") row.tomorrow += 1;
-    if (o.dispatchBy && (row.nextDue === null || o.dispatchBy < row.nextDue)) row.nextDue = o.dispatchBy;
   }
-  return [...byId.values()].filter((w) => w.warehouseId !== null || w.total > 0);
+  return [...byId.values()].filter((w) => w.warehouseId !== null || w.active + w.upcoming + w.processing > 0);
+}
+
+// --- Orders grouped by SKU (Seller Hub's Smart Groups) ---------------------------------------------------------------
+
+/** Title and units per warehouse ID for each SKU, from the latest stock snapshot. */
+export type StockBySku = Record<string, { title: string | null; units: Record<string, number | null> }>;
+
+export type SkuGroup = {
+  sku: string | null;
+  orders: PendingOrder[];
+  /** Shipments, as Seller Hub counts them. */
+  orderCount: number;
+  units: number;
+  unitsByWarehouse: Record<string, number>;
+  /** The earliest dispatch-by among these orders (orders on hold left out). */
+  earliestDue: string | null;
+  /** The same among Active orders only: the one that can be late (red). */
+  earliestActiveDue: string | null;
+  counts: Record<Bucket, number>;
+};
+
+/** One row per SKU, most urgent first. The orders passed in are already narrowed to a tab and a warehouse. */
+export function skuGroups(orders: PendingOrder[], now: Date): SkuGroup[] {
+  const groups = new Map<string, SkuGroup>();
+  const seen = new Set<string>();
+  for (const o of orders) {
+    const bucket = bucketOf(o, now);
+    if (!bucket) continue;
+    const id = o.sku ?? "";
+    let g = groups.get(id);
+    if (!g) {
+      g = { sku: o.sku, orders: [], orderCount: 0, units: 0, unitsByWarehouse: {}, earliestDue: null, earliestActiveDue: null, counts: { to_accept: 0, to_pack: 0, to_dispatch: 0, upcoming: 0, processing: 0 } };
+      groups.set(id, g);
+    }
+    g.orders.push(o);
+    g.units += o.quantity;
+    const wid = o.warehouseId ?? "";
+    g.unitsByWarehouse[wid] = (g.unitsByWarehouse[wid] ?? 0) + o.quantity;
+    const key = `${id}|${wid}|${shipmentKey(o)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      g.orderCount += 1;
+    }
+    if (!seen.has(`${bucket}|${key}`)) {
+      seen.add(`${bucket}|${key}`);
+      g.counts[bucket] += 1;
+    }
+    if (!o.hold && o.dispatchBy && (g.earliestDue === null || o.dispatchBy < g.earliestDue)) g.earliestDue = o.dispatchBy;
+    if (!o.hold && o.dispatchBy && isActiveBucket(bucket) && (g.earliestActiveDue === null || o.dispatchBy < g.earliestActiveDue)) g.earliestActiveDue = o.dispatchBy;
+  }
+  return [...groups.values()]
+    .map((g) => ({ ...g, orders: g.orders.sort((a, b) => (a.dispatchBy ?? "9").localeCompare(b.dispatchBy ?? "9")) }))
+    .sort((a, b) => (a.earliestDue ?? "9").localeCompare(b.earliestDue ?? "9") || b.units - a.units || (a.sku ?? "").localeCompare(b.sku ?? ""));
+}
+
+/** How many units a warehouse is short: pending units there minus its stock, or 0. Unknown stock is never "short". */
+export function shortBy(units: number, stock: number | null | undefined): number {
+  return stock === null || stock === undefined ? 0 : Math.max(0, units - stock);
+}
+
+// --- Pick list -------------------------------------------------------------------------------------------------------------
+
+export type PickRow = {
+  sku: string | null;
+  title: string | null;
+  /** Units still to pack: To Accept plus To Pack. */
+  units: number;
+  toAccept: number;
+  toPack: number;
+  orders: number;
+  earliestDue: string | null;
+  stock: number | null;
+};
+
+/**
+ * What to pack at one warehouse: Active orders not packed yet (To Accept and To Pack), one row per SKU.
+ * `dueBy` (an IST day) keeps only orders due that day or earlier; null takes every Active order.
+ */
+export function pickList(orders: PendingOrder[], warehouseId: string, now: Date, stock: StockBySku, dueBy: string | null): PickRow[] {
+  const rows = new Map<string, PickRow>();
+  const seen = new Set<string>();
+  for (const o of orders) {
+    if (o.warehouseId !== warehouseId || o.hold) continue;
+    const bucket = bucketOf(o, now);
+    if (bucket !== "to_accept" && bucket !== "to_pack") continue;
+    if (dueBy && (!o.dispatchBy || todayIST(new Date(o.dispatchBy)) > dueBy)) continue;
+    const id = o.sku ?? "";
+    let r = rows.get(id);
+    if (!r) {
+      r = { sku: o.sku, title: o.sku ? stock[o.sku]?.title ?? null : null, units: 0, toAccept: 0, toPack: 0, orders: 0, earliestDue: null, stock: o.sku ? stock[o.sku]?.units[warehouseId] ?? null : null };
+      rows.set(id, r);
+    }
+    r.units += o.quantity;
+    if (bucket === "to_accept") r.toAccept += o.quantity;
+    else r.toPack += o.quantity;
+    if (!seen.has(`${id}|${shipmentKey(o)}`)) {
+      seen.add(`${id}|${shipmentKey(o)}`);
+      r.orders += 1;
+    }
+    if (o.dispatchBy && (r.earliestDue === null || o.dispatchBy < r.earliestDue)) r.earliestDue = o.dispatchBy;
+  }
+  return [...rows.values()];
+}
+
+// --- Upcoming vs stock ---------------------------------------------------------------------------------------------------
+
+export type UpcomingRow = {
+  sku: string | null;
+  title: string | null;
+  warehouseId: string;
+  /** Units in Upcoming orders. */
+  upcoming: number;
+  orders: number;
+  /** When the first of them becomes Active. */
+  firstActive: string | null;
+  /** Units in Active orders at the same warehouse, for context. */
+  active: number;
+  stock: number | null;
+  short: number;
+};
+
+/** Per SKU and warehouse: upcoming units against current stock, shortfalls first. */
+export function upcomingVsStock(orders: PendingOrder[], now: Date, stock: StockBySku): UpcomingRow[] {
+  const rows = new Map<string, UpcomingRow>();
+  const seen = new Set<string>();
+  const activeUnits = new Map<string, number>();
+  for (const o of orders) {
+    if (!o.warehouseId) continue;
+    const bucket = bucketOf(o, now);
+    const id = `${o.sku ?? ""}|${o.warehouseId}`;
+    if (isActiveBucket(bucket)) activeUnits.set(id, (activeUnits.get(id) ?? 0) + o.quantity);
+    if (bucket !== "upcoming") continue;
+    let r = rows.get(id);
+    if (!r) {
+      r = { sku: o.sku, title: o.sku ? stock[o.sku]?.title ?? null : null, warehouseId: o.warehouseId, upcoming: 0, orders: 0, firstActive: null, active: 0, stock: o.sku ? stock[o.sku]?.units[o.warehouseId] ?? null : null, short: 0 };
+      rows.set(id, r);
+    }
+    r.upcoming += o.quantity;
+    if (!seen.has(`${id}|${shipmentKey(o)}`)) {
+      seen.add(`${id}|${shipmentKey(o)}`);
+      r.orders += 1;
+    }
+    if (o.dispatchAfter && (r.firstActive === null || o.dispatchAfter < r.firstActive)) r.firstActive = o.dispatchAfter;
+  }
+  return [...rows.entries()]
+    .map(([id, r]) => ({ ...r, active: activeUnits.get(id) ?? 0, short: shortBy(r.upcoming, r.stock) }))
+    .sort((a, b) => b.short - a.short || (a.firstActive ?? "9").localeCompare(b.firstActive ?? "9") || (a.sku ?? "").localeCompare(b.sku ?? ""));
 }
 
 // --- Needs action today ------------------------------------------------------------------------------------------------
@@ -457,7 +637,7 @@ export type NeedsInput = {
   /** Owner, manager and listing see prices, listing problems and new inactive listings; warehouse users do not. */
   staff: boolean;
   warehouses: { id: string; name: string }[];
-  /** Pending orders (not on hold are the ones at risk). */
+  /** Pending orders. Only Active ones count here: Upcoming cannot be late yet, Under Processing is Flipkart's. */
   orders: PendingOrder[];
   /** Stock listings with units per warehouse, in the order of `warehouses`. */
   listings: DeskListing[];
@@ -475,7 +655,8 @@ export function ticketHref(sku: string | null, issue: "wrong_return" | "listing_
 }
 
 export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: string; sellerHubListings: string }): ActionSection[] {
-  const { now, warehouses, orders, listings, settings } = input;
+  const { now, warehouses, listings, settings } = input;
+  const orders = input.orders.filter((o) => isActiveBucket(bucketOf(o, now)));
   const sections: ActionSection[] = [];
   const nameOf = (id: string | null) => warehouses.find((w) => w.id === id)?.name ?? "Unknown warehouse";
   const hub = (label: string, href: string): ActionLink => ({ label, href, external: true });
@@ -504,13 +685,13 @@ export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: st
     });
   }
 
-  // 2. A SKU that is empty at a warehouse that has orders waiting for it.
+  // 2. A SKU that is empty at a warehouse that has Active orders waiting for it.
   const waiting = new Map<string, { sku: string; warehouseId: string; orders: Set<string>; units: number }>();
   for (const o of orders) {
     if (!o.sku || !o.warehouseId || o.hold) continue;
     const key = `${o.sku}|${o.warehouseId}`;
     const entry = waiting.get(key) ?? { sku: o.sku, warehouseId: o.warehouseId, orders: new Set<string>(), units: 0 };
-    entry.orders.add(o.orderId);
+    entry.orders.add(shipmentKey(o));
     entry.units += o.quantity;
     waiting.set(key, entry);
   }

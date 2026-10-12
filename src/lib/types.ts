@@ -222,7 +222,7 @@ export type PriceChangeRow = {
 export type OrderRun = {
   id: string;
   platform: Platform;
-  kind: "pending" | "daily" | "backfill";
+  kind: "pending" | "daily" | "backfill" | "upcoming";
   trigger: "cron" | "manual";
   status: "queued" | "running" | "paused" | "done" | "failed";
   step: number;
@@ -319,7 +319,8 @@ export type Database = {
       };
       stock_snapshot: { Args: { p_date: string }; Returns: Json };
       request_stock_sync: { Args: Record<string, never>; Returns: string };
-      request_orders_sync: { Args: { p_kind: "pending" | "daily" }; Returns: string };
+      request_orders_sync: { Args: { p_kind: "pending" | "daily" | "upcoming" }; Returns: string };
+      flipkart_in_transit: { Args: Record<string, never>; Returns: { warehouse_id: string | null; shipments: number }[] };
       flipkart_sales_rates: { Args: Record<string, never>; Returns: Json };
       flipkart_stock_drops: { Args: Record<string, never>; Returns: Json };
       flipkart_return_rates: { Args: { p_days?: number }; Returns: Json };

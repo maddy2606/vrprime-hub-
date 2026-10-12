@@ -11,6 +11,7 @@ import {
   soonestBySku,
   type PendingOrder,
   type PriceInput,
+  type StockBySku,
 } from "@/lib/flipkart-analysis";
 import { fakeDesk, FAKE_WAREHOUSES } from "@/lib/dev-fixtures";
 import type { OrderSyncState, RunSummary } from "@/lib/orders-sync";
@@ -25,17 +26,34 @@ const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOSt
 
 export function fakeOrders(): PendingOrder[] {
   const statuses = ["APPROVED", "APPROVED", "PACKING_IN_PROGRESS", "PACKED", "READY_TO_DISPATCH"];
-  const due = [-5, -1, 1, 2, 3, 9, 14, 30, 50];
-  return Array.from({ length: 40 }, (_, k) => ({
+  const due = [-5, -1, 1, 2, 3, 9, 14, 30, 50, 120, 200];
+  return Array.from({ length: 60 }, (_, k) => ({
     orderItemId: `FAKE-OI-${1000 + k}`,
     orderId: `FAKE-OD-${5000 + Math.floor(k / 1.3)}`,
+    shipmentId: `FAKE-SH-${5000 + Math.floor(k / 1.3)}`,
     sku: k % 7 === 0 ? "FAKE-SKU-0011" : `FAKE-SKU-${String((k % 20) + 1).padStart(4, "0")}`,
     quantity: 1 + (k % 3),
     warehouseId: FAKE_WAREHOUSES[k % 5].id,
     status: statuses[k % 5],
     hold: k === 13,
     dispatchBy: hoursFromNow(due[k % due.length]),
+    // The far-off ones are Upcoming: dispatch-after still in the future.
+    dispatchAfter: hoursFromNow(due[k % due.length] - 24),
   }));
+}
+
+/** Fake stock per SKU: some warehouses short of what is ordered there. */
+export function fakeStockBySku(): StockBySku {
+  const out: StockBySku = {};
+  for (let n = 1; n <= 20; n++) {
+    const sku = `FAKE-SKU-${String(n).padStart(4, "0")}`;
+    out[sku] = { title: `Fake product number ${n}`, units: Object.fromEntries(FAKE_WAREHOUSES.map((w, i) => [w.id, (n * 7 + i * 3) % 9 === 0 ? 0 : ((n * 13 + i * 5) % 40)])) };
+  }
+  return out;
+}
+
+export function fakeInTransit(): Record<string, number> {
+  return Object.fromEntries(FAKE_WAREHOUSES.map((w, i) => [w.id, 40 + i * 17]));
 }
 
 export function fakeCancellations() {
@@ -138,6 +156,7 @@ export function fakeOrderSync(stage: "ok" | "running" | "failed" | "nobackfill" 
           : pending,
     lastPending: pending,
     lastDaily: fakeRun("daily", { createdAt: hoursFromNow(-5), finishedAt: hoursFromNow(-4.9) }),
+    lastUpcoming: fakeRun("upcoming", { parts: 74, step: 74, createdAt: hoursFromNow(-14), finishedAt: hoursFromNow(-13.5) }),
     backfill: stage === "nobackfill" ? null : fakeRun("backfill", { status: "paused", coverageFrom: day(-11), finishedAt: null }),
   };
 }

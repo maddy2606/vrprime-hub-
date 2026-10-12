@@ -3,7 +3,7 @@
 // Contents: price flags, listing health, days of cover ("running out soon"), return rates,
 // pending orders by warehouse, and the "Needs action today" list built from all of them.
 
-import { addDays, todayIST } from "./format.ts";
+import { addDays, formatDate, todayIST } from "./format.ts";
 import { daysBetween, restockHref, type DeskListing } from "./stock-analysis.ts";
 
 // --- Settings ---------------------------------------------------------------------------------------
@@ -565,7 +565,7 @@ export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: st
         rows: input.newInactive.map((l) => ({
           key: `inactive-${l.sku}`,
           title: l.sku,
-          detail: `Went inactive ${l.inactiveSince ?? ""}`.trim(),
+          detail: l.inactiveSince ? `Went inactive on ${formatDay(l.inactiveSince, input.now)}` : "Went inactive",
           tone: "bad",
           actions: [{ label: "Raise ticket", href: ticketHref(l.sku, "listing_blocked") }, hub("Open in Seller Hub", links.sellerHubListings)],
         })),
@@ -606,6 +606,10 @@ export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: st
   }
 
   return sections;
+}
+
+function formatDay(isoDay: string, now: Date): string {
+  return formatDate(isoDay, todayIST(now));
 }
 
 /** "today 4:30 pm" / "tomorrow 11:00 am" / "12 Oct, 4:30 pm", in IST. */

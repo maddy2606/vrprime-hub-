@@ -74,6 +74,12 @@ export function ReturnsTab({ returns, rates, historyReady, rateLimit, warehouses
     <>
       <OrdersSyncBar state={state} canSync={canSync} kind="daily" today={today} />
 
+      {!historyReady ? (
+        <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-xs font-semibold text-warn">
+          Only returns that changed in the last few days are loaded so far. The full 30 days arrive when the nightly load finishes, so the counts below are low until then.
+        </p>
+      ) : null}
+
       <div className="mb-4 grid grid-cols-3 gap-2">
         {[
           { label: "Returns, 30 days", value: formatNumber(units(returns)), sub: `${formatNumber(returns.length)} lines` },

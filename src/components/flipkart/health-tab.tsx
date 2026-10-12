@@ -10,7 +10,8 @@ type Filter = "all" | HealthProblem;
 
 export function HealthTab({ rows, total, taxUnread, slaLimit }: { rows: HealthRow[]; total: number; taxUnread: number; slaLimit: number }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const [hideInactive, setHideInactive] = useState(true);
+  // Inactive listings are shown by default here: a space in the SKU or a missing HSN is worth fixing before it is relisted.
+  const [hideInactive, setHideInactive] = useState(false);
 
   const visible = useMemo(() => (hideInactive ? rows.filter((r) => r.status === "ACTIVE") : rows), [rows, hideInactive]);
   const shown = useMemo(() => (filter === "all" ? visible : visible.filter((r) => r.problems.includes(filter))), [visible, filter]);

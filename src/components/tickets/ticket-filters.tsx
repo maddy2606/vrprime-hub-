@@ -3,28 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { SearchIcon } from "@/components/icons";
-import { ISSUE_LABEL, PLATFORM_LABEL, TICKET_STATUS_LABEL } from "@/lib/labels";
-import type { TicketFilterValues } from "@/lib/ticket-options";
-import { ISSUE_TYPES, PLATFORMS, TICKET_STATUSES } from "@/lib/types";
+import { ISSUE_LABEL, PLATFORM_LABEL } from "@/lib/labels";
+import { ticketsUrl, type TicketFilterValues } from "@/lib/ticket-options";
+import { ISSUE_TYPES, PLATFORMS } from "@/lib/types";
 
-function toQuery(v: TicketFilterValues): string {
-  const params = new URLSearchParams();
-  if (v.q.trim()) params.set("q", v.q.trim());
-  if (v.platform) params.set("platform", v.platform);
-  if (v.status) params.set("status", v.status);
-  if (v.issue) params.set("issue", v.issue);
-  if (v.due) params.set("due", "1");
-  const s = params.toString();
-  return s ? `/tickets?${s}` : "/tickets";
-}
-
-type Props = {
-  values: TicketFilterValues;
-  /** The status actually applied when none is chosen ("active", or "any" while searching). */
-  effectiveStatus: string;
-};
-
-export function TicketFilters({ values, effectiveStatus }: Props) {
+/** Search, platform and issue type. The tab (open, waiting, ...) is kept while these change. */
+export function TicketFilters({ values }: { values: TicketFilterValues }) {
   const router = useRouter();
   const [q, setQ] = useState(values.q);
   const [pending, startTransition] = useTransition();
@@ -33,7 +17,7 @@ export function TicketFilters({ values, effectiveStatus }: Props) {
     latest.current = values;
   }, [values]);
 
-  const go = (next: TicketFilterValues) => startTransition(() => router.replace(toQuery(next), { scroll: false }));
+  const go = (next: TicketFilterValues) => startTransition(() => router.replace(ticketsUrl(next), { scroll: false }));
 
   // Search as you type, after a short pause.
   useEffect(() => {
@@ -45,7 +29,7 @@ export function TicketFilters({ values, effectiveStatus }: Props) {
   }, [q]);
 
   const set = (patch: Partial<TicketFilterValues>) => go({ ...values, q, ...patch });
-  const filtered = Boolean(values.q || values.platform || values.status || values.issue || values.due);
+  const filtered = Boolean(values.q || values.platform || values.issue);
   const select = "input min-h-10 py-1.5";
 
   return (
@@ -59,25 +43,15 @@ export function TicketFilters({ values, effectiveStatus }: Props) {
           id="ticket-search"
           type="search"
           className="input pl-10"
-          placeholder="Search ticket ID or SKU"
+          placeholder="Search ticket ID, SKU or problem"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           autoComplete="off"
-          autoCapitalize="characters"
           enterKeyHint="search"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-        <select aria-label="Status" className={select} value={values.status || effectiveStatus} onChange={(e) => set({ status: e.target.value })}>
-          <option value="active">Active</option>
-          <option value="any">Any status</option>
-          {TICKET_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {TICKET_STATUS_LABEL[s]}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-2 gap-2">
         <select aria-label="Platform" className={select} value={values.platform} onChange={(e) => set({ platform: e.target.value })}>
           <option value="">All platforms</option>
           {PLATFORMS.map((p) => (
@@ -86,7 +60,7 @@ export function TicketFilters({ values, effectiveStatus }: Props) {
             </option>
           ))}
         </select>
-        <select aria-label="Issue type" className={`${select} col-span-2 md:col-span-1`} value={values.issue} onChange={(e) => set({ issue: e.target.value })}>
+        <select aria-label="Issue type" className={select} value={values.issue} onChange={(e) => set({ issue: e.target.value })}>
           <option value="">All issue types</option>
           {ISSUE_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -96,31 +70,23 @@ export function TicketFilters({ values, effectiveStatus }: Props) {
         </select>
       </div>
 
-      <div className="flex min-h-9 flex-wrap items-center gap-2">
-        <button
-          type="button"
-          aria-pressed={values.due}
-          onClick={() => set({ due: !values.due })}
-          className={`focus-ring min-h-9 rounded-full border px-3 text-sm font-bold ${
-            values.due ? "border-warn bg-warn-soft text-warn" : "border-line bg-surface text-muted"
-          }`}
-        >
-          Follow-up due
-        </button>
-        {filtered ? (
-          <button
-            type="button"
-            onClick={() => {
-              setQ("");
-              go({ q: "", platform: "", status: "", issue: "", due: false });
-            }}
-            className="focus-ring min-h-9 rounded-full px-3 text-sm font-bold text-accent-text"
-          >
-            Clear filters
-          </button>
-        ) : null}
-        {pending ? <span className="text-sm text-muted">Updating…</span> : null}
-      </div>
+      {filtered || pending ? (
+        <div className="flex min-h-9 items-center gap-2">
+          {filtered ? (
+            <button
+              type="button"
+              onClick={() => {
+                setQ("");
+                go({ q: "", platform: "", issue: "", tab: values.tab });
+              }}
+              className="focus-ring min-h-9 rounded-full px-3 text-sm font-bold text-accent-text"
+            >
+              Clear search and filters
+            </button>
+          ) : null}
+          {pending ? <span className="text-sm text-muted">Updating…</span> : null}
+        </div>
+      ) : null}
     </div>
   );
 }

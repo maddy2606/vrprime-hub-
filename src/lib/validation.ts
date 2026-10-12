@@ -134,12 +134,6 @@ export type UpdateUserInput = z.input<typeof updateUserSchema>;
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-const optionalMoney = z
-  .union([z.number(), z.string(), z.null(), z.undefined()])
-  .transform((v) => (v === "" || v === null || v === undefined ? null : Number(String(v).replace(/,/g, ""))))
-  .refine((v) => v === null || (Number.isFinite(v) && v >= 0 && v <= 100_000_000), "Enter an amount in rupees, 0 or more")
-  .transform((v) => (v === null ? null : Math.round(v * 100) / 100));
-
 export const ticketSchema = z
   .object({
     ticket_id: z.string().trim().min(1, "Enter the marketplace ticket ID").max(120, "Keep this under 120 characters"),
@@ -147,12 +141,10 @@ export const ticketSchema = z
     issue_type: z.enum(ISSUE_TYPES).default("other"),
     post_id: optionalUuid,
     sku: optionalText(120),
-    amount_involved: optionalMoney,
     raised_on: z.string().regex(DATE, "Pick the date it was raised"),
     next_follow_up: optionalDate,
     status: z.enum(TICKET_STATUSES).default("open"),
     resolution_notes: optionalText(2000),
-    amount_recovered: optionalMoney,
   })
   .superRefine((v, ctx) => {
     if (v.next_follow_up && v.next_follow_up < v.raised_on) {

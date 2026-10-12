@@ -168,9 +168,9 @@ export type Database = {
     Functions: {
       search_posts: { Args: { q: string }; Returns: Post[] };
       search_tickets: { Args: { q: string }; Returns: Ticket[] };
-      ticket_totals: {
-        Args: Record<string, never>;
-        Returns: { open_count: number; open_amount: number; recovered_amount: number; follow_up_due: number }[];
+      ticket_counts: {
+        Args: { q?: string; p_platform?: string | null; p_issue?: string | null };
+        Returns: { open_count: number; waiting_count: number; follow_up_due: number; closed_count: number }[];
       };
       send_test_notification: { Args: Record<string, never>; Returns: undefined };
       register_push_subscription: {

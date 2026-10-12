@@ -67,6 +67,17 @@ Checks before pushing:
 npm test && npx tsc --noEmit && npm run lint && npm run build
 ```
 
+## Tickets
+
+Tickets only track what has been opened on the marketplace. The Tickets page has four tabs, each with a count:
+Open, Waiting for marketplace, Follow-up due (open or waiting tickets whose next follow-up is today or earlier,
+shown in red), and Closed (resolved and rejected). Search finds a ticket by its marketplace ID, SKU, VR-T number or
+the title and number of the problem it was raised from; platform and issue type can be filtered. Each row shows the
+marketplace ID, the linked problem (tap it to open the post), platform, issue type, warehouse (the problem's), the
+raised date, the next follow-up and the status; tap the row to open the ticket. The form has the ticket ID,
+platform, issue type, SKU, raised on, next follow-up, status and notes. The `amount_involved` and
+`amount_recovered` columns still exist in the database but nothing reads or writes them.
+
 ## Notifications and push
 
 People are told when:
@@ -77,7 +88,7 @@ People are told when:
 | Someone comments on a post | The post's creator and assignee, except the commenter | Straight away |
 | A post is marked done | The post's creator and assignee, except whoever marked it | Straight away |
 | Overdue work | Each person with overdue open posts assigned to them, in one message | 9:30 AM IST daily |
-| Ticket follow-up due (today or earlier, ticket still open or waiting) | Whoever saved the ticket, and the assignee of its post | 9:30 AM IST daily |
+| Ticket follow-up due (today or earlier, ticket open or waiting) | Whoever saved the ticket, and the assignee of its post. Tapping it opens the Follow-up due tab. | 9:30 AM IST daily |
 
 Every notification is saved in the app (the bell, then the Notifications page) whether or not push is on.
 Deactivated users get none. The overdue and follow-up messages are sent at most once per person per day,
@@ -92,6 +103,9 @@ refuses everyone else (`verify_jwt` is off for that reason). If push is not set 
 comments and tickets still save normally and the bell still works.
 
 ### Turning push on (one time)
+
+Done on 2026-10-12 for this project (keys generated, public key in Vercel, the three secrets in Supabase). The steps are
+kept here for rebuilding the project or rotating the keys.
 
 1. Create a key pair on any computer: `npx web-push generate-vapid-keys`. It prints a public and a private key.
 2. In Vercel > Settings > Environment Variables add `NEXT_PUBLIC_VAPID_PUBLIC_KEY` = the **public** key, then redeploy.

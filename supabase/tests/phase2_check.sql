@@ -21,7 +21,7 @@ declare
   t_blr uuid;
   t_del uuid;
   n int;
-  amount numeric;
+  counts record;
   blocked boolean;
   claims text;
 begin
@@ -173,20 +173,20 @@ begin
   -- ---- Tickets ------------------------------------------------------------------
   perform set_config('request.jwt.claims', json_build_object('sub', u_mgr, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.tickets (ticket_id, post_id, sku, amount_involved, amount_recovered, status, next_follow_up, created_by)
-    values ('P2-TKT-BLR', p_blr, 'P2-SKU-1', 1000, 0, 'open', (now() at time zone 'Asia/Kolkata')::date, u_mgr)
+  insert into public.tickets (ticket_id, post_id, sku, status, next_follow_up, created_by)
+    values ('P2-TKT-BLR', p_blr, 'P2-SKU-1', 'open', (now() at time zone 'Asia/Kolkata')::date, u_mgr)
     returning id into t_blr;
-  insert into public.tickets (ticket_id, post_id, sku, amount_involved, amount_recovered, status, created_by)
-    values ('P2-TKT-DEL', p_del, 'P2-SKU-2', 500, 200, 'resolved', u_mgr)
+  insert into public.tickets (ticket_id, post_id, sku, status, created_by)
+    values ('P2-TKT-DEL', p_del, 'P2-SKU-2', 'resolved', u_mgr)
     returning id into t_del;
-  insert into public.tickets (ticket_id, amount_involved, status, created_by)
-    values ('P2-TKT-NOPOST', 250, 'waiting_marketplace', u_mgr);
+  insert into public.tickets (ticket_id, status, created_by)
+    values ('P2-TKT-NOPOST', 'waiting_marketplace', u_mgr);
   reset role;
 
   select count(*) into n from public.post_events where post_id = p_blr and kind = 'ticket';
   assert n = 1, 'raising a ticket from a post should appear in the post history';
 
-  -- Manager sees all three (plus any real ones), totals add up
+  -- Manager: search finds tickets by ID, SKU, VR-T number and the linked problem's title
   perform set_config('request.jwt.claims', json_build_object('sub', u_mgr, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into n from public.search_tickets('P2-TKT');
@@ -195,8 +195,21 @@ begin
   assert n = 1, 'ticket search should match SKU, ignoring case';
   select count(*) into n from public.search_tickets('VR-T-' || (select number from public.tickets where id = t_blr));
   assert n = 1, 'ticket search should match the VR-T number';
-  select open_amount into amount from public.ticket_totals();
-  assert amount >= 1250, 'open total should include both open tickets';
+  select count(*) into n from public.search_tickets('P2 Bangalore problem');
+  assert n = 1, 'ticket search should match the linked problem title';
+  select count(*) into n from public.search_tickets('VR-' || (select number from public.posts where id = p_del));
+  assert n >= 1, 'ticket search should match the linked problem number';
+
+  -- Tab counts follow the search and filters
+  select * into counts from public.ticket_counts('P2-TKT');
+  assert counts.open_count = 1 and counts.waiting_count = 1 and counts.closed_count = 1,
+    'tab counts should split open, waiting and closed';
+  assert counts.follow_up_due = 1, 'follow-up due should count open tickets whose follow-up is today or earlier';
+  select * into counts from public.ticket_counts('P2-TKT', 'amazon', null);
+  assert counts.open_count = 0 and counts.waiting_count = 0 and counts.closed_count = 0 and counts.follow_up_due = 0,
+    'counts should respect the platform filter';
+  select * into counts from public.ticket_counts('P2-TKT', null, 'other');
+  assert counts.open_count + counts.waiting_count + counts.closed_count = 3, 'counts should respect the issue filter';
   reset role;
 
   -- Bangalore user sees only the ticket linked to their warehouse's post
@@ -206,8 +219,11 @@ begin
   assert n = 1, 'warehouse user must see only tickets linked to posts they can see';
   select count(*) into n from public.tickets where id in (t_del);
   assert n = 0, 'Bangalore user must NOT see the Delhi ticket';
-  select open_amount into amount from public.ticket_totals();
-  assert amount = 1000, 'totals must only count tickets the user can see';
+  select count(*) into n from public.search_tickets('P2 Delhi problem');
+  assert n = 0, 'searching a Delhi problem title must not reveal its ticket';
+  select * into counts from public.ticket_counts('P2-TKT');
+  assert counts.open_count = 1 and counts.waiting_count = 0 and counts.closed_count = 0,
+    'counts must only include tickets the user can see';
 
   blocked := false;
   begin

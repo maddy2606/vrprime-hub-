@@ -10,10 +10,10 @@ import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
 import { MarkAllReadButton, NotificationList } from "@/components/notifications/notification-list";
 import { PushSettings } from "@/components/notifications/push-settings";
-import { TicketCard } from "@/components/tickets/ticket-card";
+import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
 import { TicketForm } from "@/components/tickets/ticket-form";
-import { TicketTotals } from "@/components/tickets/ticket-totals";
+import { TicketTabs } from "@/components/tickets/ticket-tabs";
 import { PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
 import {
@@ -114,16 +114,25 @@ export default async function PreviewPage({
       ) : null}
       {view === "tickets" ? (
         <>
-          <PageTitle title="Tickets" sub="4 tickets" />
-          <TicketTotals totals={{ open_count: 3, open_amount: 143450.5, recovered_amount: 7200, follow_up_due: 2 }} />
-          <TicketFilters
-            values={{ q: "", platform: "", status: "", issue: "", due: true }}
-            effectiveStatus="active"
+          <PageTitle title="Tickets" sub="2 open · 1 waiting · 2 follow-up due" />
+          <TicketFilters values={{ q: "", platform: "", issue: "", tab: "open" }} />
+          <TicketTabs
+            filters={{ q: "", platform: "", issue: "", tab: "open" }}
+            counts={{ open_count: 2, waiting_count: 1, follow_up_due: 2, closed_count: 1 }}
           />
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
-            {FAKE_TICKETS.map((t) => (
-              <TicketCard key={t.id} ticket={t} today={today} />
-            ))}
+            {FAKE_TICKETS.map((t) => {
+              const post: TicketPost | null = FAKE_POSTS.find((p) => p.id === t.post_id) ?? null;
+              return (
+                <TicketCard
+                  key={t.id}
+                  ticket={t}
+                  post={post}
+                  warehouseName={post?.warehouse_id ? lookups.warehouseName(post.warehouse_id) : null}
+                  today={today}
+                />
+              );
+            })}
           </div>
         </>
       ) : null}
@@ -140,7 +149,6 @@ export default async function PreviewPage({
                 ? {
                     ...emptyTicket(today),
                     ticket_id: FAKE_TICKETS[0].ticket_id,
-                    amount_involved: "125000",
                     issue_type: "wrong_return",
                     sku: "FAKE-SKU-RED-XL",
                   }

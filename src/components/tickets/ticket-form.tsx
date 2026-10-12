@@ -21,13 +21,13 @@ type Props = {
   today: string;
 };
 
+/** Ticket ID, platform, issue type, SKU, raised on, next follow-up, status, notes. Nothing else. */
 export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [values, setValues] = useState<TicketFormValues>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
-  const editing = Boolean(ticketId);
 
   const set = <K extends keyof TicketFormValues>(key: K, value: TicketFormValues[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -66,18 +66,6 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
     });
   };
 
-  const money = (key: "amount_involved" | "amount_recovered") => (
-    <input
-      id={key}
-      className="input"
-      inputMode="decimal"
-      placeholder="0"
-      value={values[key]}
-      onChange={(e) => set(key, e.target.value.replace(/[^\d.,]/g, ""))}
-      aria-invalid={Boolean(errors[key])}
-    />
-  );
-
   return (
     <form
       noValidate
@@ -91,7 +79,7 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
         <div className="rounded-xl border border-line bg-surface px-4 py-3">
           <p className="text-xs font-semibold text-muted">Linked post</p>
           <Link prefetch={false} href={`/posts/${linkedPost.id}`} className="focus-ring mt-0.5 block break-words text-sm font-bold">
-            <span className="font-mono">{postNumber(linkedPost.number)}</span> {linkedPost.title}
+            <span className="font-mono">{postNumber(linkedPost.number)}</span> · {linkedPost.title}
           </Link>
         </div>
       ) : null}
@@ -131,23 +119,18 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
         </Field>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="SKU" htmlFor="sku" error={errors.sku}>
-          <input
-            id="sku"
-            className="input font-mono"
-            value={values.sku}
-            onChange={(e) => set("sku", e.target.value)}
-            maxLength={120}
-            autoCapitalize="characters"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-        </Field>
-        <Field label="Amount involved (₹)" htmlFor="amount_involved" error={errors.amount_involved}>
-          {money("amount_involved")}
-        </Field>
-      </div>
+      <Field label="SKU" htmlFor="sku" error={errors.sku}>
+        <input
+          id="sku"
+          className="input font-mono"
+          value={values.sku}
+          onChange={(e) => set("sku", e.target.value)}
+          maxLength={120}
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+      </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Raised on" htmlFor="raised_on" required error={errors.raised_on}>
@@ -179,25 +162,19 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
         </Field>
       </div>
 
-      {editing ? (
-        <>
-          <Field label="Status" htmlFor="status" required error={errors.status}>
-            <select id="status" className="input" value={values.status} onChange={(e) => set("status", e.target.value as TicketStatus)}>
-              {TICKET_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {TICKET_STATUS_LABEL[s]}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Resolution notes" htmlFor="resolution_notes" error={errors.resolution_notes} hint="What the marketplace said or decided">
-            <textarea id="resolution_notes" className="input" value={values.resolution_notes} onChange={(e) => set("resolution_notes", e.target.value)} maxLength={2000} />
-          </Field>
-          <Field label="Amount recovered (₹)" htmlFor="amount_recovered" error={errors.amount_recovered}>
-            {money("amount_recovered")}
-          </Field>
-        </>
-      ) : null}
+      <Field label="Status" htmlFor="status" required error={errors.status}>
+        <select id="status" className="input" value={values.status} onChange={(e) => set("status", e.target.value as TicketStatus)}>
+          {TICKET_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {TICKET_STATUS_LABEL[s]}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label="Notes" htmlFor="resolution_notes" error={errors.resolution_notes}>
+        <textarea id="resolution_notes" className="input" value={values.resolution_notes} onChange={(e) => set("resolution_notes", e.target.value)} maxLength={2000} />
+      </Field>
 
       <div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-start">
         <button type="submit" disabled={pending} className={buttonClass("primary", "sm:min-w-40")}>

@@ -49,12 +49,10 @@ export async function createTicket(input: unknown): Promise<ActionResult<{ id: s
       issue_type: v.issue_type,
       post_id: v.post_id,
       sku: v.sku,
-      amount_involved: v.amount_involved,
       raised_on: v.raised_on,
       next_follow_up: v.next_follow_up,
       status: v.status,
       resolution_notes: v.resolution_notes,
-      amount_recovered: v.amount_recovered,
       created_by: user.id,
     })
     .select("id, number")
@@ -92,12 +90,10 @@ export async function updateTicket(ticketId: unknown, input: unknown): Promise<A
       platform: v.platform,
       issue_type: v.issue_type,
       sku: v.sku,
-      amount_involved: v.amount_involved,
       raised_on: v.raised_on,
       next_follow_up: v.next_follow_up,
       status: v.status,
       resolution_notes: v.resolution_notes,
-      amount_recovered: v.amount_recovered,
     })
     .eq("id", id.data)
     .select("number");

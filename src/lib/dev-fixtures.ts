@@ -107,6 +107,18 @@ export const FAKE_POSTS: Post[] = [
     done_note: "20 units short, rest next week",
     due_date: day(-2),
   },
+  {
+    ...base,
+    id: id(1007),
+    number: 1006,
+    type: "problem",
+    title: "Wrong item returned",
+    details: "Customer sent back a different colour.",
+    status: "open",
+    warehouse_id: id(102),
+    platform: "flipkart",
+    assignee_id: id(2),
+  },
 ];
 
 export const FAKE_COMMENTS: PostComment[] = [
@@ -130,12 +142,13 @@ const ticketBase: Ticket = {
   issue_type: "other",
   post_id: null,
   sku: null,
+  // The amount columns still exist in the database but are not used or shown anywhere.
   amount_involved: null,
+  amount_recovered: null,
   raised_on: day(-6),
   next_follow_up: null,
   status: "open",
   resolution_notes: null,
-  amount_recovered: null,
   created_by: id(2),
   created_at: new Date(Date.now() - 6 * 86_400_000).toISOString(),
   updated_at: new Date(Date.now() - 86_400_000).toISOString(),
@@ -150,7 +163,6 @@ export const FAKE_TICKETS: Ticket[] = [
     issue_type: "wrong_return",
     post_id: id(1001),
     sku: "FAKE-SKU-RED-XL",
-    amount_involved: 125000,
     next_follow_up: day(-2),
   },
   {
@@ -159,8 +171,8 @@ export const FAKE_TICKETS: Ticket[] = [
     number: 119,
     ticket_id: "FAKE-FK-CASE-0004712",
     issue_type: "payment_missing",
+    post_id: id(1007),
     sku: "FAKE-SKU-BLU-M",
-    amount_involved: 18450.5,
     next_follow_up: day(0),
   },
   {
@@ -180,8 +192,6 @@ export const FAKE_TICKETS: Ticket[] = [
     ticket_id: "FAKE-FK-CASE-0004650",
     issue_type: "claim",
     status: "resolved",
-    amount_involved: 9000,
-    amount_recovered: 7200,
     resolution_notes: "Claim approved for 80%.",
   },
 ];

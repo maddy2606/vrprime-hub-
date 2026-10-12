@@ -74,12 +74,10 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
           issue_type: ticket.issue_type,
           post_id: ticket.post_id ?? "",
           sku: ticket.sku ?? "",
-          amount_involved: ticket.amount_involved === null ? "" : String(ticket.amount_involved),
           raised_on: ticket.raised_on,
           next_follow_up: ticket.next_follow_up ?? "",
           status: ticket.status,
           resolution_notes: ticket.resolution_notes ?? "",
-          amount_recovered: ticket.amount_recovered === null ? "" : String(ticket.amount_recovered),
         }}
       />
     </div>

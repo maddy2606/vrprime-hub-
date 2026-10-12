@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { BoxIcon, InboxIcon, ListIcon, PlusIcon, TicketIcon, UsersIcon } from "@/components/icons";
+import { BellIcon, BoxIcon, InboxIcon, ListIcon, PlusIcon, TicketIcon, UsersIcon } from "@/components/icons";
+import { UnreadBadge } from "@/components/ui";
 
 type Item = { href: string; label: string; icon: (p: { className?: string }) => ReactNode };
 
@@ -60,9 +61,13 @@ export function BottomNav() {
 }
 
 /** Sidebar links on desktop. */
-export function SideNav({ showAdmin }: { showAdmin: boolean }) {
+export function SideNav({ showAdmin, unread }: { showAdmin: boolean; unread: number }) {
   const pathname = usePathname();
-  const items = showAdmin ? [...ITEMS, { href: "/admin/users", label: "Users", icon: UsersIcon }] : ITEMS;
+  const items: Item[] = [
+    ...ITEMS,
+    { href: "/notifications", label: "Notifications", icon: BellIcon },
+    ...(showAdmin ? [{ href: "/admin/users", label: "Users", icon: UsersIcon }] : []),
+  ];
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
       {items.map((item) => {
@@ -88,6 +93,11 @@ export function SideNav({ showAdmin }: { showAdmin: boolean }) {
             }`}
           >
             <item.icon className="h-5 w-5" /> {item.label}
+            {item.href === "/notifications" ? (
+              <span className="ml-auto">
+                <UnreadBadge count={unread} />
+              </span>
+            ) : null}
           </Link>
         );
       })}

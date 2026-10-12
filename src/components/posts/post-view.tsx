@@ -5,11 +5,12 @@ import { CommentThread } from "@/components/posts/comment-form";
 import { Photos, type Photo } from "@/components/posts/photos";
 import { PostActions } from "@/components/posts/post-actions";
 import { DueChip } from "@/components/posts/post-card";
-import { buttonClass, Card, PriorityChip, StatusChip, TypeChip } from "@/components/ui";
+import { FollowUpChip } from "@/components/tickets/ticket-card";
+import { buttonClass, Card, Chip, PriorityChip, StatusChip, TypeChip } from "@/components/ui";
 import type { Lookups } from "@/lib/data";
-import { formatDate, formatDateTime, formatNumber, postNumber } from "@/lib/format";
-import { FIELD_LABEL, PLATFORM_LABEL, PRIORITY_LABEL, STATUS_LABEL } from "@/lib/labels";
-import type { Json, Platform, Post, PostComment, PostEvent, PostStatus, Priority } from "@/lib/types";
+import { formatDate, formatDateTime, formatNumber, postNumber, ticketNumber } from "@/lib/format";
+import { FIELD_LABEL, PLATFORM_LABEL, PRIORITY_LABEL, STATUS_LABEL, TICKET_STATUS_LABEL, TICKET_STATUS_TONE } from "@/lib/labels";
+import type { Json, Platform, Post, PostComment, PostEvent, PostStatus, Priority, Ticket } from "@/lib/types";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -55,6 +56,8 @@ function describeEvent(event: PostEvent, lookups: Lookups, today: string): strin
       if (c.note) lines.push(`Note: ${text(c.note)}`);
       return lines;
     }
+    case "ticket":
+      return [`raised ticket ${ticketNumber(Number(c.number))} (${text(c.ticket_id)})`];
     case "assignee":
       return [c.to ? `assigned it to ${lookups.personName(String(c.to))}` : "removed the assignee"];
     case "edit":
@@ -69,6 +72,7 @@ function describeEvent(event: PostEvent, lookups: Lookups, today: string): strin
 
 type Props = {
   post: Post;
+  tickets: Ticket[];
   lookups: Lookups;
   today: string;
   comments: PostComment[];
@@ -76,7 +80,7 @@ type Props = {
   photos: Photo[];
 };
 
-export function PostView({ post, lookups, today, comments, events, photos }: Props) {
+export function PostView({ post, tickets, lookups, today, comments, events, photos }: Props) {
   const done = post.status === "done";
   return (
     <div>
@@ -149,7 +153,44 @@ export function PostView({ post, lookups, today, comments, events, photos }: Pro
             </Card>
           ) : null}
 
-          <PostActions post={post} />
+          {post.type === "problem" || tickets.length ? (
+            <Card className="p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-base font-extrabold">Tickets</h2>
+                {post.type === "problem" ? (
+                  <Link prefetch={false} href={`/tickets/new?post=${post.id}`} className={buttonClass("secondary", "shrink-0")}>
+                    Raise ticket
+                  </Link>
+                ) : null}
+              </div>
+              {tickets.length ? (
+                <ul className="flex flex-col gap-2">
+                  {tickets.map((ticket) => (
+                    <li key={ticket.id}>
+                      <Link
+                        prefetch={false}
+                        href={`/tickets/${ticket.id}`}
+                        className="focus-ring block rounded-lg bg-canvas p-3"
+                      >
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono text-xs font-medium text-muted">{ticketNumber(ticket.number)}</span>
+                          <Chip tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABEL[ticket.status]}</Chip>
+                          <FollowUpChip ticket={ticket} today={today} />
+                        </span>
+                        <span className="mt-1 block break-all font-mono text-sm font-bold">{ticket.ticket_id}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted">
+                  No ticket yet. If the marketplace needs to fix this, raise one here so its follow-up is tracked.
+                </p>
+              )}
+            </Card>
+          ) : null}
+
+          <PostActions post={post} linkedTicketIds={tickets.map((t) => t.ticket_id)} />
 
           <Card className="p-4">
             <h2 className="mb-3 text-base font-extrabold">Photos</h2>

@@ -32,11 +32,12 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   if (!post) notFound();
   const supabase = await createClient();
 
-  const [lookups, comments, events, attachments] = await Promise.all([
+  const [lookups, comments, events, attachments, tickets] = await Promise.all([
     getLookups(),
     supabase.from("post_comments").select("*").eq("post_id", id).order("created_at"),
     supabase.from("post_events").select("*").eq("post_id", id).order("created_at", { ascending: false }).order("id", { ascending: false }),
     supabase.from("post_attachments").select("*").eq("post_id", id).order("created_at"),
+    supabase.from("tickets").select("*").eq("post_id", id).order("created_at"),
   ]);
 
   const files = attachments.data ?? [];
@@ -53,6 +54,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   return (
     <PostView
         post={post}
+        tickets={tickets.data ?? []}
         lookups={lookups}
         today={todayIST()}
         comments={comments.data ?? []}

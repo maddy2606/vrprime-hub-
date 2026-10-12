@@ -8,16 +8,45 @@ import { MyWork } from "@/components/posts/my-work";
 import { PostGrid } from "@/components/posts/post-card";
 import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
+import { MarkAllReadButton, NotificationList } from "@/components/notifications/notification-list";
+import { PushSettings } from "@/components/notifications/push-settings";
+import { TicketCard } from "@/components/tickets/ticket-card";
+import { TicketFilters } from "@/components/tickets/ticket-filters";
+import { TicketForm } from "@/components/tickets/ticket-form";
+import { TicketTotals } from "@/components/tickets/ticket-totals";
 import { PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
-import { FAKE_COMMENTS, FAKE_EVENTS, FAKE_PEOPLE, FAKE_POSTS, FAKE_WAREHOUSES } from "@/lib/dev-fixtures";
+import {
+  FAKE_COMMENTS,
+  FAKE_EVENTS,
+  FAKE_NOTIFICATIONS,
+  FAKE_PEOPLE,
+  FAKE_POSTS,
+  FAKE_TICKETS,
+  FAKE_WAREHOUSES,
+} from "@/lib/dev-fixtures";
 import { todayIST } from "@/lib/format";
 import { EMPTY_POST } from "@/lib/post-options";
+import { emptyTicket } from "@/lib/ticket-options";
 import { POST_TYPES, type PostType } from "@/lib/types";
 
 // Local-only screen for checking layout (360px, dark mode) with fake data,
 // without touching the real database. It does not exist in production.
-const VIEWS = ["mywork", "empty", "all", "post", "done", "new", "users", "password", "loading"] as const;
+const VIEWS = [
+  "mywork",
+  "empty",
+  "all",
+  "post",
+  "done",
+  "new",
+  "tickets",
+  "ticket",
+  "newticket",
+  "notifications",
+  "users",
+  "password",
+  "loading",
+] as const;
 
 export default async function PreviewPage({
   searchParams,
@@ -46,7 +75,7 @@ export default async function PreviewPage({
   }));
 
   return (
-    <AppShell user={{ name: me.name, role: "owner", email: "fake.owner@example.test" }}>
+    <AppShell user={{ name: me.name, role: "owner", email: "fake.owner@example.test" }} unread={3}>
       <nav className="mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">
         <span>Preview (fake data):</span>
         {VIEWS.map((v) => (
@@ -72,15 +101,59 @@ export default async function PreviewPage({
         </>
       ) : null}
       {view === "post" ? (
-        <PostView post={FAKE_POSTS[0]} lookups={lookups} today={today} comments={FAKE_COMMENTS} events={FAKE_EVENTS} photos={[]} />
+        <PostView post={FAKE_POSTS[0]} tickets={FAKE_TICKETS.slice(0, 1)} lookups={lookups} today={today} comments={FAKE_COMMENTS} events={FAKE_EVENTS} photos={[]} />
       ) : null}
       {view === "done" ? (
-        <PostView post={FAKE_POSTS[5]} lookups={lookups} today={today} comments={[]} events={FAKE_EVENTS.slice(3)} photos={[]} />
+        <PostView post={FAKE_POSTS[5]} tickets={[]} lookups={lookups} today={today} comments={[]} events={FAKE_EVENTS.slice(3)} photos={[]} />
       ) : null}
       {view === "new" ? (
         <div className="mx-auto max-w-2xl">
           <PageTitle title="New post" sub="Pick a type, then fill the short form." />
           <PostForm key={type ?? "pick"} initial={{ ...EMPTY_POST, type }} people={FAKE_PEOPLE} warehouses={FAKE_WAREHOUSES} />
+        </div>
+      ) : null}
+      {view === "tickets" ? (
+        <>
+          <PageTitle title="Tickets" sub="4 tickets" />
+          <TicketTotals totals={{ open_count: 3, open_amount: 143450.5, recovered_amount: 7200, follow_up_due: 2 }} />
+          <TicketFilters
+            values={{ q: "", platform: "", status: "", issue: "", due: true }}
+            effectiveStatus="active"
+          />
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+            {FAKE_TICKETS.map((t) => (
+              <TicketCard key={t.id} ticket={t} today={today} />
+            ))}
+          </div>
+        </>
+      ) : null}
+      {view === "ticket" || view === "newticket" ? (
+        <div className="mx-auto max-w-2xl">
+          <PageTitle title={view === "ticket" ? "VR-T-118" : "New ticket"} />
+          <TicketForm
+            key={view}
+            ticketId={view === "ticket" ? FAKE_TICKETS[0].id : undefined}
+            today={today}
+            linkedPost={view === "newticket" ? { id: FAKE_POSTS[0].id, number: FAKE_POSTS[0].number, title: FAKE_POSTS[0].title } : null}
+            initial={
+              view === "ticket"
+                ? {
+                    ...emptyTicket(today),
+                    ticket_id: FAKE_TICKETS[0].ticket_id,
+                    amount_involved: "125000",
+                    issue_type: "wrong_return",
+                    sku: "FAKE-SKU-RED-XL",
+                  }
+                : emptyTicket(today)
+            }
+          />
+        </div>
+      ) : null}
+      {view === "notifications" ? (
+        <div className="mx-auto max-w-2xl">
+          <PageTitle title="Notifications" sub="3 unread" action={<MarkAllReadButton />} />
+          <PushSettings userId={me.id} />
+          <NotificationList items={FAKE_NOTIFICATIONS} />
         </div>
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}

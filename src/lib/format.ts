@@ -82,3 +82,14 @@ export function dueLabel(dueDate: string | null, today: string = todayIST()): st
 export function postNumber(n: number): string {
   return `VR-${n}`;
 }
+
+export function ticketNumber(n: number): string {
+  return `VR-T-${n}`;
+}
+
+/** A calendar date (YYYY-MM-DD) moved by a number of days (negative goes back). */
+export function addDays(isoDay: string, days: number): string {
+  const d = new Date(`${isoDay}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}

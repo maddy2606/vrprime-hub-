@@ -17,6 +17,13 @@ export const ACTIVE_STATUSES: PostStatus[] = ["open", "in_progress", "waiting"];
 export const PLATFORMS = ["flipkart", "amazon", "other"] as const;
 export type Platform = (typeof PLATFORMS)[number];
 
+export const TICKET_STATUSES = ["open", "waiting_marketplace", "resolved", "rejected"] as const;
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
+export const OPEN_TICKET_STATUSES: TicketStatus[] = ["open", "waiting_marketplace"];
+
+export const ISSUE_TYPES = ["wrong_return", "payment_missing", "listing_blocked", "claim", "other"] as const;
+export type IssueType = (typeof ISSUE_TYPES)[number];
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Profile = {
@@ -87,7 +94,7 @@ export type PostEvent = {
   id: number;
   post_id: string;
   actor_id: string | null;
-  kind: "created" | "status" | "assignee" | "edit";
+  kind: "created" | "status" | "assignee" | "edit" | "ticket";
   changes: Json;
   created_at: string;
 };
@@ -98,13 +105,13 @@ export type Ticket = {
   ticket_id: string;
   platform: Platform;
   marketplace_account: string | null;
-  issue_type: "wrong_return" | "payment_missing" | "listing_blocked" | "claim" | "other";
+  issue_type: IssueType;
   post_id: string | null;
   sku: string | null;
   amount_involved: number | null;
   raised_on: string;
   next_follow_up: string | null;
-  status: "open" | "waiting_marketplace" | "resolved" | "rejected";
+  status: TicketStatus;
   resolution_notes: string | null;
   amount_recovered: number | null;
   created_by: string;
@@ -160,6 +167,16 @@ export type Database = {
     Views: { [_ in never]: never };
     Functions: {
       search_posts: { Args: { q: string }; Returns: Post[] };
+      search_tickets: { Args: { q: string }; Returns: Ticket[] };
+      ticket_totals: {
+        Args: Record<string, never>;
+        Returns: { open_count: number; open_amount: number; recovered_amount: number; follow_up_due: number }[];
+      };
+      send_test_notification: { Args: Record<string, never>; Returns: undefined };
+      register_push_subscription: {
+        Args: { p_endpoint: string; p_p256dh: string; p_auth: string };
+        Returns: undefined;
+      };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

@@ -1,5 +1,5 @@
 // Obviously fake data for the local-only /dev/preview screen. Never used in production.
-import type { Person, Post, PostComment, PostEvent, Warehouse } from "@/lib/types";
+import type { NotificationRow, Person, Post, PostComment, PostEvent, Ticket, Warehouse } from "@/lib/types";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
@@ -119,4 +119,86 @@ export const FAKE_EVENTS: PostEvent[] = [
   { id: 3, post_id: id(1001), actor_id: id(2), kind: "assignee", changes: { from: null, to: id(1) }, created_at: new Date(Date.now() - 86_400_000).toISOString() },
   { id: 2, post_id: id(1001), actor_id: id(4), kind: "status", changes: { from: "open", to: "in_progress" }, created_at: new Date(Date.now() - 2 * 86_400_000).toISOString() },
   { id: 1, post_id: id(1001), actor_id: id(4), kind: "created", changes: { type: "problem" }, created_at: new Date(Date.now() - 3 * 86_400_000).toISOString() },
+];
+
+const ticketBase: Ticket = {
+  id: id(3000),
+  number: 118,
+  ticket_id: "",
+  platform: "flipkart",
+  marketplace_account: null,
+  issue_type: "other",
+  post_id: null,
+  sku: null,
+  amount_involved: null,
+  raised_on: day(-6),
+  next_follow_up: null,
+  status: "open",
+  resolution_notes: null,
+  amount_recovered: null,
+  created_by: id(2),
+  created_at: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+  updated_at: new Date(Date.now() - 86_400_000).toISOString(),
+};
+
+export const FAKE_TICKETS: Ticket[] = [
+  {
+    ...ticketBase,
+    id: id(3001),
+    number: 118,
+    ticket_id: "FAKE-FK-CASE-2026-0004711-A-VERY-LONG-TICKET-REFERENCE",
+    issue_type: "wrong_return",
+    post_id: id(1001),
+    sku: "FAKE-SKU-RED-XL",
+    amount_involved: 125000,
+    next_follow_up: day(-2),
+  },
+  {
+    ...ticketBase,
+    id: id(3002),
+    number: 119,
+    ticket_id: "FAKE-FK-CASE-0004712",
+    issue_type: "payment_missing",
+    sku: "FAKE-SKU-BLU-M",
+    amount_involved: 18450.5,
+    next_follow_up: day(0),
+  },
+  {
+    ...ticketBase,
+    id: id(3003),
+    number: 120,
+    ticket_id: "FAKE-AMZ-0099",
+    platform: "amazon",
+    issue_type: "listing_blocked",
+    status: "waiting_marketplace",
+    next_follow_up: day(4),
+  },
+  {
+    ...ticketBase,
+    id: id(3004),
+    number: 117,
+    ticket_id: "FAKE-FK-CASE-0004650",
+    issue_type: "claim",
+    status: "resolved",
+    amount_involved: 9000,
+    amount_recovered: 7200,
+    resolution_notes: "Claim approved for 80%.",
+  },
+];
+
+const note = (n: number, row: Omit<NotificationRow, "id" | "user_id" | "created_at" | "ticket_id" | "post_id"> & Partial<NotificationRow>): NotificationRow => ({
+  id: id(4000 + n),
+  user_id: id(1),
+  post_id: null,
+  ticket_id: null,
+  created_at: new Date(Date.now() - n * 3_600_000 * 5).toISOString(),
+  ...row,
+});
+
+export const FAKE_NOTIFICATIONS: NotificationRow[] = [
+  note(0, { kind: "overdue", title: "2 overdue items", body: "VR-1042 Customer returned a different… · VR-1039 Count shelf C", read_at: null }),
+  note(1, { kind: "assigned", title: "Assigned to you: VR-1046", body: "Call the pretend courier about pickup timing", post_id: id(1005), read_at: null }),
+  note(2, { kind: "comment", title: "Sample Manager commented on VR-1042", body: "Raise a wrong-return claim today please.", post_id: id(1001), read_at: null }),
+  note(3, { kind: "follow_up", title: "1 ticket follow-up due", body: "VR-T-119 (FAKE-FK-CASE-0004712)", ticket_id: id(3002), read_at: new Date().toISOString() }),
+  note(4, { kind: "done", title: "VR-1039 marked done", body: "Fake Warehouse BLR marked it done: Restock FAKE-SKU-GRN-S × 400 to Delhi", post_id: id(1006), read_at: new Date().toISOString() }),
 ];

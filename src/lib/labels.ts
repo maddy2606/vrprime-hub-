@@ -1,4 +1,4 @@
-import type { Platform, PostStatus, PostType, Priority, Role } from "@/lib/types";
+import type { IssueType, Platform, PostStatus, PostType, Priority, Role, TicketStatus } from "@/lib/types";
 
 export type Tone = "neutral" | "accent" | "info" | "ok" | "warn" | "bad";
 
@@ -59,6 +59,28 @@ export const PLATFORM_LABEL: Record<Platform, string> = {
   other: "Other",
 };
 
+export const TICKET_STATUS_LABEL: Record<TicketStatus, string> = {
+  open: "Open",
+  waiting_marketplace: "Waiting for marketplace",
+  resolved: "Resolved",
+  rejected: "Rejected",
+};
+
+export const TICKET_STATUS_TONE: Record<TicketStatus, Tone> = {
+  open: "info",
+  waiting_marketplace: "warn",
+  resolved: "ok",
+  rejected: "bad",
+};
+
+export const ISSUE_LABEL: Record<IssueType, string> = {
+  wrong_return: "Wrong return",
+  payment_missing: "Payment missing",
+  listing_blocked: "Listing blocked",
+  claim: "Claim",
+  other: "Other",
+};
+
 export const ROLE_LABEL: Record<Role, string> = {
   owner: "Owner",
   manager: "Manager",
@@ -84,4 +106,13 @@ export const FIELD_LABEL: Record<string, string> = {
   marketplace_account: "Account",
   qty_needed: "Quantity needed",
   due_date: "Due date",
+};
+
+export const NOTIFICATION_ICON_LABEL: Record<string, string> = {
+  assigned: "Assigned",
+  comment: "Comment",
+  done: "Done",
+  overdue: "Overdue",
+  follow_up: "Follow-up",
+  test: "Test",
 };

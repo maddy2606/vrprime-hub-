@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { PostgrestError } from "@supabase/supabase-js";
 import { getActiveUser } from "@/lib/auth";
 import { logError } from "@/lib/redact";
+import { dbError, invalid, NOT_SIGNED_IN } from "@/server/action-helpers";
 import { postNumber } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
@@ -12,28 +12,10 @@ import {
   attachmentSchema,
   commentSchema,
   doneSchema,
-  fieldErrors,
   postSchema,
   statusSchema,
 } from "@/lib/validation";
 import { z } from "zod";
-
-const NOT_SIGNED_IN: ActionResult<never> = {
-  ok: false,
-  message: "You are signed out. Sign in again.",
-};
-
-function dbError(error: PostgrestError | { message: string; code?: string }, what: string): ActionResult<never> {
-  logError(`posts ${what}`, error);
-  if ("code" in error && error.code === "42501") {
-    return { ok: false, message: "You do not have access to do that." };
-  }
-  return { ok: false, message: `Could not ${what}. Check your connection and try again.` };
-}
-
-function invalid(error: z.ZodError): ActionResult<never> {
-  return { ok: false, message: "Check the highlighted fields.", fieldErrors: fieldErrors(error) };
-}
 
 async function restockTitle(
   supabase: Awaited<ReturnType<typeof createClient>>,

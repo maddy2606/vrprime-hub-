@@ -29,6 +29,16 @@ export function Chip({ tone = "neutral", children }: { tone?: Tone; children: Re
   );
 }
 
+/** Red count bubble for unread notifications. Renders nothing for zero. */
+export function UnreadBadge({ count }: { count: number }) {
+  if (!count) return null;
+  return (
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-bad px-1 text-[11px] font-extrabold leading-none text-white">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 export function StatusChip({ status }: { status: PostStatus }) {
   return <Chip tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Chip>;
 }

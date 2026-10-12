@@ -24,14 +24,21 @@ const DONE_HINT: Record<Post["type"], string> = {
   task: "Add a note if it helps. It is optional.",
 };
 
-export function PostActions({ post }: { post: Pick<Post, "id" | "type" | "status" | "qty_needed"> }) {
+export function PostActions({
+  post,
+  linkedTicketIds = [],
+}: {
+  post: Pick<Post, "id" | "type" | "status" | "qty_needed">;
+  /** Marketplace IDs of tickets already linked to this post: the first fills in the "done" form. */
+  linkedTicketIds?: string[];
+}) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [doneOpen, setDoneOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [proof, setProof] = useState<Proof>({
-    ticket_id: "",
+    ticket_id: linkedTicketIds[0] ?? "",
     no_ticket: false,
     no_ticket_reason: "",
     listing_id: "",

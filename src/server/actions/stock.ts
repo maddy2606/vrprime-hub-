@@ -22,7 +22,7 @@ export async function startStockSync(): Promise<ActionResult<{ run: SyncSummary 
   const { data: row, error: readError } = await supabase.from("stock_runs").select(SYNC_COLUMNS).eq("id", runId).maybeSingle();
   if (readError || !row) return dbError(readError ?? { message: "run not found" }, "start the sync");
 
-  revalidatePath("/stock");
+  revalidatePath("/flipkart");
   return { ok: true, message: "Sync started", data: { run: toSummary(row, true) } };
 }
 

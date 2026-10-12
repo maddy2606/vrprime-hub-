@@ -115,4 +115,5 @@ export const NOTIFICATION_ICON_LABEL: Record<string, string> = {
   overdue: "Overdue",
   follow_up: "Follow-up",
   test: "Test",
+  dispatch_risk: "Dispatch",
 };

@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { todayIST } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { emptyTicket } from "@/lib/ticket-options";
+import { ISSUE_TYPES, PLATFORMS, type IssueType, type Platform } from "@/lib/types";
 
 export const metadata: Metadata = { title: "New ticket" };
 
@@ -22,9 +23,18 @@ export default async function NewTicketPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireUser();
-  const postParam = one((await searchParams).post);
+  const sp = await searchParams;
+  const postParam = one(sp.post);
   const today = todayIST();
   const initial = emptyTicket(today);
+
+  // /tickets/new?sku=...&platform=flipkart&issue=wrong_return fills those in (from a return or a price warning).
+  const sku = one(sp.sku).trim().slice(0, 200);
+  if (sku) initial.sku = sku;
+  const platform = one(sp.platform);
+  if ((PLATFORMS as readonly string[]).includes(platform)) initial.platform = platform as Platform;
+  const issue = one(sp.issue);
+  if ((ISSUE_TYPES as readonly string[]).includes(issue)) initial.issue_type = issue as IssueType;
 
   let linkedPost: { id: string; number: number; title: string } | null = null;
   if (UUID.test(postParam)) {

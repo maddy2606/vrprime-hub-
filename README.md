@@ -14,7 +14,8 @@ phones first; installable from the browser.
 |---|---|---|
 | 1 | Work board, search, filters, photos, users admin, PWA shell | Built |
 | 2 | Tickets, push notifications, notification bell, daily 9:30 AM jobs | Built |
-| 3 | Flipkart stock desk and daily sync | Built. Waiting for the Flipkart secrets (see below) |
+| 3 | Flipkart stock desk and daily sync | Live |
+| 4 | The Flipkart page: needs action, orders, returns, prices, listing health, running out soon | Built (Phase 4b); see [The Flipkart page](#the-flipkart-page) |
 
 ## Environment variables
 
@@ -156,13 +157,15 @@ matching TypeScript row types and must be updated by hand in the same commit.
 
 ### Checking the access rules
 
-`supabase/tests/rls_check.sql`, `phase2_check.sql` and `phase3_check.sql` prove that a warehouse user cannot read, search, comment on or edit
+`supabase/tests/rls_check.sql`, `phase2_check.sql`, `phase3_check.sql` and `phase4_check.sql` prove that a warehouse user cannot read, search, comment on or edit
 another warehouse's posts, that deactivated and signed-out users see nothing, that nobody can change
 their own role, and that status changes are audited. The Phase 2 script covers who gets which notification,
 that notifications are private and cannot be forged, that the internal functions are not callable by signed-in
 users, and that warehouse users only see tickets linked to posts they can see. The Phase 3 script covers saving a sync (first-sync
 baseline, inactive tracking, same-day reruns, the 80% sanity check, 60-day cleanup), that a warehouse user only sees their own
-warehouses' units, and that only the owner or a manager can start a sync. Each runs inside a transaction
+warehouses' units, and that only the owner or a manager can start a sync. The Phase 4 script covers price history, saving orders and returns, the
+dispatch-deadline alert (once per order, owner and managers only), that warehouse users only see their own warehouses' orders and
+returns, the sales, stock-drop and return-rate calculations, and how the order runs pause, wait and restart. Each runs inside a transaction
 and rolls back, so it leaves no data behind and is safe on production. Paste one into the Supabase SQL editor
 and run it: the result is `All ... checks passed`, or an error naming the rule that failed.
 
@@ -258,7 +261,7 @@ The CSV starts text with an apostrophe where it would otherwise look like a spre
 | Weight alert limit | 2000 | Alert when L x B x H (cm) + weight (g) is over this |
 | New inactive days | 2 | A listing counts as new inactive if it went inactive within this many days |
 
-They apply the next time anyone opens the Stock page (no new sync needed).
+(Phase 4 added four more, listed under [The Flipkart page](#the-flipkart-page).) They apply the next time anyone opens the Flipkart page (no new sync needed).
 
 ### Checking and running it by hand
 
@@ -279,19 +282,100 @@ They apply the next time anyone opens the Stock page (no new sync needed).
 
 No redeploy is needed. If the app ID changes too, replace `FLIPKART_APP_ID` the same way.
 
+## The Flipkart page
+
+The **Flipkart** tab (it used to be called Stock; old /stock links still work) has six sections. Warehouse users see the first
+four, for their own warehouses only (enforced in the database); owner, manager and listing see all six.
+
+| Tab | What it shows |
+|---|---|
+| Needs action | A short list, each line with a button: orders about to miss dispatch (today or tomorrow, most urgent first), SKUs empty at a warehouse that has orders waiting, price errors, new inactive listings, SKUs with a high return rate, SKUs running out soon |
+| Orders | Pending orders per warehouse (new / packed / ready to dispatch, next dispatch-by, red when today or late), a searchable list with CSV, and cancellations (seller and buyer apart, counts per day) |
+| Stock | The Phase 3 stock desk, plus a **Days left** column |
+| Returns | Courier and customer returns with reason and SKU, and return rate per SKU. **Raise ticket** from a return pre-fills the SKU, Flipkart and "Wrong return" |
+| Prices | Selling price, MRP, discount, last change and the history of changes, with flags for selling price at or above MRP, a big overnight drop, and a missing price |
+| Listing health | One row per SKU with its problems: missing package size or weight, slow dispatch SLA, a space at the start or end of the SKU, missing HSN or tax code |
+
+### Where the data comes from (all read-only)
+
+| Data | How often | Edge Function |
+|---|---|---|
+| Stock, prices, tax details | Every day 8:00 AM IST, and Sync now | `stock-sync` (Phase 3) |
+| Pending orders (before dispatch) | Every 30 minutes from 7 AM to 10 PM IST, and Sync now on the Orders tab | `orders-sync` |
+| Shipped orders (last 4 days), cancellations, returns | Every day about 9:10 AM IST, and Sync now on the Returns tab | `orders-sync` |
+| The last 30 days of shipped orders, cancellations and returns (one time) | Nightly from 10:15 PM to 6:45 AM IST until done | `orders-sync` |
+
+The order code can make exactly four kinds of request (get a token, search shipments, list returns, fetch the next page of either)
+and refuses anything else before it is sent. Flipkart facts that shaped it, all found by testing the real API: shipments come 20
+to a page and returns 25; a page takes 2 to 16 seconds; the "next page" address must be fetched (GET), not searched again; Flipkart
+stops any single search at 5,000 results, so the pending sweep reads each state at each warehouse separately, only orders due in the
+next 2 days (Flipkart lists orders scheduled weeks ahead, thousands of them), and the run stops with an error rather than save a
+list that was cut short; `PACKING_IN_PROGRESS` combined with the dispatch-date sort answers 500, so that state is read unsorted;
+returns carry no SKU, so it is found from the order (returns for orders older than our history show "not known").
+Marketplace cancellations are not read (not confirmed to work).
+
+**Never kept:** buyer names, phones, addresses, prices paid, payment type, product titles from orders, tracking numbers, and the
+free-text `comments` of a return. Only order ID, SKU, quantity, warehouse, dates, status and the return or cancellation reason are
+saved. Orders and returns are kept 12 months, price changes 12 months, daily stock and prices 60 days.
+
+### How a run works
+
+A run is a plan (a list of parts) plus a position (which part, and Flipkart's address of the next page). Each page is saved
+together with the new position in one transaction, so a run that stops carries on from the next page, never twice and never
+missing one. One run works at a time; it waits (without failing) while a stock sync or another order run is working. A watchdog
+(every 5 minutes) restarts a run whose worker was cut off. The backfill additionally waits for the night, newest day first, so
+the recent days are complete first.
+
+### Alerts
+
+When a pending sweep finishes, every order that is within 4 hours of its dispatch deadline (or just past it) and not on hold is
+counted once, ever (`alerted_at`), and the owner and managers get one push per sweep: "3 orders may miss their dispatch deadline:
+Delhi 2 · Bhiwandi 1 · earliest 2:30 pm". Orders first found already more than an hour late are marked without an alert.
+
+### Days left ("running out soon")
+
+Per SKU and warehouse: units in stock ÷ units used per day. Units used per day come from real orders (the larger of the 7-day and
+14-day averages, cancelled orders left out, today left out) once 7 days of shipped orders are in; for a SKU with no orders at that
+warehouse they come from the drop between daily stock snapshots (days where stock went up are left out), once 7 days of snapshots
+exist. Until then the page says "collecting data, ready on <date>" and flags nothing.
+
+### Return rate
+
+Returns created in the last 30 days ÷ units shipped in the last 30 days, per SKU. Flagged above the setting once at least 10 units
+were sold. Shown only once 30 days of shipped orders are loaded.
+
+### Settings added in Phase 4 (owner only)
+
+| Setting | Normal | Meaning |
+|---|---|---|
+| Price drop alert (%) | 15 | An overnight drop in selling price bigger than this is flagged |
+| Slow dispatch: days | 2 | A listing whose dispatch SLA is above this is flagged |
+| Running out soon: days | 7 | A SKU with fewer days of cover is flagged |
+| High return rate (%) | 10 | A SKU returned above this share of units sold in 30 days is flagged |
+
+### Checking and running it by hand
+
+- Last runs: `select kind, status, step, parts, pages, items_saved, error, created_at, finished_at from order_runs order by created_at desc limit 8;`
+- Start one: `select private.start_order_run('pending', 'manual', null);` (or `'daily'`)
+- The backfill: `select private.start_order_backfill();` creates it (it also starts itself every night until it has finished once).
+- Schedule: `select jobname, schedule from cron.job where jobname like 'orders-%';` (UTC; IST is UTC + 5:30).
+- Logs: Supabase > Edge Functions > orders-sync > Logs (every line is scrubbed of secrets).
+- Changing the function: edit `supabase/functions/orders-sync/`, then `npx supabase functions deploy orders-sync --no-verify-jwt --use-api`.
+- Seller Hub links are in `src/lib/seller-hub.ts`.
+
 ## Folder map
 
 ```
 src/app/(auth)        login, change-password
-src/app/(app)         My work (/), /all, /posts/new, /posts/[id], /tickets (+ /new, /[id]), /notifications, /stock, /admin/users, /admin/settings
+src/app/(app)         My work (/), /all, /posts/new, /posts/[id], /tickets (+ /new, /[id]), /notifications, /flipkart (/stock redirects), /admin/users, /admin/settings
 src/app/dev/preview   fake-data layout preview (development only)
-src/components        ui, navigation, posts, tickets, notifications, stock, admin, auth
+src/components        ui, navigation, posts, tickets, notifications, stock, flipkart, admin, auth
 src/lib               supabase clients, auth, types, validation (zod), formatting (IST, Indian numbers)
 src/server/actions    server actions; every input is validated again here
 src/proxy.ts          keeps the session fresh, redirects signed-out visitors to /login
 supabase/migrations   schema, RLS, storage rules
-supabase/functions    Edge Functions (notify: push and the daily digests; stock-sync: the Flipkart stock sync)
-supabase/tests        rls_check.sql, phase2_check.sql, phase3_check.sql
+supabase/functions    Edge Functions (notify: push and the daily digests; stock-sync: the Flipkart stock sync; orders-sync: orders, returns, cancellations)
+supabase/tests        rls_check.sql, phase2_check.sql, phase3_check.sql, phase4_check.sql
 supabase/seed.sql     fake data for local development only
 public/sw.js          service worker (installable app; shows push messages)
 ```

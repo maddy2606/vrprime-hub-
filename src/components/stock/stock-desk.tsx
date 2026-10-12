@@ -8,6 +8,7 @@ import { SearchIcon } from "@/components/icons";
 import { Chip, EmptyState } from "@/components/ui";
 import { downloadCsv, toCsv, type CsvCell } from "@/lib/csv";
 import { formatDate, formatNumber } from "@/lib/format";
+import { formatDays, type Cover, type CoverState } from "@/lib/flipkart-analysis";
 import type { Tone } from "@/lib/labels";
 import {
   analyze,
@@ -48,6 +49,8 @@ export type StockDeskProps = {
   lastDone: SyncSummary | null;
   canSync: boolean;
   initial: { view: ViewKey; warehouseId: string; q: string; hide: boolean };
+  /** Days of cover per SKU (the warehouse that runs out first), from orders or stock drops. */
+  cover: { soonest: Record<string, Cover>; state: CoverState; limit: number; warehouseNames: Record<string, string> } | null;
 };
 
 // --- Small pieces ------------------------------------------------------------------------------
@@ -130,7 +133,7 @@ function Tile({
 
 // --- The desk ---------------------------------------------------------------------------------------
 
-export function StockDesk({ data, latest, lastDone, canSync, initial }: StockDeskProps) {
+export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: StockDeskProps) {
   const { warehouses, settings } = data;
   const initialIndex = warehouses.findIndex((w) => w.id === initial.warehouseId);
 
@@ -142,13 +145,12 @@ export function StockDesk({ data, latest, lastDone, canSync, initial }: StockDes
 
   // Keep the address in step with what is on screen, so a link or a refresh lands in the same place.
   useEffect(() => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams({ tab: "stock" });
     if (view !== "low") params.set("view", view);
     if (selected !== null) params.set("wh", warehouses[selected].id);
     if (q.trim()) params.set("q", q.trim());
     if (hide) params.set("hide", "1");
-    const qs = params.toString();
-    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    window.history.replaceState(null, "", `?${params.toString()}`);
   }, [view, selected, q, hide, warehouses]);
 
   const scope = useMemo(() => (selected !== null ? [selected] : warehouses.map((_, i) => i)), [selected, warehouses]);
@@ -202,6 +204,27 @@ export function StockDesk({ data, latest, lastDone, canSync, initial }: StockDes
     csv: () => null,
   };
   const wn = (i: number) => warehouses[i].name;
+  const coverColumn: Column<Row>[] = cover
+    ? [
+        {
+          key: "cover",
+          label: "Days left",
+          align: "right",
+          sort: (r) => cover.soonest[r.sku]?.days ?? null,
+          cell: (r) => {
+            const c = cover.soonest[r.sku];
+            if (!c) return <span className="text-muted">{cover.state.state === "collecting" ? "…" : "—"}</span>;
+            return (
+              <span className={c.days < cover.limit ? "font-semibold text-bad" : ""} title={`${c.units} units at ${cover.warehouseNames[c.warehouseId] ?? ""}, using ${Math.round(c.rate * 10) / 10} a day, from ${c.source === "orders" ? "orders" : "stock drops"}`}>
+                {formatDays(c.days)}
+                <span className="block text-[11px] font-normal text-muted">{cover.warehouseNames[c.warehouseId] ?? ""}</span>
+              </span>
+            );
+          },
+          csv: (r) => (cover.soonest[r.sku] ? Math.round(cover.soonest[r.sku].days * 10) / 10 : null),
+        },
+      ]
+    : [];
 
   const columns: Record<ViewKey, Column<Row>[]> = {
     low: [
@@ -228,6 +251,7 @@ export function StockDesk({ data, latest, lastDone, canSync, initial }: StockDes
         csv: (r) => r.ok.map((i) => `${wn(i)} ${r.now[i]}`).join("; "),
       },
       { key: "total", label: "Total", align: "right", sort: (r) => r.total, cell: (r) => <b>{formatNumber(r.total)}</b>, csv: (r) => r.total },
+      ...coverColumn,
       restockColumn,
     ],
     location: [
@@ -259,6 +283,7 @@ export function StockDesk({ data, latest, lastDone, canSync, initial }: StockDes
             },
           ]
         : []),
+      ...coverColumn,
       restockColumn,
     ],
     out: [
@@ -449,6 +474,13 @@ export function StockDesk({ data, latest, lastDone, canSync, initial }: StockDes
           {view === "weight" ? ` · size in cm multiplied, plus weight in grams, over ${formatNumber(settings.weightLimit)}` : ""}
           {view === "low" ? ` · under ${formatNumber(settings.low)} units at a warehouse, still in stock somewhere` : ""}
         </p>
+        {cover && (view === "low" || view === "location") ? (
+          <p className="text-xs text-muted">
+            {cover.state.state === "collecting"
+              ? `Days left: collecting data${cover.state.readyOn ? `, ready on ${formatDate(cover.state.readyOn, data.today)}` : ""}. It needs 7 days of stock history or of shipped orders.`
+              : `Days left = units ÷ units used per day at the warehouse that runs out first (red under ${cover.limit} days). It uses real orders where there are some, stock drops otherwise.`}
+          </p>
+        ) : null}
       </div>
 
       {sorted.length ? (

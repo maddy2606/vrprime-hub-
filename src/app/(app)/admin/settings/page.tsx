@@ -4,6 +4,8 @@ import { SettingsForm } from "@/components/admin/settings-form";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_FLIPKART_SETTINGS } from "@/lib/flipkart-analysis";
+import { SETTING_KEYS } from "@/lib/settings-keys";
 import { DEFAULT_SETTINGS } from "@/server/stock-data";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -16,7 +18,7 @@ export default async function SettingsPage() {
   const { data, error } = await supabase
     .from("app_settings")
     .select("key, value")
-    .in("key", ["low_stock_threshold", "weight_alert_limit", "new_inactive_days"]);
+    .in("key", SETTING_KEYS);
   if (error) throw new Error("Could not load settings");
 
   const read = (key: string, fallback: number) => {
@@ -26,12 +28,16 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
+      <PageTitle title="Settings" sub="Thresholds for the Flipkart page. They apply the next time anyone opens it." />
       <SettingsForm
         initial={{
           low_stock_threshold: String(read("low_stock_threshold", DEFAULT_SETTINGS.low)),
           weight_alert_limit: String(read("weight_alert_limit", DEFAULT_SETTINGS.weightLimit)),
           new_inactive_days: String(read("new_inactive_days", DEFAULT_SETTINGS.newInactiveDays)),
+          price_drop_percent: String(read("price_drop_percent", DEFAULT_FLIPKART_SETTINGS.priceDropPercent)),
+          dispatch_sla_days: String(read("dispatch_sla_days", DEFAULT_FLIPKART_SETTINGS.dispatchSlaDays)),
+          running_out_days: String(read("running_out_days", DEFAULT_FLIPKART_SETTINGS.runningOutDays)),
+          return_rate_percent: String(read("return_rate_percent", DEFAULT_FLIPKART_SETTINGS.returnRatePercent)),
         }}
       />
     </div>

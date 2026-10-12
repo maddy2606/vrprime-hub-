@@ -166,11 +166,15 @@ const wholeNumber = (label: string, min: number, max: number) =>
     .min(min, `${label} must be at least ${min}`)
     .max(max, `${label} must be at most ${max.toLocaleString("en-IN")}`);
 
-/** The thresholds on the Stock page (owner only). */
+/** The thresholds on the Flipkart page (owner only). */
 export const settingsSchema = z.object({
   low_stock_threshold: wholeNumber("the low-stock level", 1, 1_000_000),
   weight_alert_limit: wholeNumber("the weight limit", 1, 10_000_000),
   new_inactive_days: wholeNumber("the number of days", 1, 365),
+  price_drop_percent: wholeNumber("the percentage", 1, 99),
+  dispatch_sla_days: wholeNumber("the number of days", 1, 30),
+  running_out_days: wholeNumber("the number of days", 1, 365),
+  return_rate_percent: wholeNumber("the percentage", 1, 100),
 });
 
 /** First message per field, for showing under form inputs. */

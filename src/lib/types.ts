@@ -192,7 +192,97 @@ export type StockListing = {
   last_run_id: string | null;
   inactive_since: string | null;
   inactive_before_tracking: boolean;
+  hsn: string | null;
+  tax_code: string | null;
+  tax_read: boolean;
   updated_at: string;
+};
+
+export type StockPrice = {
+  platform: Platform;
+  snapshot_date: string;
+  sku: string;
+  mrp: number | null;
+  selling_price: number | null;
+};
+
+export type PriceChangeRow = {
+  id: string;
+  platform: Platform;
+  sku: string;
+  change_date: string;
+  old_mrp: number | null;
+  new_mrp: number | null;
+  old_selling_price: number | null;
+  new_selling_price: number | null;
+  created_at: string;
+};
+
+/** The columns of an order run that the app may read (Flipkart's page addresses and the plan are not among them). */
+export type OrderRun = {
+  id: string;
+  platform: Platform;
+  kind: "pending" | "daily" | "backfill";
+  trigger: "cron" | "manual";
+  status: "queued" | "running" | "paused" | "done" | "failed";
+  step: number;
+  parts: number;
+  pages: number;
+  items_seen: number;
+  items_saved: number;
+  returns_saved: number;
+  coverage_from: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+};
+
+export type FkOrderItem = {
+  platform: Platform;
+  order_item_id: string;
+  order_id: string;
+  shipment_id: string | null;
+  sku: string | null;
+  quantity: number;
+  order_date: string | null;
+  order_day: string | null;
+  location_id: string | null;
+  warehouse_id: string | null;
+  stage: "pending" | "dispatched" | "cancelled" | "left_pending";
+  item_status: string | null;
+  hold: boolean;
+  dispatch_by: string | null;
+  dispatch_after: string | null;
+  cancel_type: "seller" | "buyer" | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  cancel_sub_reason: string | null;
+  alerted_at: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  last_run_id: string | null;
+};
+
+export type FkReturn = {
+  platform: Platform;
+  return_id: string;
+  order_item_id: string;
+  order_id: string | null;
+  source: "courier_return" | "customer_return";
+  sku: string | null;
+  quantity: number;
+  location_id: string | null;
+  warehouse_id: string | null;
+  return_status: string | null;
+  reason: string | null;
+  sub_reason: string | null;
+  shipment_status: string | null;
+  order_date: string | null;
+  created_date: string | null;
+  updated_date: string | null;
+  first_seen_at: string;
+  last_run_id: string | null;
 };
 
 type Table<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
@@ -213,6 +303,11 @@ export type Database = {
       app_settings: Table<AppSetting>;
       stock_runs: Table<StockRun>;
       stock_listings: Table<StockListing>;
+      stock_prices: Table<StockPrice>;
+      price_changes: Table<PriceChangeRow>;
+      order_runs: Table<OrderRun>;
+      fk_order_items: Table<FkOrderItem>;
+      fk_returns: Table<FkReturn>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -224,6 +319,10 @@ export type Database = {
       };
       stock_snapshot: { Args: { p_date: string }; Returns: Json };
       request_stock_sync: { Args: Record<string, never>; Returns: string };
+      request_orders_sync: { Args: { p_kind: "pending" | "daily" }; Returns: string };
+      flipkart_sales_rates: { Args: Record<string, never>; Returns: Json };
+      flipkart_stock_drops: { Args: Record<string, never>; Returns: Json };
+      flipkart_return_rates: { Args: { p_days?: number }; Returns: Json };
       send_test_notification: { Args: Record<string, never>; Returns: undefined };
       register_push_subscription: {
         Args: { p_endpoint: string; p_p256dh: string; p_auth: string };

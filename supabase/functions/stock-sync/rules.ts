@@ -26,6 +26,9 @@ export type NormalizedListing = {
   fulfillment: Record<string, unknown> | null;
   packages: Package[];
   archived_status: string | null;
+  /** From the listing's tax details: the HSN code and the GST tax code (for example GST_5). */
+  hsn: string | null;
+  tax_code: string | null;
   locations: Location[];
 };
 
@@ -55,6 +58,7 @@ export function normalizeListing(sku: string, raw: unknown): NormalizedListing |
   const price = isObject(raw.price) ? raw.price : {};
   const packages = Array.isArray(raw.packages) ? raw.packages : [];
   const locations = Array.isArray(raw.locations) ? raw.locations : [];
+  const tax = isObject(raw.tax) ? raw.tax : {};
 
   return {
     sku,
@@ -79,6 +83,8 @@ export function normalizeListing(sku: string, raw: unknown): NormalizedListing |
       };
     }),
     archived_status: text(raw.archived_status),
+    hsn: text(tax.hsn),
+    tax_code: text(tax.tax_code),
     locations: locations
       .filter(isObject)
       .map((l) => ({ id: text(l.id) ?? "", status: text(l.status), inventory: number(l.inventory) }))

@@ -13,7 +13,7 @@ const ITEMS: Item[] = [
   { href: "/all", label: "All", icon: ListIcon },
   { href: "/posts/new", label: "Post", icon: PlusIcon },
   { href: "/tickets", label: "Tickets", icon: TicketIcon },
-  { href: "/stock", label: "Stock", icon: BoxIcon },
+  { href: "/flipkart", label: "Flipkart", icon: BoxIcon },
 ];
 
 function isActive(pathname: string, href: string): boolean {

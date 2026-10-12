@@ -18,6 +18,7 @@ const KIND_TONE: Record<string, Tone> = {
   overdue: "bad",
   follow_up: "warn",
   test: "neutral",
+  dispatch_risk: "bad",
 };
 
 export function NotificationList({ items }: { items: NotificationRow[] }) {

@@ -1,6 +1,6 @@
-export default function StockLoading() {
+export default function FlipkartLoading() {
   return (
-    <div aria-busy="true" aria-label="Loading stock">
+    <div aria-busy="true" aria-label="Loading Flipkart">
       <div className="skeleton mb-2 h-7 w-24" />
       <div className="skeleton mb-5 h-4 w-56" />
       <div className="skeleton mb-4 h-16 w-full" />

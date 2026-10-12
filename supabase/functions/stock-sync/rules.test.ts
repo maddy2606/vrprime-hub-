@@ -21,6 +21,7 @@ const sample = {
     { id: "LOC-C", status: "INACTIVE" },
   ],
   archived_status: "NOT_ARCHIVED",
+  tax: { hsn: " 33012400 ", is_gst_sellable: true, tax_code: "GST_5" },
 };
 
 test("FBF and FBF_LITE are skipped, NON_FBF and missing profiles are kept", () => {
@@ -50,6 +51,16 @@ test("normalises a Flipkart listing", () => {
     { id: "LOC-B", status: "ACTIVE", inventory: 35 },
     { id: "LOC-C", status: "INACTIVE", inventory: null },
   ]);
+});
+
+test("keeps the HSN and tax code, and leaves them empty when Flipkart gives none", () => {
+  const n = normalizeListing("SKU1", sample);
+  assert.equal(n?.hsn, "33012400");
+  assert.equal(n?.tax_code, "GST_5");
+  const bare = normalizeListing("SKU2", { listing_status: "ACTIVE", tax: { hsn: "", tax_code: 5 } });
+  assert.equal(bare?.hsn, null);
+  assert.equal(bare?.tax_code, "5");
+  assert.equal(normalizeListing("SKU3", {})?.hsn, null);
 });
 
 test("copes with odd or empty answers", () => {

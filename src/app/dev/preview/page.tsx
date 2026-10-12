@@ -9,6 +9,12 @@ import { PostGrid } from "@/components/posts/post-card";
 import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
 import { SettingsForm } from "@/components/admin/settings-form";
+import { HealthTab } from "@/components/flipkart/health-tab";
+import { NeedsAction } from "@/components/flipkart/needs-action";
+import { OrdersTab } from "@/components/flipkart/orders-tab";
+import { PricesTab } from "@/components/flipkart/prices-tab";
+import { ReturnsTab } from "@/components/flipkart/returns-tab";
+import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
 import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { MarkAllReadButton, NotificationList } from "@/components/notifications/notification-list";
@@ -30,6 +36,16 @@ import {
   FAKE_TICKETS,
   FAKE_WAREHOUSES,
 } from "@/lib/dev-fixtures";
+import {
+  fakeCancellations,
+  fakeHealthRows,
+  fakeNeedsAction,
+  fakeOrders,
+  fakeOrderSync,
+  fakePriceRows,
+  fakeReturnRates,
+  fakeReturns,
+} from "@/lib/dev-fixtures-flipkart";
 import { todayIST } from "@/lib/format";
 import { EMPTY_POST } from "@/lib/post-options";
 import { isViewKey } from "@/lib/stock-views";
@@ -52,6 +68,13 @@ const VIEWS = [
   "stock",
   "stockempty",
   "stockrunning",
+  "fneeds",
+  "forders",
+  "fcancelled",
+  "freturns",
+  "frates",
+  "fprices",
+  "fhealth",
   "settings",
   "users",
   "password",
@@ -188,6 +211,10 @@ export default async function PreviewPage({
               q: "",
               hide: false,
             }}
+            cover={(() => {
+              const n = fakeNeedsAction();
+              return { soonest: n.soonest, state: n.state, limit: 7, warehouseNames: Object.fromEntries(n.desk.warehouses.map((w) => [w.id, w.name])) };
+            })()}
           />
         </>
       ) : null}
@@ -203,10 +230,11 @@ export default async function PreviewPage({
           <SyncBar latest={{ ...FAKE_SYNC, status: "running", cursor: 24, total: 66 }} lastDone={FAKE_SYNC} snapshotDate={FAKE_SYNC.snapshotDate} previousDate={null} canSync />
         </>
       ) : null}
+      {view.startsWith("f") ? <FlipkartPreview view={view} sp={sp} /> : null}
       {view === "settings" ? (
         <div className="mx-auto max-w-2xl">
           <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
-          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2" }} />
+          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10" }} />
         </div>
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}
@@ -217,5 +245,35 @@ export default async function PreviewPage({
       ) : null}
       {view === "loading" ? <PostListSkeleton rows={4} /> : null}
     </AppShell>
+  );
+}
+
+function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string | string[] | undefined> }) {
+  const today = todayIST();
+  const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
+  const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
+  const active = view === "fneeds" ? "needs" : view === "forders" || view === "fcancelled" ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : "health";
+  const needs = view === "fneeds" ? fakeNeedsAction() : null;
+  const health = view === "fhealth" ? fakeHealthRows() : null;
+  return (
+    <>
+      <PageTitle title="Flipkart" sub="Fake data" />
+      <TabBar tabs={tabsFor("owner")} active={active} />
+      {needs ? (
+        <NeedsAction
+          sections={needs.sections}
+          notes={["Running out soon: collecting data, ready on 19 Oct. It needs 7 days of stock history or of shipped orders."]}
+          asOf={{ stock: today, today }}
+        />
+      ) : null}
+      {view === "forders" || view === "fcancelled" ? (
+        <OrdersTab orders={fakeOrders()} cancellations={fakeCancellations()} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} nowIso={new Date().toISOString()} initial={{ warehouseId: "", view: view === "fcancelled" ? "cancelled" : "pending" }} />
+      ) : null}
+      {view === "freturns" || view === "frates" ? (
+        <ReturnsTab returns={fakeReturns()} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
+      ) : null}
+      {view === "fprices" ? <PricesTab rows={fakePriceRows()} today={today} dropLimit={15} snapshotDate={today} /> : null}
+      {health ? <HealthTab rows={health.rows} total={health.total} taxUnread={0} slaLimit={2} /> : null}
+    </>
   );
 }

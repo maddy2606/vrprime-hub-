@@ -123,11 +123,12 @@ begin
   select * into strict r from public.money_profit('2026-09-20', '2026-09-21') where sku = 'P6-SKU';
   -- sold: lines 1 and 2 = 3 units; returned: line 3 = 1 unit
   assert r.units_sold = 3 and r.units_returned = 1, 'units sold and returned';
-  assert r.gross_sales = 600 and r.refunds = -200, 'sales and refunds';
+  assert r.units_returned_paid = 0, 'the return line has a sale and a refund inside it: it was never paid out';
+  assert r.gross_sales = 800 and r.refunds = -200, 'every sale amount, and every refund';
   assert r.net_payout = 204 and r.itc = 36, 'net payout 174+348-318 = 204, tax credits 6+12+18 = 36';
   assert r.reverse_shipping_fee = -100 and r.fixed_fee = -60, 'fees by type';
-  -- cost: orders placed 10 and 11 Sep use the OLD cost (55); 3 sold units out, 1 returned back in: (1+2-1) x 55 = 110
-  assert r.cost = 110, 'the cost in force on the order date is used, and a returned unit comes back';
+  -- cost: orders placed 10 and 11 Sep use the OLD cost (55); 3 units were paid out; the return was never paid: 3 x 55 = 165
+  assert r.cost = 165, 'the cost in force on the order date is used; a unit returned before payment never counted';
   assert not r.cost_missing, 'cost is known';
   select count(*) into n from public.money_profit('2026-09-20', '2026-09-21') where sku = 'P6-SKU' and not cost_missing;
   delete from public.sku_costs where sku = 'P6-SKU';

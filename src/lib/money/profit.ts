@@ -3,14 +3,17 @@
 // Profit = net payout + input tax credits - cost of the units kept.
 //   net payout          what Flipkart paid out (Bank Settlement Value, summed over the SKU's lines)
 //   input tax credits   GST + TCS + TDS you can claim back (Flipkart counts them in "Net Earnings")
-//   cost                purchase + packaging + freight of units sold, minus the cost of units that came back
-// Margin = profit / net revenue, where net revenue = sales - refunds. GST on your own sales is not deducted
+//   cost                purchase + packaging + freight of the units paid out, minus the cost of those that were taken back
+//                       (a unit returned before it was paid out was never counted as sold)
+// Margin = profit / net revenue, where net revenue = sales + refunds (refunds are negative). GST on your own sales is not deducted
 // (Flipkart's own report does not either).
 
 export type ProfitRowRaw = {
   sku: string;
   units_sold: number;
   units_returned: number;
+  /** Returns of units that had already been paid (the money was taken back): only these give the cost back. */
+  units_returned_paid: number;
   gross_sales: number;
   refunds: number;
   commission: number;
@@ -54,6 +57,7 @@ export function readProfitRows(value: unknown): ProfitRowRaw[] {
       sku: o.sku as string,
       units_sold: n(o.units_sold),
       units_returned: n(o.units_returned),
+      units_returned_paid: n(o.units_returned_paid),
       gross_sales: n(o.gross_sales),
       refunds: n(o.refunds),
       commission: n(o.commission),
@@ -77,7 +81,7 @@ export function readProfitRows(value: unknown): ProfitRowRaw[] {
 
 export function withProfit(r: ProfitRowRaw): ProfitRow {
   const revenue = r.gross_sales + r.refunds;
-  const netUnits = r.units_sold - r.units_returned;
+  const netUnits = r.units_sold - r.units_returned_paid;
   const profit = r.net_payout + r.itc - r.cost;
   return {
     ...r,

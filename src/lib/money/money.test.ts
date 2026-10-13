@@ -263,7 +263,7 @@ test("periods end on the last settlement day, not today", () => {
 });
 
 const raw = (over: Partial<ProfitRowRaw>): ProfitRowRaw => ({
-  sku: "A", units_sold: 10, units_returned: 2, gross_sales: 1000, refunds: -200, commission: 0, fixed_fee: -50, collection_fee: 0, shipping_fee: 0,
+  sku: "A", units_sold: 10, units_returned: 3, units_returned_paid: 2, gross_sales: 1000, refunds: -200, commission: 0, fixed_fee: -50, collection_fee: 0, shipping_fee: 0,
   reverse_shipping_fee: -100, other_fees: 0, gst_on_fees: -27, tcs: -10, tds: -2, net_payout: 600, itc: 39, cost: 400, cost_missing: false, orders: 10, ...over,
 });
 

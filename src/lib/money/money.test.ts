@@ -189,7 +189,7 @@ test("a number that is not a number stops the import and marks the upload failed
   assert.equal(sink.failed.length, 1);
 });
 
-test("the other sheets of a settled report are kept: ads cost what was redeemed, a top-up is only cash", async () => {
+test("the other sheets of a settled report are kept: ads are the cash put into the ad wallet; wallet transfers net to zero", async () => {
   const sink = new FakeSink();
   const ads = {
     name: "Ads",
@@ -201,7 +201,7 @@ test("the other sheets of a settled report are kept: ads cost what was redeemed,
     ],
   };
   await importReport(inPieces(settledBook([orderRow({})], [ads])), "x.xlsx", sink);
-  assert.deepEqual(sink.other.map((o) => [o.kind, o.amount, o.expense]), [["ads", -100, 0], ["ads", 0, -47.2]]);
+  assert.deepEqual(sink.other.map((o) => [o.kind, o.amount, o.expense]), [["ads", -100, -100], ["ads", 0, 0]]);
 });
 
 test("a file that is neither report is refused with its sheet names", async () => {

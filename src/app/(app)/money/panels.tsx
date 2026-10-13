@@ -29,7 +29,7 @@ export type Search = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined): string => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export const KIND_LABEL: Record<string, string> = {
-  ads: "Ads (PLA wallet)",
+  ads: "Ads: cash put into the ad wallet",
   google_ads: "Google Ads",
   storage: "Storage fees",
   recall: "Recall fees",
@@ -130,10 +130,10 @@ export async function ProfitPanel({ db, sp }: { db: MoneyDb; sp: Search }) {
         <Tile label="Sales kept" value={rupees(t.revenue)} sub={`${formatNumber(t.units_sold)} sold, ${formatNumber(t.units_returned)} returned`} />
         <Tile label="Net payout + tax credits" value={rupees(t.net_payout + t.itc)} sub={`after fees and returns`} />
         <Tile
-          label={t.skusWithoutCost ? "Profit (SKUs with a cost)" : "Profit"}
+          label="Profit after product cost"
           value={rupees(t.profit)}
           tone={t.profit < 0 ? "bad" : undefined}
-          sub={t.skusWithoutCost ? `${t.skusWithoutCost} SKUs have no cost yet` : `margin ${percent(t.margin)}`}
+          sub={t.skusWithoutCost ? `${t.skusWithoutCost} SKUs have no cost yet: for them this is before cost` : `margin ${percent(t.margin)}`}
         />
         <Tile label="Margin before product cost" value={percent(beforeCost)} sub={t.skusWithoutCost ? "counts every SKU" : "payout over sales kept"} />
       </div>
@@ -141,7 +141,7 @@ export async function ProfitPanel({ db, sp }: { db: MoneyDb; sp: Search }) {
       <Card className="mb-4 p-4">
         <h2 className="text-base font-extrabold">Account-level costs (not tied to a SKU)</h2>
         <p className="mt-0.5 text-xs text-muted">
-          The Flipkart reports do not link ads to a SKU or listing, so ads and the other account charges are shown here, not in the SKU rows.
+          The Flipkart reports do not link ads to a SKU or listing, so ads and the other account charges are shown here, not in the SKU rows. The settlement report shows the cash moved into the ad wallet, not what the campaigns spent (the Profit and Loss report&apos;s Ads line has that, by order month).
         </p>
         {account.length ? (
           <ul className="mt-2 divide-y divide-line text-sm">

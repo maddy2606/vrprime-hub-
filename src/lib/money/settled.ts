@@ -301,9 +301,11 @@ export const OTHER_SHEETS: OtherSheet[] = [
       refund: "wallet refund", gst: "gst on ads fees",
     },
     required: ["neft", "date", "settlement"],
-    // Ads cost what was redeemed from the wallet (minus reversals) plus GST. A top-up only moves cash into the wallet.
+    // The report shows cash moving into and out of the ad wallet (a top-up, a refund), not what the campaigns spent: the
+    // wallet redeem columns are transfers that net to zero in the settlement value. So ads are counted as the cash that
+    // left the bank for the wallet, net of refunds.
     map: (v, d, n) => ({
-      expense: round3(n("redeem") + n("reversal") + n("gst")),
+      expense: round3(n("settlement")),
       gst: n("gst"),
       ref: v("ref") ?? null,
       ref_date: null,

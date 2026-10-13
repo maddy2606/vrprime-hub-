@@ -46,10 +46,12 @@ begin
     ('P6-SKU', '2026-01-01', 50, 5, 0), ('P6-SKU', '2026-09-15', 80, 5, 5);
 
   -- ---- The roles: admin and warehouse see and change nothing --------------------------------------------------------
-  foreach t in array array['money_uploads', 'money_payments', 'money_settled_lines', 'money_other_lines', 'money_pnl_orders', 'sku_costs'] loop
+  perform private.money_refresh_summary('2026-09-20', '2026-09-23');
+  update public.money_flags_cache set computed_at = now();
+  foreach t in array array['money_uploads', 'money_payments', 'money_settled_lines', 'money_other_lines', 'money_pnl_orders', 'sku_costs', 'money_sku_day', 'money_state', 'money_wrong_fee_rows', 'money_flags_cache'] loop
     perform set_config('request.jwt.claims', json_build_object('sub', u_own, 'role', 'authenticated')::text, true);
     set local role authenticated;
-    if t in ('money_uploads', 'money_payments', 'money_settled_lines', 'sku_costs') then
+    if t in ('money_uploads', 'money_payments', 'money_settled_lines', 'sku_costs', 'money_sku_day', 'money_state') then
       execute format('select count(*) from public.%I', t) into n;
       assert n >= 1, 'the owner reads ' || t;
     end if;
@@ -60,8 +62,11 @@ begin
       set local role authenticated;
       execute format('select count(*) from public.%I', t) into n;
       assert n = 0, 'a ' || (select role from public.profiles where id = f::uuid) || ' sees no row of ' || t;
-      execute format('delete from public.%I', t);
-      get diagnostics n = row_count;
+      begin
+        execute format('delete from public.%I', t);
+        get diagnostics n = row_count;
+      exception when insufficient_privilege then n := 0;
+      end;
       assert n = 0, 'a non-owner deletes nothing from ' || t;
       reset role;
     end loop;
@@ -128,8 +133,11 @@ begin
   delete from public.sku_costs where sku = 'P6-SKU';
   select * into strict r from public.money_profit('2026-09-20', '2026-09-21') where sku = 'P6-SKU';
   assert r.cost_missing, 'a SKU with sales and no cost is flagged';
-  res := public.money_flags();
+  reset role;
+  res := private.money_compute_flags();
+  set local role authenticated;
   assert (res ->> 'cost_missing')::int >= 1, 'cost missing shows in the flags';
+  assert (public.money_flags() ->> 'low_margin_percent') is not null, 'the saved Needs action answer can be read';
   res := public.money_sku_lines('P6-SKU', '2026-09-20', '2026-09-21', 10, 0);
   assert (res ->> 'total')::int = 3, 'the drill-down lists the lines of the SKU';
 
@@ -160,7 +168,8 @@ begin
          (md5('p6-dup-2')::uuid, up, pay, '2026-09-23', 'OD-P6-D', 'P6-ITEM-D', 'P6-SKU', 1, 100, -18, 82);
   perform set_config('request.jwt.claims', json_build_object('sub', u_own, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  select * into strict r from public.money_wrong_fees() where order_item_id = 'P6-ITEM-D';
+  reset role;
+  select * into strict r from private.money_wrong_fees_compute() w where w.order_item_id = 'P6-ITEM-D';
   assert r.problem = 'Fee charged twice' and r.extra_fee = 18, 'a fee charged twice is found, with the amount';
   reset role;
 
@@ -171,6 +180,15 @@ begin
     jsonb_build_object('key', 'p6-1', 'neft_id', 'P6-NEFT-1', 'payment_date', '2026-09-20', 'order_item_id', 'P6-ITEM-1'),
     jsonb_build_object('key', 'p6-new', 'neft_id', 'P6-NEFT-1', 'payment_date', '2026-09-20', 'order_item_id', 'P6-ITEM-NEW')));
   assert (res ->> 'seen')::int = 2 and (res ->> 'added')::int = 1, 'a line seen before is skipped, a new one is added';
+
+  -- a finished upload tells the background job there is work
+  reset role;
+  update public.money_state set summary_dirty = false, checks_dirty = false, flags_dirty = false;
+  perform set_config('request.jwt.claims', json_build_object('sub', u_own, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.money_finish_upload(up, '{}'::jsonb);
+  reset role;
+  assert (select summary_dirty and checks_dirty and flags_dirty from public.money_state), 'finishing an upload marks the numbers as needing work';
 
   -- the reminder
   reset role;

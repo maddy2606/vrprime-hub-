@@ -225,3 +225,11 @@ export async function databaseSizeMb(db: MoneyDb): Promise<number | null> {
   if (error) return null;
   return Number(data);
 }
+
+/** Whether the last upload is still being added up in the background. */
+export async function loadMoneyState(db: MoneyDb): Promise<{ working: boolean } | null> {
+  const { data, error } = await db.from("money_state").select("summary_dirty, checks_dirty, flags_dirty").eq("id", true).maybeSingle();
+  if (error || !data) return null;
+  const d = data as { summary_dirty: boolean; checks_dirty: boolean; flags_dirty: boolean };
+  return { working: d.summary_dirty || d.checks_dirty || d.flags_dirty };
+}

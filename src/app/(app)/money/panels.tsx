@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { CostsTable } from "@/components/money/costs-table";
 import { ProfitTable, UnpaidTable, WeightTable, WrongFeesTable } from "@/components/money/tables";
 import { UploadReport } from "@/components/money/upload-report";
@@ -14,6 +15,7 @@ import {
   loadCrosscheck,
   loadEstimate,
   loadFlags,
+  loadMoneyState,
   loadProfit,
   loadUnpaid,
   loadUploads,
@@ -109,24 +111,21 @@ const NO_DATA = (
 export async function ProfitPanel({ db, sp }: { db: MoneyDb; sp: Search }) {
   const { period, latest } = await periodOf(db, sp);
   if (!latest) return NO_DATA;
-  const today = todayIST();
-  const [rows, account, estimate, cross, flags] = await Promise.all([
+  const [rows, account, flags, state] = await Promise.all([
     loadProfit(db, period.from, period.to),
     loadAccountLines(db, period.from, period.to),
-    loadEstimate(db, addDays(today, -29), today),
-    loadCrosscheck(db),
     loadFlags(db),
+    loadMoneyState(db),
   ]);
   const t = totalsOf(rows);
   const accountTotal = account.reduce((n, a) => n + a.expense, 0);
   const beforeCost = t.revenue > 0 ? ((t.net_payout + t.itc) / t.revenue) * 100 : null;
-  const est = estimate.reduce((n, e) => n + e.est_profit, 0);
-  const estRevenue = estimate.reduce((n, e) => n + e.revenue, 0);
   const low = flags?.low_margin_percent ?? 10;
 
   return (
     <>
       <PeriodPicker tab="profit" period={period} />
+      <WorkingNote working={state?.working ?? false} />
       <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <Tile label="Sales kept" value={rupees(t.revenue)} sub={`${formatNumber(t.units_sold)} sold, ${formatNumber(t.units_returned)} returned`} />
         <Tile label="Net payout + tax credits" value={rupees(t.net_payout + t.itc)} sub={`after fees and returns`} />
@@ -164,86 +163,12 @@ export async function ProfitPanel({ db, sp }: { db: MoneyDb; sp: Search }) {
 
       <ProfitTable rows={rows} from={period.from} to={period.to} lowMargin={low} />
 
-      <Card className="mt-6 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-extrabold">Orders not settled yet</h2>
-          <Chip tone="info">Estimated</Chip>
-        </div>
-        <p className="mt-0.5 text-xs text-muted">
-          Orders from the last 30 days that are shipped or waiting and have no settlement line. Each SKU&apos;s current price, its fee % from recent settlements
-          (or the default fee setting), and its cost. Kept apart from the settled figures above.
-        </p>
-        {estimate.length ? (
-          <>
-            <p className="mt-2 text-sm">
-              <b>{formatNumber(estimate.reduce((n, e) => n + e.units, 0))}</b> units, about <b>{rupees(estRevenue)}</b> of sales, estimated profit{" "}
-              <b className={est < 0 ? "text-bad" : ""}>{rupees(est)}</b>
-              {estimate.some((e) => e.cost_missing) ? " (SKUs without a cost count as zero cost)" : ""}.
-            </p>
-            <div className="mt-2 overflow-x-auto rounded-lg border border-line">
-              <table className="w-full min-w-max border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-line bg-surface2 text-left text-xs uppercase tracking-wide text-muted">
-                    <th className="p-2">SKU</th>
-                    <th className="p-2 text-right">Units</th>
-                    <th className="p-2 text-right">Price</th>
-                    <th className="p-2 text-right">Fee %</th>
-                    <th className="p-2 text-right">Est. payout</th>
-                    <th className="p-2 text-right">Cost</th>
-                    <th className="p-2 text-right">Est. profit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {estimate.slice(0, 25).map((e) => (
-                    <tr key={e.sku} className="border-b border-line last:border-b-0">
-                      <td className="p-2 font-mono text-[13px] font-bold">{e.sku}</td>
-                      <td className="p-2 text-right tabular-nums">{formatNumber(e.units)}</td>
-                      <td className="p-2 text-right tabular-nums">{e.price === null ? "-" : rupees(e.price)}</td>
-                      <td className="p-2 text-right tabular-nums" title={e.fee_source}>{e.fee_pct}%</td>
-                      <td className="p-2 text-right tabular-nums">{rupees(e.est_payout)}</td>
-                      <td className="p-2 text-right tabular-nums">{e.cost_missing ? <Chip tone="warn">Cost missing</Chip> : rupees(e.cost)}</td>
-                      <td className={`p-2 text-right tabular-nums ${e.est_profit < 0 ? "font-bold text-bad" : ""}`}>{rupees(e.est_profit)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {estimate.length > 25 ? <p className="mt-1 text-xs text-muted">Showing the first 25 of {estimate.length} SKUs.</p> : null}
-          </>
-        ) : (
-          <p className="mt-2 text-sm text-muted">No unsettled orders found in the order data.</p>
-        )}
-      </Card>
-
-      <Card className="mt-4 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-extrabold">Cross-check with Flipkart&apos;s Profit and Loss report</h2>
-          {cross.compared ? <Chip tone={cross.differ ? "bad" : "ok"}>{cross.differ ? `${formatNumber(cross.differ)} differ` : "All match"}</Chip> : null}
-        </div>
-        {cross.compared ? (
-          <>
-            <p className="mt-1 text-sm">
-              {formatNumber(cross.compared)} payments of orders in the P&L report were compared with the same payments in Settled Transactions.{" "}
-              <b>{formatNumber(cross.differ)}</b> differ by more than ₹{cross.tolerance}.
-            </p>
-            {cross.rows.length ? (
-              <ul className="mt-2 divide-y divide-line text-sm">
-                {cross.rows.slice(0, 20).map((r) => (
-                  <li key={r.order_item_id + r.neft_id} className="flex flex-wrap items-baseline justify-between gap-2 py-1.5">
-                    <span className="break-all font-mono text-xs">{r.order_item_id}</span>
-                    <span className="text-xs text-muted">{r.sku}</span>
-                    <span className="tabular-nums">Flipkart {rupees(r.flipkart_amount)} · ours {rupees(r.our_amount)} · difference {rupees(r.diff)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </>
-        ) : (
-          <p className="mt-1 text-sm text-muted">
-            Needs both reports for the same orders: a Profit and Loss Report and the Settled Transactions reports that paid them. Upload both on the Uploads tab.
-          </p>
-        )}
-      </Card>
+      <Suspense fallback={<div aria-busy="true" className="skeleton mt-6 h-40 w-full" />}>
+        <EstimateCard db={db} />
+      </Suspense>
+      <Suspense fallback={<div aria-busy="true" className="skeleton mt-4 h-24 w-full" />}>
+        <CrosscheckCard db={db} />
+      </Suspense>
     </>
   );
 }
@@ -365,5 +290,110 @@ export async function UploadsPanel({ db }: { db: MoneyDb }) {
         <p className="text-sm text-muted">Nothing uploaded yet.</p>
       )}
     </>
+  );
+}
+
+function WorkingNote({ working }: { working: boolean }) {
+  if (!working) return null;
+  return (
+    <p role="status" className="mb-4 rounded-lg bg-info-soft px-3 py-2 text-sm font-semibold text-info">
+      The last upload is still being added up in the background (about a minute). Reload to see the final numbers; the checks on the Settlement tab update then too.
+    </p>
+  );
+}
+
+async function EstimateCard({ db }: { db: MoneyDb }) {
+  const today = todayIST();
+  const estimate = await loadEstimate(db, addDays(today, -29), today);
+  const est = estimate.reduce((n, e) => n + e.est_profit, 0);
+  const estRevenue = estimate.reduce((n, e) => n + e.revenue, 0);
+  return (
+    <Card className="mt-6 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-extrabold">Orders not settled yet</h2>
+        <Chip tone="info">Estimated</Chip>
+      </div>
+      <p className="mt-0.5 text-xs text-muted">
+        Orders from the last 30 days that are shipped or waiting and have no settlement line. Each SKU&apos;s current price, its fee % from recent settlements
+        (or the default fee setting), and its cost. Kept apart from the settled figures above.
+      </p>
+      {estimate.length ? (
+        <>
+          <p className="mt-2 text-sm">
+            <b>{formatNumber(estimate.reduce((n, e) => n + e.units, 0))}</b> units, about <b>{rupees(estRevenue)}</b> of sales, estimated profit{" "}
+            <b className={est < 0 ? "text-bad" : ""}>{rupees(est)}</b>
+            {estimate.some((e) => e.cost_missing) ? " (SKUs without a cost count as zero cost)" : ""}.
+          </p>
+          <div className="mt-2 overflow-x-auto rounded-lg border border-line">
+            <table className="w-full min-w-max border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-line bg-surface2 text-left text-xs uppercase tracking-wide text-muted">
+                  <th className="p-2">SKU</th>
+                  <th className="p-2 text-right">Units</th>
+                  <th className="p-2 text-right">Price</th>
+                  <th className="p-2 text-right">Fee %</th>
+                  <th className="p-2 text-right">Est. payout</th>
+                  <th className="p-2 text-right">Cost</th>
+                  <th className="p-2 text-right">Est. profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {estimate.slice(0, 25).map((e) => (
+                  <tr key={e.sku} className="border-b border-line last:border-b-0">
+                    <td className="p-2 font-mono text-[13px] font-bold">{e.sku}</td>
+                    <td className="p-2 text-right tabular-nums">{formatNumber(e.units)}</td>
+                    <td className="p-2 text-right tabular-nums">{e.price === null ? "-" : rupees(e.price)}</td>
+                    <td className="p-2 text-right tabular-nums" title={e.fee_source}>{e.fee_pct}%</td>
+                    <td className="p-2 text-right tabular-nums">{rupees(e.est_payout)}</td>
+                    <td className="p-2 text-right tabular-nums">{e.cost_missing ? <Chip tone="warn">Cost missing</Chip> : rupees(e.cost)}</td>
+                    <td className={`p-2 text-right tabular-nums ${e.est_profit < 0 ? "font-bold text-bad" : ""}`}>{rupees(e.est_profit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {estimate.length > 25 ? <p className="mt-1 text-xs text-muted">Showing the first 25 of {estimate.length} SKUs.</p> : null}
+        </>
+      ) : (
+        <p className="mt-2 text-sm text-muted">No unsettled orders found in the order data.</p>
+      )}
+    </Card>
+
+
+  );
+}
+
+async function CrosscheckCard({ db }: { db: MoneyDb }) {
+  const cross = await loadCrosscheck(db);
+  return (
+    <Card className="mt-4 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-base font-extrabold">Cross-check with Flipkart&apos;s Profit and Loss report</h2>
+        {cross.compared ? <Chip tone={cross.differ ? "bad" : "ok"}>{cross.differ ? `${formatNumber(cross.differ)} differ` : "All match"}</Chip> : null}
+      </div>
+      {cross.compared ? (
+        <>
+          <p className="mt-1 text-sm">
+            {formatNumber(cross.compared)} payments of orders in the P&L report were compared with the same payments in Settled Transactions.{" "}
+            <b>{formatNumber(cross.differ)}</b> differ by more than ₹{cross.tolerance}.
+          </p>
+          {cross.rows.length ? (
+            <ul className="mt-2 divide-y divide-line text-sm">
+              {cross.rows.slice(0, 20).map((r) => (
+                <li key={r.order_item_id + r.neft_id} className="flex flex-wrap items-baseline justify-between gap-2 py-1.5">
+                  <span className="break-all font-mono text-xs">{r.order_item_id}</span>
+                  <span className="text-xs text-muted">{r.sku}</span>
+                  <span className="tabular-nums">Flipkart {rupees(r.flipkart_amount)} · ours {rupees(r.our_amount)} · difference {rupees(r.diff)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      ) : (
+        <p className="mt-1 text-sm text-muted">
+          Needs both reports for the same orders: a Profit and Loss Report and the Settled Transactions reports that paid them. Upload both on the Uploads tab.
+        </p>
+      )}
+    </Card>
   );
 }

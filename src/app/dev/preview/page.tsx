@@ -9,6 +9,7 @@ import { PostGrid } from "@/components/posts/post-card";
 import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
 import { SettingsForm } from "@/components/admin/settings-form";
+import { ForecastTab } from "@/components/flipkart/forecast-tab";
 import { HealthTab } from "@/components/flipkart/health-tab";
 import { NeedsAction } from "@/components/flipkart/needs-action";
 import { OrdersTab } from "@/components/flipkart/orders-tab";
@@ -81,6 +82,7 @@ const VIEWS = [
   "frates",
   "fprices",
   "fhealth",
+  "fforecast",
   "settings",
   "users",
   "password",
@@ -311,6 +313,19 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
         <ReturnsTab initialPage={fakeReturnsPage().page} initialSummary={fakeReturnsPage().summary} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
       ) : null}
       {view === "fprices" ? <PricesTab rows={fakePriceRows()} today={today} dropLimit={15} snapshotDate={today} /> : null}
+      {view === "fforecast" ? (
+        <ForecastTab
+          meta={{ today, windowStart: addDays(today, -24), windowEnd: addDays(today, -1), days: 24, asked: 30, historyFrom: addDays(today, -24), snapshot: today }}
+          raw={[
+            { sku: "FAKE-SKU-RED-XL", wid: FAKE_WAREHOUSES[0].id, title: "Fake red cleaner, extra large pack, long title that wraps", disp: 720, b1: 30, b7: 210, b30: 600, stock: 400 },
+            { sku: "FAKE-SKU-RED-XL", wid: FAKE_WAREHOUSES[1].id, title: null, disp: 240, b1: 10, b7: 70, b30: 180, stock: 90 },
+            { sku: "FAKE-SKU-BLU-M", wid: FAKE_WAREHOUSES[0].id, title: "Fake blue spray", disp: 48, b1: 0, b7: 6, b30: 20, stock: 1000 },
+            { sku: "FAKE-NO-SALES", wid: FAKE_WAREHOUSES[0].id, title: "Never sold", disp: 0, b1: 0, b7: 0, b30: 0, stock: 25 },
+          ]}
+          warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))}
+          window={30}
+        />
+      ) : null}
       {health ? <HealthTab rows={health.rows} total={health.total} taxUnread={0} slaLimit={2} /> : null}
     </>
   );

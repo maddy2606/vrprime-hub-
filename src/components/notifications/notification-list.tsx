@@ -21,6 +21,7 @@ const KIND_TONE: Record<string, Tone> = {
   dispatch_risk: "bad",
   listing_live: "ok",
   listing_not_found: "bad",
+  money_reminder: "info",
 };
 
 export function NotificationList({ items }: { items: NotificationRow[] }) {

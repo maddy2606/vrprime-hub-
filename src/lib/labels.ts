@@ -79,6 +79,8 @@ export const ISSUE_LABEL: Record<IssueType, string> = {
   listing_blocked: "Listing blocked",
   claim: "Claim",
   other: "Other",
+  weight_overcharge: "Weight overcharge",
+  wrong_fee: "Wrong fee",
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -120,4 +122,5 @@ export const NOTIFICATION_ICON_LABEL: Record<string, string> = {
   dispatch_risk: "Dispatch",
   listing_live: "Live",
   listing_not_found: "Check SKU",
+  money_reminder: "Money",
 };

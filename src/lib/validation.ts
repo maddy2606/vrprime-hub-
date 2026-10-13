@@ -201,6 +201,12 @@ export const settingsSchema = z.object({
   dispatch_sla_days: wholeNumber("the number of days", 1, 30),
   running_out_days: wholeNumber("the number of days", 1, 365),
   return_rate_percent: wholeNumber("the percentage", 1, 100),
+  money_low_margin_percent: wholeNumber("the percentage", 1, 99),
+  money_default_fee_percent: wholeNumber("the percentage", 1, 60),
+  money_unpaid_after_days: wholeNumber("the number of days", 1, 120),
+  money_fee_deviation_points: wholeNumber("the number of points", 1, 50),
+  money_upload_reminder_days: wholeNumber("the number of days", 1, 120),
+  money_keep_months: wholeNumber("the number of months", 1, 36),
 });
 
 /** First message per field, for showing under form inputs. */

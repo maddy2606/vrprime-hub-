@@ -36,6 +36,10 @@ export default async function NewTicketPage({
   const issue = one(sp.issue);
   if ((ISSUE_TYPES as readonly string[]).includes(issue)) initial.issue_type = issue as IssueType;
 
+  // /tickets/new?notes=... (from the Money checks) fills in the order details.
+  const notes = one(sp.notes).trim().slice(0, 900);
+  if (notes) initial.resolution_notes = notes;
+
   let linkedPost: { id: string; number: number; title: string } | null = null;
   if (UUID.test(postParam)) {
     const supabase = await createClient();

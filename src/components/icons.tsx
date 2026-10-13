@@ -103,6 +103,12 @@ export const SlidersIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const RupeeIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M7 5h10M7 9h10M9 5c4 0 6 1.5 6 4s-2 4-6 4h-1l7 6" />
+  </Icon>
+);
+
 export const ChevronDownIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="m6 9 6 6 6-6" />

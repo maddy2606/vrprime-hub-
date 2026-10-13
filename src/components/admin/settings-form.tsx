@@ -15,6 +15,12 @@ export type SettingsValues = {
   dispatch_sla_days: string;
   running_out_days: string;
   return_rate_percent: string;
+  money_low_margin_percent: string;
+  money_default_fee_percent: string;
+  money_unpaid_after_days: string;
+  money_fee_deviation_points: string;
+  money_upload_reminder_days: string;
+  money_keep_months: string;
 };
 type Values = SettingsValues;
 
@@ -120,6 +126,61 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
         hint="Flag a SKU when returns are more than this percent of the units sold in the last 30 days (needs at least 10 units sold). Normal setting: 10."
       >
         <input id="return_rate_percent" className="input" inputMode="numeric" value={values.return_rate_percent} onChange={(e) => set("return_rate_percent", e.target.value)} aria-invalid={Boolean(errors.return_rate_percent)} />
+      </Field>
+      <h2 className="mt-2 text-base font-extrabold">Money (owner only)</h2>
+      <Field
+        label="Low margin (%)"
+        htmlFor="money_low_margin_percent"
+        required
+        error={errors.money_low_margin_percent}
+        hint="Needs action flags a SKU whose profit margin over the last 30 days of settlements is under this. Normal setting: 10."
+      >
+        <input id="money_low_margin_percent" className="input" inputMode="numeric" value={values.money_low_margin_percent} onChange={(e) => set("money_low_margin_percent", e.target.value)} aria-invalid={Boolean(errors.money_low_margin_percent)} />
+      </Field>
+      <Field
+        label="Default fee (%)"
+        htmlFor="money_default_fee_percent"
+        required
+        error={errors.money_default_fee_percent}
+        hint="Used to estimate the profit on unsettled orders for a SKU that has no recent settlements. Normal setting: 12."
+      >
+        <input id="money_default_fee_percent" className="input" inputMode="numeric" value={values.money_default_fee_percent} onChange={(e) => set("money_default_fee_percent", e.target.value)} aria-invalid={Boolean(errors.money_default_fee_percent)} />
+      </Field>
+      <Field
+        label="Unpaid after (days)"
+        htmlFor="money_unpaid_after_days"
+        required
+        error={errors.money_unpaid_after_days}
+        hint="An order shipped more than this many days before the latest settlement day, with no money line, is listed as unpaid. Normal setting: 15."
+      >
+        <input id="money_unpaid_after_days" className="input" inputMode="numeric" value={values.money_unpaid_after_days} onChange={(e) => set("money_unpaid_after_days", e.target.value)} aria-invalid={Boolean(errors.money_unpaid_after_days)} />
+      </Field>
+      <Field
+        label="Fee deviation (points)"
+        htmlFor="money_fee_deviation_points"
+        required
+        error={errors.money_fee_deviation_points}
+        hint="A fee is flagged when it is this many percentage points of the sale price above (or, for commission, away from) what the SKU usually pays. Normal setting: 2."
+      >
+        <input id="money_fee_deviation_points" className="input" inputMode="numeric" value={values.money_fee_deviation_points} onChange={(e) => set("money_fee_deviation_points", e.target.value)} aria-invalid={Boolean(errors.money_fee_deviation_points)} />
+      </Field>
+      <Field
+        label="Upload reminder (days)"
+        htmlFor="money_upload_reminder_days"
+        required
+        error={errors.money_upload_reminder_days}
+        hint="You get a notification when no settlement report has been uploaded for this many days. Normal setting: 14."
+      >
+        <input id="money_upload_reminder_days" className="input" inputMode="numeric" value={values.money_upload_reminder_days} onChange={(e) => set("money_upload_reminder_days", e.target.value)} aria-invalid={Boolean(errors.money_upload_reminder_days)} />
+      </Field>
+      <Field
+        label="Months of money data to keep"
+        htmlFor="money_keep_months"
+        required
+        error={errors.money_keep_months}
+        hint="Older settlement lines are deleted when a report is uploaded. The free database holds about three months at your volume, so 12 only fits on a paid plan."
+      >
+        <input id="money_keep_months" className="input" inputMode="numeric" value={values.money_keep_months} onChange={(e) => set("money_keep_months", e.target.value)} aria-invalid={Boolean(errors.money_keep_months)} />
       </Field>
       <button type="submit" disabled={pending} className={buttonClass("primary", "sm:self-start sm:min-w-40")}>
         {pending ? "Saving…" : "Save settings"}

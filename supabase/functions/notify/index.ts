@@ -100,6 +100,7 @@ function urlFor(n: NotificationRow): string {
   if (n.kind === "follow_up") return "/tickets?tab=due";
   if (n.kind === "overdue") return "/";
   if (n.kind === "dispatch_risk") return "/flipkart?tab=orders";
+  if (n.kind === "money_reminder") return "/money?tab=uploads";
   return "/notifications";
 }
 

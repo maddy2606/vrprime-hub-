@@ -14,6 +14,7 @@ import { formatDate, todayIST } from "@/lib/format";
 import { SELLER_HUB } from "@/lib/seller-hub";
 import { isViewKey } from "@/lib/stock-views";
 import { createClient } from "@/lib/supabase/server";
+import { loadFlags } from "@/server/money-data";
 import type { SessionUser } from "@/lib/types";
 import {
   canSeePrices,
@@ -61,16 +62,22 @@ export async function NeedsPanel({ user }: { user: SessionUser }) {
     loadEmpties(supabase),
     loadCover(supabase, today),
   ]);
-  const [priceRows, newInactive, listingsNotFound, returns] = await Promise.all([
+  const [priceRows, newInactive, listingsNotFound, returns, moneyFlags] = await Promise.all([
     staff && snapshotDate ? loadPriceRows(supabase, snapshotDate, settings, false) : Promise.resolve([]),
     staff ? loadNewInactive(supabase, today, settings.newInactiveDays) : Promise.resolve([]),
     staff ? loadListingsNotFound(supabase, now) : Promise.resolve([]),
     loadReturnRates(supabase, settings, today, cover.coverageFrom),
+    // Owner only: the database refuses everyone else, and nothing is asked for them.
+    user.role === "owner" ? loadFlags(supabase as never) : Promise.resolve(null),
   ]);
 
   const cards = readCards(counts, warehouses);
   const sections = buildNeedsAction(
-    { now, staff, warehouses, cards, empties, settings, priceRows, returnRates: returns.rates, covers: cover.covers, newInactive, listingsNotFound },
+    { now, staff, warehouses, cards, empties, settings, priceRows, returnRates: returns.rates, covers: cover.covers, newInactive, listingsNotFound,
+      money: moneyFlags
+        ? { lowMarginPercent: moneyFlags.low_margin_percent, negative: moneyFlags.negative, low: moneyFlags.low, unpaid: moneyFlags.unpaid, costMissing: moneyFlags.cost_missing, latest: moneyFlags.latest }
+        : null,
+    },
     { sellerHubOrders: SELLER_HUB.orders, sellerHubListings: SELLER_HUB.listings },
   );
 

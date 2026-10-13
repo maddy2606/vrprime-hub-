@@ -21,7 +21,7 @@ export const TICKET_STATUSES = ["open", "waiting_marketplace", "resolved", "reje
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 export const OPEN_TICKET_STATUSES: TicketStatus[] = ["open", "waiting_marketplace"];
 
-export const ISSUE_TYPES = ["wrong_return", "payment_missing", "listing_blocked", "claim", "other"] as const;
+export const ISSUE_TYPES = ["wrong_return", "payment_missing", "listing_blocked", "claim", "other", "weight_overcharge", "wrong_fee"] as const;
 export type IssueType = (typeof ISSUE_TYPES)[number];
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];

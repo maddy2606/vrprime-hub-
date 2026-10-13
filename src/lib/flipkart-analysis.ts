@@ -374,7 +374,7 @@ export type ActionRow = {
 };
 
 export type ActionSection = {
-  key: "orders" | "empty" | "prices" | "inactive" | "listings" | "returns" | "running";
+  key: "orders" | "empty" | "prices" | "inactive" | "listings" | "returns" | "running" | "money";
   title: string;
   rows: ActionRow[];
 };
@@ -395,6 +395,15 @@ export type NeedsInput = {
   newInactive: { sku: string; inactiveSince: string | null }[];
   /** New-listing requests marked done 3+ days ago and still not found on Flipkart (owner and admin only). */
   listingsNotFound?: { postId: string; number: number; title: string; sku: string; doneAt: string }[];
+  /** Owner only: what the money checks found (negative and low margins, unpaid orders). Never passed for anyone else. */
+  money?: {
+    lowMarginPercent: number;
+    negative: { sku: string; margin: number; profit: number }[];
+    low: { sku: string; margin: number; profit: number }[];
+    unpaid: number;
+    costMissing: number;
+    latest: string | null;
+  } | null;
 };
 
 export function ticketHref(sku: string | null, issue: "wrong_return" | "listing_blocked" | "other" = "other"): string {
@@ -500,6 +509,37 @@ export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: st
         };
       }),
     });
+  }
+
+  // 4c. Money (owner only): SKUs losing money or under the margin setting, and orders Flipkart has not paid.
+  if (input.money) {
+    const m = input.money;
+    const rows: ActionRow[] = [
+      ...m.negative.map((r) => ({
+        key: `money-neg-${r.sku}`,
+        title: r.sku,
+        detail: `Losing money: margin ${r.margin}% (${r.profit < 0 ? "-" : ""}₹${Math.abs(r.profit).toLocaleString("en-IN")}) over the last 30 days of settlements`,
+        tone: "bad" as const,
+        actions: [{ label: "See profit", href: `/money?range=30` }],
+      })),
+      ...m.low.map((r) => ({
+        key: `money-low-${r.sku}`,
+        title: r.sku,
+        detail: `Low margin: ${r.margin}%, under ${m.lowMarginPercent}% (profit ₹${r.profit.toLocaleString("en-IN")}) over the last 30 days of settlements`,
+        tone: "warn" as const,
+        actions: [{ label: "See profit", href: "/money?range=30" }],
+      })),
+    ];
+    if (m.unpaid > 0) {
+      rows.push({
+        key: "money-unpaid",
+        title: `${m.unpaid} shipped ${m.unpaid === 1 ? "order has" : "orders have"} no payment yet`,
+        detail: "Older than the unpaid-after setting, up to the latest settlement day uploaded",
+        tone: "warn",
+        actions: [{ label: "Check settlements", href: "/money?tab=checks" }],
+      });
+    }
+    if (rows.length) sections.push({ key: "money", title: "Money", rows });
   }
 
   // 5. High return rate.

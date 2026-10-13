@@ -100,7 +100,12 @@ export function AppShell({
                   {user.email ? ` · ${user.email}` : ""}
                 </p>
                 {isOwner ? (
-                  <Link prefetch={false} href="/admin/users" className={buttonClass("secondary", "mt-3 w-full")}>
+                  <Link prefetch={false} href="/money" className={buttonClass("secondary", "mt-3 w-full")}>
+                    Money
+                  </Link>
+                ) : null}
+                {isOwner ? (
+                  <Link prefetch={false} href="/admin/users" className={buttonClass("secondary", "mt-2 w-full")}>
                     Manage users
                   </Link>
                 ) : null}

@@ -46,3 +46,7 @@ next-env.d.ts
 .vercel
 .env*
 !.env.example
+
+# Flipkart settlement reports (money data, never commit)
+/settlements/
+settlements/

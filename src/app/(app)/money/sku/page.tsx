@@ -9,7 +9,7 @@ import { loadSkuLines, requireOwnerPage } from "@/server/money-data";
 export const metadata: Metadata = { title: "Money: SKU" };
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const PAGE = 100;
+const PAGE = 50;
 const one = (v: string | string[] | undefined): string => (Array.isArray(v) ? v[0] : v) ?? "";
 
 const money = (v: number): string => `${v < 0 ? "-" : ""}₹${Math.abs(v).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;

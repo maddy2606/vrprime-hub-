@@ -15,7 +15,8 @@ phones first; installable from the browser.
 | 1 | Work board, search, filters, photos, users admin, PWA shell | Built |
 | 2 | Tickets, push notifications, notification bell, daily 9:30 AM jobs | Built |
 | 3 | Flipkart stock desk and daily sync | Live |
-| 5 | New-listing requests (live check against Flipkart, weight check), three roles | Built |
+| 5 | New-listing requests (live check against Flipkart, weight check), three roles | Live |
+| 6 | Money: settlement reports, SKU costs, profit per SKU, weight overcharges, settlement checks (owner only) | Built; see [Money](#money-phase-6) |
 | 4 | The Flipkart page: needs action, orders, returns, prices, listing health, running out soon | Built (Phase 4b, with Seller Hub's order tabs); see [The Flipkart page](#the-flipkart-page) |
 
 ## Environment variables
@@ -158,7 +159,7 @@ matching TypeScript row types and must be updated by hand in the same commit.
 
 ### Checking the access rules
 
-`supabase/tests/rls_check.sql`, `phase2_check.sql`, `phase3_check.sql`, `phase4_check.sql` and `phase5_check.sql` prove that a warehouse user cannot read, search, comment on or edit
+`supabase/tests/rls_check.sql`, `phase2_check.sql`, `phase3_check.sql`, `phase4_check.sql`, `phase5_check.sql` and `phase6_check.sql` prove that a warehouse user cannot read, search, comment on or edit
 another warehouse's posts, that deactivated and signed-out users see nothing, that nobody can change
 their own role, and that status changes are audited. The Phase 2 script covers who gets which notification,
 that notifications are private and cannot be forged, that the internal functions are not callable by signed-in
@@ -169,6 +170,17 @@ dispatch-deadline alert (once per order, owners and admins only), that warehouse
 returns, the sales, stock-drop and return-rate calculations, and how the order runs pause, wait and restart. The Phase 5 script covers the three roles (an admin cannot change settings, users or anyone's role; the last active owner can never be demoted, deactivated or deleted), that only owners and admins can post, see or be assigned a new-listing request, that marking one done needs a trimmed SKU, and the live check against the Flipkart listings (live and active, inactive, over the weight limit, not found, the 3-day alert, no repeats). Each runs inside a transaction
 and rolls back, so it leaves no data behind and is safe on production. Paste one into the Supabase SQL editor
 and run it: the result is `All ... checks passed`, or an error naming the rule that failed.
+
+### Money (Phase 6)
+
+**Owner only, in the database**: every money table has one row-level-security policy that lets an owner through and nobody else, and every money function refuses anyone who is not an owner (`phase6_check.sql` proves Admin, Warehouse and signed-out visitors read and change nothing). The page, its nav link and its Needs action items do not exist for anyone else.
+
+- **Upload** (Money > Uploads): Seller Hub > Payments > Reports, download **Settled Transactions** and the **Profit and Loss Report** (up to 30 days each) and choose the .xlsx file. The file is read in the browser (they are far bigger than a web request: one month was 140 MB and 1.4 GB of XML), its type is found from its sheets, its columns are checked by name (a missing or renamed column refuses the whole file and names it), and rows are saved 1,000 at a time. The same code runs from `node scripts/money-import.mts <file>` with the service key. No buyer data is read.
+- **No double counting**: a settled line's key is NEFT ID + order item ID + invoice ID + sale amount + refund + bank settlement value (unique per row in both real reports); the same line in an overlapping or repeated report is skipped. P&L orders are keyed by order item ID and replaced by a newer report, since their figures mature.
+- **Profit** is by the day money was paid: net payout + input tax credits - cost of the units paid out (cost by the order date, so old orders keep the old cost). Returned before payment (a line with a sale and a refund inside it) never counted as sold; returned after payment (a refund line) takes the cost back. Ads are shown as account-level lines: the settlement report has no SKU for them.
+- **Weight overcharge**: dead weight = the listing's kg; volumetric = L x B x H (cm) / 5000, the divisor Flipkart's own report uses (its volumetric weight column equals L x B x H / 5000). Slabs: 0.5 kg steps up to 2.5 kg, then 1 kg.
+- **Background job**: adding up 400,000 lines takes longer than the 8 seconds a signed-in request may run, so an upload only marks the numbers as stale and a job (every minute) adds them up (`money_sku_day`), runs the wrong-fee and cross-check calculations and saves the Needs action answer. Pages read the saved answers.
+- **Size**: the free database is 500 MB. One month of settlements is about 140 MB. Uploads are refused above 430 MB, and "months to keep" is a setting. A paid plan is needed to keep 12 months at this volume.
 
 ### Who can see what
 

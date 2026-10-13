@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export const TAB_KEYS = ["needs", "orders", "stock", "returns", "prices", "health"] as const;
+export const TAB_KEYS = ["needs", "orders", "stock", "returns", "prices", "health", "forecast"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 export const TAB_LABEL: Record<TabKey, string> = {
@@ -10,11 +10,12 @@ export const TAB_LABEL: Record<TabKey, string> = {
   returns: "Returns",
   prices: "Prices",
   health: "Listing health",
+  forecast: "Forecasting",
 };
 
-/** Prices and listing problems are for owner and admin; warehouse users see the other four. */
+/** Prices and listing problems are for owner and admin; warehouse users see the other five (Forecasting shows only their warehouses). */
 export function tabsFor(role: string): TabKey[] {
-  return role === "warehouse" ? ["needs", "orders", "stock", "returns"] : [...TAB_KEYS];
+  return role === "warehouse" ? ["needs", "orders", "stock", "returns", "forecast"] : [...TAB_KEYS];
 }
 
 export function isTabKey(value: unknown): value is TabKey {

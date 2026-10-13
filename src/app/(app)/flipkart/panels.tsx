@@ -1,3 +1,4 @@
+import { ForecastTab } from "@/components/flipkart/forecast-tab";
 import { HealthTab } from "@/components/flipkart/health-tab";
 import { NeedsAction } from "@/components/flipkart/needs-action";
 import { OrdersTab } from "@/components/flipkart/orders-tab";
@@ -7,6 +8,7 @@ import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { EmptyState } from "@/components/ui";
 import { buildNeedsAction } from "@/lib/flipkart-analysis";
+import { readForecast, WINDOWS } from "@/lib/forecast";
 import { defaultQuery, INITIAL_PAGE_SIZE, ordersQuerySchema, readCards, type OrdersQuery } from "@/lib/orders-view";
 import { defaultReturnsQuery, RETURNS_INITIAL_PAGE_SIZE } from "@/lib/returns-view";
 import { defaultStockQuery, STOCK_INITIAL_PAGE_SIZE, stockQuerySchema } from "@/lib/stock-view";
@@ -207,4 +209,17 @@ export async function HealthPanel() {
   const { rows, total, taxUnread } = await loadHealthRows(supabase, settings);
   if (total === 0) return <EmptyState title="No listings yet" body="Listings are read with the stock sync. Run a sync on the Stock tab first." />;
   return <HealthTab rows={rows} total={total} taxUnread={taxUnread} slaLimit={settings.dispatchSlaDays} />;
+}
+
+// --- Forecasting -------------------------------------------------------------------------------------------------
+
+export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Search }) {
+  const supabase = await createClient();
+  const asked = Number(one(sp.days));
+  const days = (WINDOWS as readonly number[]).includes(asked) ? asked : 30;
+  // Row level security gives a warehouse user only their own warehouses' orders and stock.
+  const [{ data, error }, warehouses] = await Promise.all([supabase.rpc("flipkart_forecast", { p_days: days }), warehousesFor(user)]);
+  const parsed = error ? null : readForecast(data);
+  if (!parsed) return <EmptyState title="The forecast could not be loaded" body="Reload the page. If it keeps happening, tell the developer." />;
+  return <ForecastTab meta={parsed.meta} raw={parsed.raw} warehouses={warehouses} window={days} />;
 }

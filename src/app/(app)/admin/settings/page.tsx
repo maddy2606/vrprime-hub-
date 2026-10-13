@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { OwnerOnly } from "@/components/owner-only";
+import { MoneySwitch } from "@/components/admin/money-switch";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_FLIPKART_SETTINGS } from "@/lib/flipkart-analysis";
 import { SETTING_KEYS } from "@/lib/settings-keys";
+import { isMoneyEnabled } from "@/server/money-flag";
 import { DEFAULT_SETTINGS } from "@/server/stock-data";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -26,9 +28,11 @@ export default async function SettingsPage() {
     return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
   };
 
+  const moneyOn = await isMoneyEnabled();
   return (
     <div className="mx-auto max-w-2xl">
       <PageTitle title="Settings" sub="Thresholds for the Flipkart page. They apply the next time anyone opens it." />
+      <MoneySwitch initial={moneyOn} />
       <SettingsForm
         initial={{
           low_stock_threshold: String(read("low_stock_threshold", DEFAULT_SETTINGS.low)),

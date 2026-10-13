@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { readEstimateRows, readProfitRows, withProfit, type EstimateRow, type ProfitRow } from "@/lib/money/profit";
 import { logError } from "@/lib/redact";
 import { createClient } from "@/lib/supabase/server";
+import { isMoneyEnabled } from "@/server/money-flag";
 import type { SessionUser } from "@/lib/types";
 
 // Everything here is owner only. The database enforces it (row level security on every money table, and every
@@ -20,7 +21,7 @@ export type MoneyDb = Loose;
 
 export async function requireOwnerPage(): Promise<{ user: SessionUser; db: MoneyDb }> {
   const user = await requireUser();
-  if (user.role !== "owner") notFound();
+  if (user.role !== "owner" || !(await isMoneyEnabled())) notFound();
   return { user, db: (await createClient()) as unknown as MoneyDb };
 }
 

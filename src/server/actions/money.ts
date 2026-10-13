@@ -8,6 +8,7 @@ import { parseCostCsv } from "@/lib/money/costs";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, invalid, NOT_SIGNED_IN } from "@/server/action-helpers";
+import { isMoneyEnabled } from "@/server/money-flag";
 
 // SKU costs. Owner only: checked here, and by row level security on the table.
 
@@ -24,6 +25,7 @@ async function owner() {
   const user = await getActiveUser();
   if (!user) return { error: NOT_SIGNED_IN, user: null };
   if (user.role !== "owner") return { error: { ok: false as const, message: "Only the owner can change costs." }, user: null };
+  if (!(await isMoneyEnabled())) return { error: { ok: false as const, message: "Money is switched off." }, user: null };
   return { error: null, user };
 }
 

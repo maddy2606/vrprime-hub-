@@ -32,3 +32,21 @@ export async function saveSettings(input: unknown): Promise<ActionResult> {
   revalidatePath("/", "layout");
   return { ok: true, message: "Settings saved" };
 }
+
+/** Switches Money (Phase 6) on or off. Owner only; the database checks that too. */
+export async function setMoneyEnabled(enabled: unknown): Promise<ActionResult> {
+  const user = await getActiveUser();
+  if (!user) return NOT_SIGNED_IN;
+  if (user.role !== "owner") return { ok: false, message: "Only the owner can change settings." };
+  if (typeof enabled !== "boolean") return { ok: false, message: "That was not understood." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("app_settings")
+    .update({ value: enabled, updated_at: new Date().toISOString(), updated_by: user.id })
+    .eq("key", "money_enabled")
+    .select("key");
+  if (error) return dbError(error, "change Money");
+  if (!data.length) return { ok: false, message: "The Money switch is missing. Ask the developer." };
+  revalidatePath("/", "layout");
+  return { ok: true, message: enabled ? "Money is on" : "Money is off" };
+}

@@ -49,11 +49,14 @@ function Bell({ unread }: { unread: number }) {
 export function AppShell({
   user,
   unread = 0,
+  money = false,
   children,
 }: {
   user: Pick<SessionUser, "name" | "role" | "email"> & { id?: string };
   /** Notifications this person has not opened yet. */
   unread?: number;
+  /** Owner only, and only while Money is switched on in Settings. */
+  money?: boolean;
   children: ReactNode;
 }) {
   const isOwner = user.role === "owner";
@@ -63,7 +66,7 @@ export function AppShell({
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface p-4 lg:flex">
         <Brand />
         <div className="mt-6 flex-1">
-          <SideNav showAdmin={isOwner} unread={unread} />
+          <SideNav showAdmin={isOwner} showMoney={money} unread={unread} />
         </div>
         <div className="border-t border-line pt-3">
           <p className="truncate text-sm font-bold">{user.name}</p>
@@ -99,7 +102,7 @@ export function AppShell({
                   {ROLE_LABEL[user.role]}
                   {user.email ? ` · ${user.email}` : ""}
                 </p>
-                {isOwner ? (
+                {money ? (
                   <Link prefetch={false} href="/money" className={buttonClass("secondary", "mt-3 w-full")}>
                     Money
                   </Link>

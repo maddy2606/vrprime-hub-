@@ -61,18 +61,18 @@ export function BottomNav() {
 }
 
 /** Sidebar links on desktop. */
-export function SideNav({ showAdmin, unread }: { showAdmin: boolean; unread: number }) {
+export function SideNav({ showAdmin, showMoney = false, unread }: { showAdmin: boolean; showMoney?: boolean; unread: number }) {
   const pathname = usePathname();
   const items: Item[] = [
     ...ITEMS,
     { href: "/notifications", label: "Notifications", icon: BellIcon },
     ...(showAdmin
       ? [
-          { href: "/money", label: "Money", icon: RupeeIcon },
           { href: "/admin/users", label: "Users", icon: UsersIcon },
           { href: "/admin/settings", label: "Settings", icon: SlidersIcon },
         ]
       : []),
+    ...(showMoney ? [{ href: "/money", label: "Money", icon: RupeeIcon }] : []),
   ];
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">

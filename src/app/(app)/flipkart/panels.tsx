@@ -15,6 +15,7 @@ import { SELLER_HUB } from "@/lib/seller-hub";
 import { isViewKey } from "@/lib/stock-views";
 import { createClient } from "@/lib/supabase/server";
 import { loadFlags } from "@/server/money-data";
+import { isMoneyEnabled } from "@/server/money-flag";
 import type { SessionUser } from "@/lib/types";
 import {
   canSeePrices,
@@ -68,7 +69,7 @@ export async function NeedsPanel({ user }: { user: SessionUser }) {
     staff ? loadListingsNotFound(supabase, now) : Promise.resolve([]),
     loadReturnRates(supabase, settings, today, cover.coverageFrom),
     // Owner only: the database refuses everyone else, and nothing is asked for them.
-    user.role === "owner" ? loadFlags(supabase as never) : Promise.resolve(null),
+    user.role === "owner" && (await isMoneyEnabled()) ? loadFlags(supabase as never) : Promise.resolve(null),
   ]);
 
   const cards = readCards(counts, warehouses);

@@ -64,7 +64,7 @@ export default async function AllPostsPage({
   else if (filters.assignee) query = query.eq("assignee_id", filters.assignee);
   if (filters.nl === "open") query = query.in("status", ACTIVE_STATUSES);
   else if (filters.nl === "live") query = query.eq("status", "done").eq("live_found", true);
-  else if (filters.nl === "missing") query = query.eq("status", "done").or("live_found.is.null,live_found.eq.false");
+  else if (filters.nl === "missing") query = query.eq("status", "done").not("sku", "is", null).or("live_found.is.null,live_found.eq.false");
   else if (filters.overdue) query = query.lt("due_date", today).in("status", ACTIVE_STATUSES);
   else if (effectiveStatus === "active") query = query.in("status", ACTIVE_STATUSES);
   else if (effectiveStatus !== "any") query = query.eq("status", effectiveStatus as PostStatus);
@@ -79,7 +79,7 @@ export default async function AllPostsPage({
     const q = supabase.from("posts").select("id", { count: "exact", head: true }).eq("type", "new_listing");
     if (view === "open") return q.in("status", ACTIVE_STATUSES);
     if (view === "live") return q.eq("status", "done").eq("live_found", true);
-    return q.eq("status", "done").or("live_found.is.null,live_found.eq.false");
+    return q.eq("status", "done").not("sku", "is", null).or("live_found.is.null,live_found.eq.false");
   };
   const [{ data: posts, error, count }, lookups, nlCounts] = await Promise.all([
     query,

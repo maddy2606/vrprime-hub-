@@ -156,8 +156,14 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
         </Field>
       ) : null}
 
-      {!listing ? (
-      <Field label="SKU" htmlFor="sku" required={type === "restock"} error={errors.sku}>
+      {!listing || (editing && values.sku) ? (
+      <Field
+        label="SKU"
+        htmlFor="sku"
+        required={type === "restock"}
+        error={errors.sku}
+        hint={listing ? "Changing it starts the check against Flipkart again" : undefined}
+      >
         <input
           id="sku"
           className="input font-mono"

@@ -99,14 +99,21 @@ export async function updatePost(postId: unknown, input: unknown): Promise<Actio
 
   // The type of a post is fixed once created, so it is not updated here.
   const listing = v.type === "new_listing";
+  if (listing && !v.sku) {
+    // A done new listing needs its SKU (or the listing ID it was completed with before SKUs were asked for).
+    const { data: current } = await supabase.from("posts").select("status, done_listing_id").eq("id", id.data).maybeSingle();
+    if (current?.status === "done" && !current.done_listing_id) {
+      return { ok: false, message: "A done new listing needs its SKU.", fieldErrors: { sku: "Enter the SKU" } };
+    }
+  }
   const { data, error } = await supabase
     .from("posts")
     .update({
       title,
       details: v.details,
       priority: v.priority,
-      // A new listing's SKU is set by marking it done, not here.
-      ...(listing ? {} : { sku: v.sku, warehouse_id: v.warehouse_id }),
+      // A new listing's SKU is set by marking it done; here it can only be corrected (the form shows it once set).
+      ...(listing ? (v.sku ? { sku: v.sku } : {}) : { sku: v.sku, warehouse_id: v.warehouse_id }),
       platform: v.platform,
       qty_needed: v.type === "restock" ? v.qty_needed : null,
       assignee_id: v.assignee_id,

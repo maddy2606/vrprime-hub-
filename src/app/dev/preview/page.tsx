@@ -57,6 +57,7 @@ import { POST_TYPES, type PostType } from "@/lib/types";
 // without touching the real database. It does not exist in production.
 const VIEWS = [
   "mywork",
+  "listings",
   "empty",
   "all",
   "post",
@@ -146,6 +147,20 @@ export default async function PreviewPage({
           />
           <PostGrid posts={FAKE_POSTS} lookups={lookups} today={today} />
         </>
+      ) : null}
+      {view === "listings" ? (
+        <div className="flex flex-col gap-10">
+          {[
+            { title: "Open request with details (over the weight limit)", post: { ...FAKE_POSTS[0], type: "new_listing" as const, title: "List rat spray 500 ml on Flipkart", product_name: "Rat spray 500 ml", reference_url: "https://example.test/rat-spray", target_price: 199, mrp: 299, dim_l: 30, dim_b: 20, dim_h: 10, weight_kg: 1.25, platform: "flipkart" as const } },
+            { title: "Done, live and over the limit on Flipkart", post: { ...FAKE_POSTS[0], type: "new_listing" as const, status: "done" as const, title: "List rat spray 500 ml", sku: "RS-500", done_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), done_by: FAKE_PEOPLE[1].id, live_found: true, live_status: "ACTIVE", live_since: today, live_over_weight: true, live_package: { l: 30, b: 20, h: 10, kg: 1.25, total: 7250 } } },
+            { title: "Done, not found for 4 days", post: { ...FAKE_POSTS[0], type: "new_listing" as const, status: "done" as const, title: "List fly trap", sku: "FLY-1", done_at: new Date(Date.now() - 4 * 86_400_000).toISOString(), done_by: FAKE_PEOPLE[1].id, live_found: false } },
+          ].map((x) => (
+            <div key={x.title}>
+              <p className="mb-2 text-sm font-bold text-muted">{x.title}</p>
+              <PostView post={x.post} tickets={[]} lookups={lookups} today={today} comments={[]} events={[]} photos={[]} weightLimit={2000} />
+            </div>
+          ))}
+        </div>
       ) : null}
       {view === "post" ? (
         <PostView post={FAKE_POSTS[0]} tickets={FAKE_TICKETS.slice(0, 1)} lookups={lookups} today={today} comments={FAKE_COMMENTS} events={FAKE_EVENTS} photos={[]} weightLimit={2000} />

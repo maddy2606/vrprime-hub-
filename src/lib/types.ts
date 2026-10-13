@@ -1,7 +1,7 @@
 // Hand-written row types that mirror supabase/migrations. Keep them in step
 // with the migrations when the schema changes.
 
-export const ROLES = ["owner", "manager", "listing", "warehouse"] as const;
+export const ROLES = ["owner", "admin", "warehouse"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const POST_TYPES = ["task", "new_listing", "problem", "restock"] as const;
@@ -70,6 +70,22 @@ export type Post = {
   done_qty: number | null;
   done_reference: string | null;
   done_note: string | null;
+  // New-listing requests: optional details, then what the stock sync found on Flipkart.
+  product_name: string | null;
+  reference_url: string | null;
+  target_price: number | null;
+  mrp: number | null;
+  dim_l: number | null;
+  dim_b: number | null;
+  dim_h: number | null;
+  weight_kg: number | null;
+  live_found: boolean | null;
+  live_status: string | null;
+  live_since: string | null;
+  live_checked_at: string | null;
+  live_alerted_at: string | null;
+  live_package: { l: number; b: number; h: number; kg: number; total: number } | null;
+  live_over_weight: boolean | null;
   created_at: string;
   updated_at: string;
 };

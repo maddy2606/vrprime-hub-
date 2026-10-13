@@ -12,8 +12,8 @@ begin;
 do $$
 declare
   u_own uuid := gen_random_uuid();   -- owner
-  u_mgr uuid := gen_random_uuid();   -- manager
-  u_lst uuid := gen_random_uuid();   -- listing
+  u_mgr uuid := gen_random_uuid();   -- admin
+  u_lst uuid := gen_random_uuid();   -- admin
   u_blr uuid := gen_random_uuid();   -- warehouse user, Bangalore only
   w_blr uuid;
   w_del uuid;
@@ -37,7 +37,7 @@ declare
   ago30m text := to_char(now() - interval '30 minutes', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
   yday text := to_char(now() - interval '30 hours', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
 begin
-  select count(*) into v_staff from public.profiles where active and role in ('owner', 'manager');   -- the real ones count too, from the moment the test users exist
+  select count(*) into v_staff from public.profiles where active and role in ('owner', 'admin');   -- the real ones count too, from the moment the test users exist
   select id, flipkart_location_id into strict w_blr, loc_blr from public.warehouses where name = 'Bangalore';
   select id, flipkart_location_id into strict w_del, loc_del from public.warehouses where name = 'Delhi';
 
@@ -48,8 +48,8 @@ begin
     (u_blr, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p4-blr@example.test');
   insert into public.profiles (id, name, role, active) values
     (u_own, 'P4 Owner', 'owner', true),
-    (u_mgr, 'P4 Manager', 'manager', true),
-    (u_lst, 'P4 Listing', 'listing', true),
+    (u_mgr, 'P4 Admin', 'admin', true),
+    (u_lst, 'P4 Admin 2', 'admin', true),
     (u_blr, 'P4 Bangalore', 'warehouse', true)
   on conflict (id) do update set name = excluded.name, role = excluded.role, active = excluded.active;
   insert into public.user_warehouses values (u_blr, w_blr);
@@ -183,8 +183,8 @@ begin
   assert (res ->> 'alerted')::int = 2, 'two orders need an alert: A (due in 2 hours) and J (30 minutes late); B is far away, E is on hold, P is Under Processing';
   assert (select alerted_at from public.fk_order_items where order_item_id = 'P4-OI-P') is null, 'Under Processing is never alerted';
   select count(*) into n from public.notifications where kind = 'dispatch_risk';
-  assert n = v_staff + 2, 'every active owner and manager is told (the two test ones and any real ones), nobody else';
-  assert not exists (select 1 from public.notifications where kind = 'dispatch_risk' and user_id in (u_lst, u_blr)), 'listing and warehouse users get no dispatch alert';
+  assert n = v_staff + 3, 'every active owner and admin is told (the three test ones and any real ones), nobody else';
+  assert not exists (select 1 from public.notifications where kind = 'dispatch_risk' and user_id = u_blr), 'a warehouse user gets no dispatch alert';
   assert (select title from public.notifications where kind = 'dispatch_risk' and user_id = u_own) like '2 orders%', 'the alert says how many';
   assert (select body from public.notifications where kind = 'dispatch_risk' and user_id = u_own) like 'Bangalore 2%', 'and where';
   assert (select alerted_at from public.fk_order_items where order_item_id = 'P4-OI-A') is not null, 'order A is marked alerted';
@@ -208,7 +208,7 @@ begin
   res := public.orders_run_finish(run2);
   assert (res ->> 'alerted')::int = 1, 'only order B is newly at risk; A is not alerted twice';
   select count(*) into n from public.notifications where kind = 'dispatch_risk';
-  assert n = 2 * (v_staff + 2), 'one more alert per owner and manager, not a repeat of the first';
+  assert n = 2 * (v_staff + 3), 'one more alert per owner and admin, not a repeat of the first';
   assert (select stage from public.fk_order_items where order_item_id = 'P4-OI-A') = 'pending'
      and (select item_status from public.fk_order_items where order_item_id = 'P4-OI-A') = 'PACKED', 'an order''s status is updated in place';
   assert (select stage from public.fk_order_items where order_item_id = 'P4-OI-C') = 'left_pending', 'orders no longer listed as pending are marked left_pending';
@@ -347,15 +347,10 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', u_lst, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into n from public.fk_order_items where order_item_id like 'P4-V%';
-  assert n = 3, 'a listing user sees every order';
+  assert n = 3, 'an admin sees every order';
   select count(*) into n from public.price_changes;
-  assert n >= 1, 'a listing user sees price changes';
-  blocked := false;
-  begin
-    perform public.request_orders_sync('pending');
-  exception when insufficient_privilege then blocked := true;
-  end;
-  assert blocked, 'a listing user cannot start an order sync (owner and manager only)';
+  assert n >= 1, 'an admin sees price changes';
+  perform public.request_orders_sync('pending');
   reset role;
 
   update public.order_runs set status = 'done', finished_at = now() where status in ('queued', 'running', 'paused');

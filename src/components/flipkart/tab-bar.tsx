@@ -12,7 +12,7 @@ export const TAB_LABEL: Record<TabKey, string> = {
   health: "Listing health",
 };
 
-/** Prices and listing problems are for owner, manager and listing; warehouse users see the other four. */
+/** Prices and listing problems are for owner and admin; warehouse users see the other four. */
 export function tabsFor(role: string): TabKey[] {
   return role === "warehouse" ? ["needs", "orders", "stock", "returns"] : [...TAB_KEYS];
 }

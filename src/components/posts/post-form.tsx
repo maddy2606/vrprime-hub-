@@ -1,30 +1,54 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { CameraIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { buttonClass, Field } from "@/components/ui";
 import { PLATFORM_LABEL, PRIORITY_LABEL, TYPE_HINT, TYPE_LABEL } from "@/lib/labels";
+import { checkWeight, weightWarning } from "@/lib/new-listing";
 import type { PostFormValues } from "@/lib/post-options";
 import { PLATFORMS, POST_TYPES, PRIORITIES, type Person, type Warehouse } from "@/lib/types";
 import { fieldErrors, postSchema } from "@/lib/validation";
 import { createPost, updatePost } from "@/server/actions/posts";
+import { uploadPostPhotos } from "./upload-photos";
 
 type Props = {
   postId?: string;
   initial: PostFormValues;
   people: Person[];
   warehouses: Warehouse[];
+  /** Owner and admin only: the New listing type is not offered to anyone else. */
+  canPostListings: boolean;
+  /** The weight limit setting, for the new-listing weight check. */
+  weightLimit: number;
 };
 
-export function PostForm({ postId, initial, people, warehouses }: Props) {
+const MAX_PHOTOS = 6;
+
+/** Digits and one decimal point. */
+function decimal(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const [whole, ...rest] = cleaned.split(".");
+  return rest.length ? `${whole}.${rest.join("")}` : whole;
+}
+
+function hasListingDetails(v: PostFormValues): boolean {
+  return Boolean(v.product_name || v.reference_url || v.target_price || v.mrp || v.dim_l || v.dim_b || v.dim_h || v.weight_kg || v.details);
+}
+
+export function PostForm({ postId, initial, people, warehouses, canPostListings, weightLimit }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [values, setValues] = useState<PostFormValues>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
+  const [more, setMore] = useState(() => hasListingDetails(initial));
+  const [photos, setPhotos] = useState<File[]>([]);
+  const photoInput = useRef<HTMLInputElement>(null);
   const editing = Boolean(postId);
   const type = values.type;
+  const listing = type === "new_listing";
 
   const set = <K extends keyof PostFormValues>(key: K, value: PostFormValues[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -39,11 +63,13 @@ export function PostForm({ postId, initial, people, warehouses }: Props) {
   if (!type) {
     return (
       <div className="grid gap-2 sm:grid-cols-2">
-        {POST_TYPES.map((t) => (
+        {POST_TYPES.filter((t) => t !== "new_listing" || canPostListings).map((t) => (
           <button
             key={t}
             type="button"
-            onClick={() => set("type", t)}
+            onClick={() => {
+              setValues((v) => ({ ...v, type: t, platform: t === "new_listing" && !v.platform ? "flipkart" : v.platform }));
+            }}
             className="focus-ring rounded-xl border border-line bg-surface p-4 text-left transition hover:border-accent"
           >
             <span className="block text-base font-extrabold">{TYPE_LABEL[t]}</span>
@@ -70,17 +96,24 @@ export function PostForm({ postId, initial, people, warehouses }: Props) {
       }
       const result = await createPost(values);
       toast.result(result);
-      if (result.ok && result.data) router.push(`/posts/${result.data.id}`);
-      else if (!result.ok) setErrors(result.fieldErrors ?? {});
+      if (result.ok && result.data) {
+        if (photos.length) {
+          const added = await uploadPostPhotos(result.data.id, photos);
+          if (added < photos.length) toast.show(`${photos.length - added} of ${photos.length} photos could not be uploaded. Add them on the post.`, "bad");
+        }
+        router.push(`/posts/${result.data.id}`);
+      } else if (!result.ok) setErrors(result.fieldErrors ?? {});
     });
   };
 
-  const activePeople = people.filter((p) => p.active || p.id === values.assignee_id);
+  // A new-listing request is only ever assigned to an owner or an admin.
+  const activePeople = people.filter((p) => (p.active || p.id === values.assignee_id) && (!listing || p.role !== "warehouse"));
   const show = {
     title: type !== "restock",
     qty: type === "restock",
-    platform: type === "problem" || type === "new_listing",
+    platform: type === "problem",
   };
+  const weight = listing ? checkWeight(values.dim_l, values.dim_b, values.dim_h, values.weight_kg, weightLimit) : null;
 
   return (
     <form
@@ -117,12 +150,13 @@ export function PostForm({ postId, initial, people, warehouses }: Props) {
                 ? "What needs to be done?"
                 : type === "problem"
                   ? "What went wrong?"
-                  : "Which product?"
+                  : "e.g. List rat spray 500 ml on Flipkart"
             }
           />
         </Field>
       ) : null}
 
+      {!listing ? (
       <Field label="SKU" htmlFor="sku" required={type === "restock"} error={errors.sku}>
         <input
           id="sku"
@@ -136,7 +170,9 @@ export function PostForm({ postId, initial, people, warehouses }: Props) {
           aria-invalid={Boolean(errors.sku)}
         />
       </Field>
+      ) : null}
 
+      {!listing ? (
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Warehouse"
@@ -193,7 +229,9 @@ export function PostForm({ postId, initial, people, warehouses }: Props) {
           </Field>
         ) : null}
       </div>
+      ) : null}
 
+      {!listing ? (
       <Field
         label={type === "restock" ? "Note" : "Details"}
         htmlFor="details"
@@ -209,6 +247,7 @@ export function PostForm({ postId, initial, people, warehouses }: Props) {
           aria-invalid={Boolean(errors.details)}
         />
       </Field>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Assign to" htmlFor="assignee_id" required={type === "task"} error={errors.assignee_id}>
@@ -257,6 +296,126 @@ export function PostForm({ postId, initial, people, warehouses }: Props) {
           ))}
         </div>
       </fieldset>
+
+      {listing ? (
+        <details
+          open={more}
+          onToggle={(e) => setMore(e.currentTarget.open)}
+          className="rounded-xl border border-line bg-surface"
+        >
+          <summary className="focus-ring flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-extrabold">
+            More details <span className="text-xs font-semibold text-muted">optional</span>
+          </summary>
+          <div className="flex flex-col gap-4 border-t border-line p-4">
+            <Field label="Product name" htmlFor="product_name" error={errors.product_name}>
+              <input id="product_name" className="input" value={values.product_name} onChange={(e) => set("product_name", e.target.value)} maxLength={200} />
+            </Field>
+            <Field label="Reference link" htmlFor="reference_url" error={errors.reference_url} hint="A product page to copy from">
+              <input
+                id="reference_url"
+                className="input"
+                inputMode="url"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="https://"
+                value={values.reference_url}
+                onChange={(e) => set("reference_url", e.target.value)}
+                maxLength={500}
+                aria-invalid={Boolean(errors.reference_url)}
+              />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Platform" htmlFor="platform" error={errors.platform}>
+                <select id="platform" className="input" value={values.platform} onChange={(e) => set("platform", e.target.value)}>
+                  {PLATFORMS.map((p) => (
+                    <option key={p} value={p}>
+                      {PLATFORM_LABEL[p]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Target price (₹)" htmlFor="target_price" error={errors.target_price}>
+                <input id="target_price" className="input" inputMode="decimal" value={values.target_price} onChange={(e) => set("target_price", decimal(e.target.value))} aria-invalid={Boolean(errors.target_price)} />
+              </Field>
+              <Field label="MRP (₹)" htmlFor="mrp" error={errors.mrp}>
+                <input id="mrp" className="input" inputMode="decimal" value={values.mrp} onChange={(e) => set("mrp", decimal(e.target.value))} aria-invalid={Boolean(errors.mrp)} />
+              </Field>
+            </div>
+            <fieldset>
+              <legend className="mb-1.5 text-sm font-semibold">Size in cm (L × B × H) and weight</legend>
+              <div className="grid grid-cols-4 gap-2">
+                {(
+                  [
+                    ["dim_l", "L"],
+                    ["dim_b", "B"],
+                    ["dim_h", "H"],
+                    ["weight_kg", "kg"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <div key={key}>
+                    <input
+                      aria-label={key === "weight_kg" ? "Weight in kg" : `${label} in cm`}
+                      className="input"
+                      inputMode="decimal"
+                      placeholder={label}
+                      value={values[key]}
+                      onChange={(e) => set(key, decimal(e.target.value))}
+                      aria-invalid={Boolean(errors[key])}
+                    />
+                    {errors[key] ? <p className="mt-1 text-xs font-semibold text-bad">{errors[key]}</p> : null}
+                  </div>
+                ))}
+              </div>
+              {weight?.over ? (
+                <p role="status" className="mt-2 rounded-lg border border-warn/50 bg-warn-soft p-3 text-sm">
+                  <span className="font-extrabold text-warn">Over the weight limit.</span> {weightWarning(weight)}
+                </p>
+              ) : weight ? (
+                <p className="mt-2 text-sm text-muted">Within the weight limit ({Math.round(weight.total).toLocaleString("en-IN")} of {weight.limit.toLocaleString("en-IN")}).</p>
+              ) : (
+                <p className="mt-2 text-xs text-muted">Enter all four to check the weight limit ({weightLimit.toLocaleString("en-IN")}: size multiplied, plus grams).</p>
+              )}
+            </fieldset>
+            <Field label="Notes" htmlFor="details" error={errors.details}>
+              <textarea id="details" className="input" value={values.details} onChange={(e) => set("details", e.target.value)} maxLength={5000} />
+            </Field>
+            {!editing ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-semibold">Photos</p>
+                <input
+                  ref={photoInput}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? []);
+                    e.target.value = "";
+                    setPhotos((current) => [...current, ...picked].slice(0, MAX_PHOTOS));
+                  }}
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={() => photoInput.current?.click()} className={buttonClass("secondary")}>
+                    <CameraIcon className="h-5 w-5" />
+                    Add photos
+                  </button>
+                  {photos.length ? (
+                    <span className="text-sm text-muted">
+                      {photos.length} selected ·{" "}
+                      <button type="button" className="font-semibold text-accent-text underline" onClick={() => setPhotos([])}>
+                        clear
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted">Add or remove photos on the post itself.</p>
+            )}
+          </div>
+        </details>
+      ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-start">
         <button type="submit" disabled={pending} className={buttonClass("primary", "sm:min-w-40")}>

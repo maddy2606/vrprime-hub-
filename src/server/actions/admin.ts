@@ -79,7 +79,7 @@ export async function createUser(input: unknown): Promise<ActionResult> {
 export async function updateUser(input: unknown): Promise<ActionResult> {
   const ctx = await ownerAdmin();
   if (ctx.error) return ctx.error;
-  const { admin, user: me } = ctx;
+  const { admin } = ctx;
 
   const parsed = updateUserSchema.safeParse(input);
   if (!parsed.success) {
@@ -87,12 +87,17 @@ export async function updateUser(input: unknown): Promise<ActionResult> {
   }
   const v = parsed.data;
 
-  if (v.id === me.id && (v.role !== "owner" || !v.active)) {
-    return { ok: false, message: "You cannot remove your own owner access or deactivate yourself." };
-  }
-
-  const { data: before } = await admin.from("profiles").select("active").eq("id", v.id).maybeSingle();
+  const { data: before } = await admin.from("profiles").select("active, role").eq("id", v.id).maybeSingle();
   if (!before) return { ok: false, message: "User not found." };
+
+  // Several owners are fine, but the last active owner can never be demoted or deactivated (the database
+  // refuses it too). Promote someone else to owner first.
+  if (before.role === "owner" && before.active && (v.role !== "owner" || !v.active)) {
+    const { count } = await admin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "owner").eq("active", true).neq("id", v.id);
+    if (!count) {
+      return { ok: false, message: "There must always be at least one active owner. Make someone else an owner first." };
+    }
+  }
 
   if (v.newPassword) {
     const { error } = await admin.auth.admin.updateUserById(v.id, { password: v.newPassword });
@@ -122,7 +127,10 @@ export async function updateUser(input: unknown): Promise<ActionResult> {
     .eq("id", v.id);
   if (profileError) {
     logError("admin profile update", profileError);
-    return { ok: false, message: "Could not save the user. Try again." };
+    return {
+      ok: false,
+      message: profileError.code === "23514" ? "There must always be at least one active owner. Make someone else an owner first." : "Could not save the user. Try again.",
+    };
   }
 
   const { error: clearError } = await admin.from("user_warehouses").delete().eq("user_id", v.id);

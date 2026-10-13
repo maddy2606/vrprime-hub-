@@ -138,7 +138,7 @@ export default async function PreviewPage({
         <>
           <PageTitle title="All posts" sub={`${FAKE_POSTS.length} posts`} />
           <Filters
-            values={{ q: "", type: "", status: "", warehouse: "", assignee: "", priority: "", overdue: true, sort: "updated" }}
+            values={{ q: "", type: "", status: "", warehouse: "", assignee: "", priority: "", overdue: true, nl: "", sort: "updated" }}
             effectiveStatus="active"
             people={FAKE_PEOPLE}
             warehouses={FAKE_WAREHOUSES}
@@ -148,15 +148,15 @@ export default async function PreviewPage({
         </>
       ) : null}
       {view === "post" ? (
-        <PostView post={FAKE_POSTS[0]} tickets={FAKE_TICKETS.slice(0, 1)} lookups={lookups} today={today} comments={FAKE_COMMENTS} events={FAKE_EVENTS} photos={[]} />
+        <PostView post={FAKE_POSTS[0]} tickets={FAKE_TICKETS.slice(0, 1)} lookups={lookups} today={today} comments={FAKE_COMMENTS} events={FAKE_EVENTS} photos={[]} weightLimit={2000} />
       ) : null}
       {view === "done" ? (
-        <PostView post={FAKE_POSTS[5]} tickets={[]} lookups={lookups} today={today} comments={[]} events={FAKE_EVENTS.slice(3)} photos={[]} />
+        <PostView post={FAKE_POSTS[5]} tickets={[]} lookups={lookups} today={today} comments={[]} events={FAKE_EVENTS.slice(3)} photos={[]} weightLimit={2000} />
       ) : null}
       {view === "new" ? (
         <div className="mx-auto max-w-2xl">
           <PageTitle title="New post" sub="Pick a type, then fill the short form." />
-          <PostForm key={type ?? "pick"} initial={{ ...EMPTY_POST, type }} people={FAKE_PEOPLE} warehouses={FAKE_WAREHOUSES} />
+          <PostForm key={type ?? "pick"} initial={{ ...EMPTY_POST, type }} people={FAKE_PEOPLE} warehouses={FAKE_WAREHOUSES} canPostListings weightLimit={2000} />
         </div>
       ) : null}
       {view === "tickets" ? (

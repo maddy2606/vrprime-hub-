@@ -11,6 +11,7 @@ type Proof = {
   ticket_id: string;
   no_ticket: boolean;
   no_ticket_reason: string;
+  sku: string;
   listing_id: string;
   qty: string;
   reference: string;
@@ -19,7 +20,7 @@ type Proof = {
 
 const DONE_HINT: Record<Post["type"], string> = {
   problem: "Enter the marketplace ticket ID so anyone can follow up later.",
-  new_listing: "Enter the FSN or listing ID of the live listing.",
+  new_listing: "Enter the SKU you listed it under. It is checked against your Flipkart listings at the next daily sync.",
   restock: "Enter what was actually sent and the invoice or challan number.",
   task: "Add a note if it helps. It is optional.",
 };
@@ -41,6 +42,7 @@ export function PostActions({
     ticket_id: linkedTicketIds[0] ?? "",
     no_ticket: false,
     no_ticket_reason: "",
+    sku: "",
     listing_id: "",
     qty: post.qty_needed ? String(post.qty_needed) : "",
     reference: "",
@@ -125,18 +127,34 @@ export function PostActions({
         ) : null}
 
         {post.type === "new_listing" ? (
-          <Field label="FSN / listing ID" htmlFor="listing_id" required error={errors.listing_id}>
-            <input
-              id="listing_id"
-              className="input font-mono"
-              value={proof.listing_id}
-              onChange={(e) => setProof({ ...proof, listing_id: e.target.value })}
-              maxLength={120}
-              autoCorrect="off"
-              spellCheck={false}
-              aria-invalid={Boolean(errors.listing_id)}
-            />
-          </Field>
+          <>
+            <Field label="SKU" htmlFor="done_sku" required error={errors.sku} hint="Exactly as it is on Flipkart. Spaces at the start or end are removed.">
+              <input
+                id="done_sku"
+                className="input font-mono"
+                value={proof.sku}
+                onChange={(e) => setProof({ ...proof, sku: e.target.value })}
+                onBlur={(e) => setProof({ ...proof, sku: e.target.value.trim() })}
+                maxLength={120}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                aria-invalid={Boolean(errors.sku)}
+              />
+            </Field>
+            <Field label="FSN / listing ID (optional)" htmlFor="listing_id" error={errors.listing_id}>
+              <input
+                id="listing_id"
+                className="input font-mono"
+                value={proof.listing_id}
+                onChange={(e) => setProof({ ...proof, listing_id: e.target.value })}
+                maxLength={120}
+                autoCorrect="off"
+                spellCheck={false}
+                aria-invalid={Boolean(errors.listing_id)}
+              />
+            </Field>
+          </>
         ) : null}
 
         {post.type === "restock" ? (

@@ -11,8 +11,8 @@ export const FAKE_WAREHOUSES: Warehouse[] = ["Bangalore", "Bhiwandi", "Delhi", "
 
 export const FAKE_PEOPLE: Person[] = [
   { id: id(1), name: "Test Owner", role: "owner", active: true },
-  { id: id(2), name: "Sample Manager", role: "manager", active: true },
-  { id: id(3), name: "Demo Listing Person With A Long Name", role: "listing", active: true },
+  { id: id(2), name: "Sample Admin", role: "admin", active: true },
+  { id: id(3), name: "Demo Admin Person With A Long Name", role: "admin", active: true },
   { id: id(4), name: "Fake Warehouse BLR", role: "warehouse", active: true },
 ];
 
@@ -45,6 +45,21 @@ const base: Post = {
   done_qty: null,
   done_reference: null,
   done_note: null,
+  product_name: null,
+  reference_url: null,
+  target_price: null,
+  mrp: null,
+  dim_l: null,
+  dim_b: null,
+  dim_h: null,
+  weight_kg: null,
+  live_found: null,
+  live_status: null,
+  live_since: null,
+  live_checked_at: null,
+  live_alerted_at: null,
+  live_package: null,
+  live_over_weight: null,
   created_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
   updated_at: new Date(Date.now() - 3_600_000).toISOString(),
 };
@@ -210,7 +225,7 @@ const note = (n: number, row: Omit<NotificationRow, "id" | "user_id" | "created_
 export const FAKE_NOTIFICATIONS: NotificationRow[] = [
   note(0, { kind: "overdue", title: "2 overdue items", body: "VR-1042 Customer returned a different… · VR-1039 Count shelf C", read_at: null }),
   note(1, { kind: "assigned", title: "Assigned to you: VR-1046", body: "Call the pretend courier about pickup timing", post_id: id(1005), read_at: null }),
-  note(2, { kind: "comment", title: "Sample Manager commented on VR-1042", body: "Raise a wrong-return claim today please.", post_id: id(1001), read_at: null }),
+  note(2, { kind: "comment", title: "Sample Admin commented on VR-1042", body: "Raise a wrong-return claim today please.", post_id: id(1001), read_at: null }),
   note(3, { kind: "follow_up", title: "1 ticket follow-up due", body: "VR-T-119 (FAKE-FK-CASE-0004712)", ticket_id: id(3002), read_at: new Date().toISOString() }),
   note(4, { kind: "done", title: "VR-1039 marked done", body: "Fake Warehouse BLR marked it done: Restock FAKE-SKU-GRN-S × 400 to Delhi", post_id: id(1006), read_at: new Date().toISOString() }),
 ];

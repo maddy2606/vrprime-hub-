@@ -25,6 +25,21 @@ const optionalQty = (message: string) =>
     .transform((v) => (v === "" || v === null || v === undefined ? null : Number(v)))
     .refine((v) => v === null || (Number.isInteger(v) && v >= 0 && v <= 10_000_000), message);
 
+const optionalAmount = (max: number, label: string) =>
+  z
+    .union([z.number(), z.string(), z.null(), z.undefined()])
+    .transform((v) => (v === "" || v === null || v === undefined ? null : Number(String(v).replace(/,/g, ""))))
+    .refine((v) => v === null || (Number.isFinite(v) && v > 0 && v <= max), "Enter a number above 0 for " + label)
+    .transform((v) => (v === null ? null : Math.round(v * 1000) / 1000));
+
+const optionalUrl = z
+  .string()
+  .trim()
+  .max(500, "Keep the link under 500 characters")
+  .nullish()
+  .transform((v) => (v ? v : null))
+  .refine((v) => v === null || /^https?:[/][/]\S+$/i.test(v), "Paste a full link starting with http:// or https://");
+
 export const postSchema = z
   .object({
     type: z.enum(POST_TYPES),
@@ -39,6 +54,15 @@ export const postSchema = z
     qty_needed: optionalQty("Enter a whole number"),
     assignee_id: optionalUuid,
     due_date: optionalDate,
+    // New-listing requests: all optional
+    product_name: optionalText(200),
+    reference_url: optionalUrl,
+    target_price: optionalAmount(10_000_000, "the target price"),
+    mrp: optionalAmount(10_000_000, "the MRP"),
+    dim_l: optionalAmount(1000, "the length"),
+    dim_b: optionalAmount(1000, "the breadth"),
+    dim_h: optionalAmount(1000, "the height"),
+    weight_kg: optionalAmount(1000, "the weight"),
   })
   .superRefine((v, ctx) => {
     const need = (field: string, message: string) =>
@@ -68,6 +92,8 @@ export const doneSchema = z.object({
   ticket_id: optionalText(120),
   no_ticket: z.boolean().default(false),
   no_ticket_reason: optionalText(500),
+  /** A new listing is done once it has a SKU (looked up on Flipkart at the next daily sync). */
+  sku: optionalText(120),
   listing_id: optionalText(120),
   qty: optionalQty("Enter a whole number"),
   reference: optionalText(120),

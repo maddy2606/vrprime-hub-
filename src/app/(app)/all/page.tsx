@@ -3,10 +3,10 @@ import Link from "next/link";
 import { Filters } from "@/components/posts/filters";
 import { PostGrid } from "@/components/posts/post-card";
 import { buttonClass, EmptyState, PageTitle } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { canManage, requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
 import { formatNumber, todayIST } from "@/lib/format";
-import { SORTS, type FilterValues } from "@/lib/post-options";
+import { NEW_LISTING_VIEWS, SORTS, type FilterValues } from "@/lib/post-options";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_STATUSES, POST_STATUSES, POST_TYPES, PRIORITIES, type PostStatus, type PostType, type Priority } from "@/lib/types";
 
@@ -20,13 +20,14 @@ function one(value: string | string[] | undefined): string {
 }
 
 /** Reads filters from the URL, dropping anything that is not a known value. */
-function readFilters(sp: Record<string, string | string[] | undefined>): FilterValues {
+function readFilters(sp: Record<string, string | string[] | undefined>, canSeeListings: boolean): FilterValues {
   const type = one(sp.type);
   const status = one(sp.status);
   const priority = one(sp.priority);
   const warehouse = one(sp.warehouse);
   const assignee = one(sp.assignee);
   const sort = one(sp.sort);
+  const nl = one(sp.nl);
   return {
     q: one(sp.q).slice(0, 100),
     type: (POST_TYPES as readonly string[]).includes(type) ? type : "",
@@ -35,6 +36,8 @@ function readFilters(sp: Record<string, string | string[] | undefined>): FilterV
     warehouse: UUID.test(warehouse) ? warehouse : "",
     assignee: assignee === "none" || UUID.test(assignee) ? assignee : "",
     overdue: one(sp.overdue) === "1",
+    // The New listings view is for owner and admin; warehouse users never see these posts.
+    nl: canSeeListings && NEW_LISTING_VIEWS.some((v) => v.value === nl) ? nl : "",
     sort: SORTS.some((s) => s.value === sort) ? sort : "updated",
   };
 }
@@ -45,19 +48,24 @@ export default async function AllPostsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser();
-  const filters = readFilters(await searchParams);
+  const canSeeListings = canManage(user);
+  const filters = readFilters(await searchParams, canSeeListings);
   const today = todayIST();
   // With no status chosen: show active posts, but search across everything.
   const effectiveStatus = filters.status || (filters.q ? "any" : "active");
 
   const supabase = await createClient();
   let query = supabase.rpc("search_posts", { q: filters.q }, { count: "exact" }).select("*");
-  if (filters.type) query = query.eq("type", filters.type as PostType);
+  if (filters.nl) query = query.eq("type", "new_listing");
+  else if (filters.type) query = query.eq("type", filters.type as PostType);
   if (filters.priority) query = query.eq("priority", filters.priority as Priority);
   if (filters.warehouse) query = query.eq("warehouse_id", filters.warehouse);
   if (filters.assignee === "none") query = query.is("assignee_id", null);
   else if (filters.assignee) query = query.eq("assignee_id", filters.assignee);
-  if (filters.overdue) query = query.lt("due_date", today).in("status", ACTIVE_STATUSES);
+  if (filters.nl === "open") query = query.in("status", ACTIVE_STATUSES);
+  else if (filters.nl === "live") query = query.eq("status", "done").eq("live_found", true);
+  else if (filters.nl === "missing") query = query.eq("status", "done").or("live_found.is.null,live_found.eq.false");
+  else if (filters.overdue) query = query.lt("due_date", today).in("status", ACTIVE_STATUSES);
   else if (effectiveStatus === "active") query = query.in("status", ACTIVE_STATUSES);
   else if (effectiveStatus !== "any") query = query.eq("status", effectiveStatus as PostStatus);
 
@@ -66,12 +74,23 @@ export default async function AllPostsPage({
   else if (filters.sort === "priority") query = query.order("priority_rank", { ascending: false });
   query = query.order("updated_at", { ascending: false }).limit(PAGE_SIZE);
 
-  const [{ data: posts, error, count }, lookups] = await Promise.all([query, getLookups()]);
+  // How many are in each New listings view, for the three buttons.
+  const nlCount = (view: "open" | "live" | "missing") => {
+    const q = supabase.from("posts").select("id", { count: "exact", head: true }).eq("type", "new_listing");
+    if (view === "open") return q.in("status", ACTIVE_STATUSES);
+    if (view === "live") return q.eq("status", "done").eq("live_found", true);
+    return q.eq("status", "done").or("live_found.is.null,live_found.eq.false");
+  };
+  const [{ data: posts, error, count }, lookups, nlCounts] = await Promise.all([
+    query,
+    getLookups(),
+    canSeeListings ? Promise.all([nlCount("open"), nlCount("live"), nlCount("missing")]) : Promise.resolve(null),
+  ]);
   if (error) throw new Error("Could not load posts");
 
   const total = count ?? posts.length;
   const filtered = Boolean(
-    filters.q || filters.type || filters.status || filters.priority || filters.warehouse || filters.assignee || filters.overdue,
+    filters.q || filters.type || filters.status || filters.priority || filters.warehouse || filters.assignee || filters.overdue || filters.nl,
   );
 
   return (
@@ -86,7 +105,7 @@ export default async function AllPostsPage({
       </div>
 
       <PageTitle
-        title="All posts"
+        title={filters.nl ? "New listings" : "All posts"}
         sub={
           total > posts.length
             ? `Showing the first ${formatNumber(posts.length)} of ${formatNumber(total)}. Narrow the filters to see the rest.`
@@ -99,6 +118,7 @@ export default async function AllPostsPage({
         people={lookups.people}
         warehouses={lookups.warehouses}
         meId={user.id}
+        newListingCounts={nlCounts ? { open: nlCounts[0].count ?? 0, live: nlCounts[1].count ?? 0, missing: nlCounts[2].count ?? 0 } : null}
       />
 
       {posts.length ? (

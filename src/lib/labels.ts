@@ -83,15 +83,13 @@ export const ISSUE_LABEL: Record<IssueType, string> = {
 
 export const ROLE_LABEL: Record<Role, string> = {
   owner: "Owner",
-  manager: "Manager",
-  listing: "Listing",
+  admin: "Admin",
   warehouse: "Warehouse",
 };
 
 export const ROLE_HINT: Record<Role, string> = {
-  owner: "Everything, including users and settings",
-  manager: "Everything except users and settings",
-  listing: "All posts and tickets, read-only stock",
+  owner: "Everything, including settings and users. There can be several owners",
+  admin: "Everything except settings and users: posts, new listings, tickets, Sync now",
   warehouse: "Only posts for their warehouses or assigned to them",
 };
 
@@ -106,6 +104,10 @@ export const FIELD_LABEL: Record<string, string> = {
   marketplace_account: "Account",
   qty_needed: "Quantity needed",
   due_date: "Due date",
+  product_name: "Product name",
+  reference_url: "Reference link",
+  target_price: "Target price",
+  mrp: "MRP",
 };
 
 export const NOTIFICATION_ICON_LABEL: Record<string, string> = {
@@ -116,4 +118,6 @@ export const NOTIFICATION_ICON_LABEL: Record<string, string> = {
   follow_up: "Follow-up",
   test: "Test",
   dispatch_risk: "Dispatch",
+  listing_live: "Live",
+  listing_not_found: "Check SKU",
 };

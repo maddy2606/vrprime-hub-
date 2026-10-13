@@ -13,7 +13,7 @@ declare
   u_mgr uuid := gen_random_uuid();
   u_blr uuid := gen_random_uuid();   -- warehouse user, Bangalore only
   u_del uuid := gen_random_uuid();   -- warehouse user, Delhi only
-  u_off uuid := gen_random_uuid();   -- deactivated manager
+  u_off uuid := gen_random_uuid();   -- deactivated admin
   w_blr uuid;
   w_del uuid;
   p_blr uuid;
@@ -32,10 +32,10 @@ begin
     (u_off, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rls-off@example.test');
 
   insert into public.profiles (id, name, role, active) values
-    (u_mgr, 'RLS Manager', 'manager', true),
+    (u_mgr, 'RLS Admin', 'admin', true),
     (u_blr, 'RLS Bangalore', 'warehouse', true),
     (u_del, 'RLS Delhi', 'warehouse', true),
-    (u_off, 'RLS Deactivated', 'manager', false)
+    (u_off, 'RLS Deactivated', 'admin', false)
   on conflict (id) do update
     set name = excluded.name, role = excluded.role, active = excluded.active;
 
@@ -114,7 +114,7 @@ begin
   set local role authenticated;
 
   select count(*) into n from public.posts where id in (p_blr, p_del, p_task);
-  assert n = 3, 'manager should see all posts';
+  assert n = 3, 'an admin should see all posts';
 
   reset role;
 

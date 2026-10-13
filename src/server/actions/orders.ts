@@ -9,13 +9,13 @@ import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
 import { readOrderSyncState } from "@/server/flipkart-data";
 
-const CAN_SYNC = ["owner", "manager"];
+const CAN_SYNC = ["owner", "admin"];
 
-/** The "Sync now" buttons on the Orders and Returns tabs. Owner and manager only (the database checks this too). */
+/** The "Sync now" buttons on the Orders and Returns tabs. Owner and admin only (the database checks this too). */
 export async function startOrdersSync(kind: "pending" | "daily" | "upcoming"): Promise<ActionResult<{ run: RunSummary }>> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
-  if (!CAN_SYNC.includes(user.role)) return { ok: false, message: "Only the owner or a manager can sync orders." };
+  if (!CAN_SYNC.includes(user.role)) return { ok: false, message: "Only an owner or an admin can sync orders." };
   if (kind !== "pending" && kind !== "daily" && kind !== "upcoming") return { ok: false, message: "Unknown kind of sync." };
 
   const supabase = await createClient();

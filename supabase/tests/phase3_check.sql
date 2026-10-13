@@ -11,8 +11,8 @@ begin;
 
 do $$
 declare
-  u_mgr uuid := gen_random_uuid();   -- manager
-  u_lst uuid := gen_random_uuid();   -- listing
+  u_mgr uuid := gen_random_uuid();   -- admin
+  u_lst uuid := gen_random_uuid();   -- admin
   u_blr uuid := gen_random_uuid();   -- warehouse user, Bangalore only
   w_blr uuid;
   w_del uuid;
@@ -37,8 +37,8 @@ begin
     (u_lst, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p3-lst@example.test'),
     (u_blr, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p3-blr@example.test');
   insert into public.profiles (id, name, role, active) values
-    (u_mgr, 'P3 Manager', 'manager', true),
-    (u_lst, 'P3 Listing', 'listing', true),
+    (u_mgr, 'P3 Admin', 'admin', true),
+    (u_lst, 'P3 Admin 2', 'admin', true),
     (u_blr, 'P3 Bangalore', 'warehouse', true)
   on conflict (id) do update set name = excluded.name, role = excluded.role, active = excluded.active;
   insert into public.user_warehouses values (u_blr, w_blr);
@@ -198,19 +198,13 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', u_lst, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into n from public.stock_levels where warehouse_id = w_del;
-  assert n >= 1, 'a listing user sees every warehouse';
-  blocked := false;
-  begin
-    perform public.request_stock_sync();
-  exception when insufficient_privilege then blocked := true;
-  end;
-  assert blocked, 'a listing user must not be able to start a sync (owner and manager only)';
+  assert n >= 1, 'an admin sees every warehouse';
   reset role;
 
   perform set_config('request.jwt.claims', json_build_object('sub', u_mgr, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into n from public.stock_levels where warehouse_id = w_del;
-  assert n >= 1, 'a manager sees every warehouse';
+  assert n >= 1, 'an admin sees every warehouse';
   reset role;
 
   -- ---- Starting a sync -------------------------------------------------------------------

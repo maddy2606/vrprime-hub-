@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { PostForm } from "@/components/posts/post-form";
 import { PageTitle } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
-import { getLookups } from "@/lib/data";
+import { canManage, requireUser } from "@/lib/auth";
+import { getLookups, getWeightLimit } from "@/lib/data";
 import { EMPTY_POST, type PostFormValues } from "@/lib/post-options";
 import { POST_TYPES, type PostType } from "@/lib/types";
 
@@ -19,15 +19,18 @@ export default async function NewPostPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const sp = await searchParams;
-  const lookups = await getLookups();
+  const [lookups, weightLimit] = await Promise.all([getLookups(), getWeightLimit()]);
+  const canPostListings = canManage(user);
 
   const type = one(sp.type);
   const warehouse = one(sp.warehouse);
   const initial: PostFormValues = {
     ...EMPTY_POST,
-    type: (POST_TYPES as readonly string[]).includes(type) ? (type as PostType) : null,
+    type:
+      (POST_TYPES as readonly string[]).includes(type) && (type !== "new_listing" || canPostListings) ? (type as PostType) : null,
+    platform: type === "new_listing" ? "flipkart" : "",
     sku: one(sp.sku).slice(0, 120),
     warehouse_id: lookups.warehouses.some((w) => w.id === warehouse) ? warehouse : "",
     qty_needed: one(sp.qty).replace(/\D/g, "").slice(0, 8),
@@ -36,7 +39,13 @@ export default async function NewPostPage({
   return (
     <div className="mx-auto max-w-2xl">
       <PageTitle title="New post" sub="Pick a type, then fill the short form." />
-      <PostForm initial={initial} people={lookups.people} warehouses={lookups.warehouses} />
+      <PostForm
+        initial={initial}
+        people={lookups.people}
+        warehouses={lookups.warehouses}
+        canPostListings={canPostListings}
+        weightLimit={weightLimit}
+      />
     </div>
   );
 }

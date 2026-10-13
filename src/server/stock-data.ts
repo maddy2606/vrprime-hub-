@@ -68,7 +68,7 @@ export async function loadStockPage(user: SessionUser, canSync: boolean): Promis
     if (row.key === "new_inactive_days") settings.newInactiveDays = whole(row.value, DEFAULT_SETTINGS.newInactiveDays);
   }
 
-  // Owner, manager and listing see every warehouse; a warehouse user, only theirs.
+  // Owner and admin see every warehouse; a warehouse user, only theirs.
   const fullAccess = user.role !== "warehouse";
   const warehouses = lookups.warehouses
     .filter((w) => fullAccess || user.warehouseIds.includes(w.id))

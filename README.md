@@ -15,6 +15,7 @@ phones first; installable from the browser.
 | 1 | Work board, search, filters, photos, users admin, PWA shell | Built |
 | 2 | Tickets, push notifications, notification bell, daily 9:30 AM jobs | Built |
 | 3 | Flipkart stock desk and daily sync | Live |
+| 5 | New-listing requests (live check against Flipkart, weight check), three roles | Built |
 | 4 | The Flipkart page: needs action, orders, returns, prices, listing health, running out soon | Built (Phase 4b, with Seller Hub's order tabs); see [The Flipkart page](#the-flipkart-page) |
 
 ## Environment variables
@@ -157,15 +158,15 @@ matching TypeScript row types and must be updated by hand in the same commit.
 
 ### Checking the access rules
 
-`supabase/tests/rls_check.sql`, `phase2_check.sql`, `phase3_check.sql` and `phase4_check.sql` prove that a warehouse user cannot read, search, comment on or edit
+`supabase/tests/rls_check.sql`, `phase2_check.sql`, `phase3_check.sql`, `phase4_check.sql` and `phase5_check.sql` prove that a warehouse user cannot read, search, comment on or edit
 another warehouse's posts, that deactivated and signed-out users see nothing, that nobody can change
 their own role, and that status changes are audited. The Phase 2 script covers who gets which notification,
 that notifications are private and cannot be forged, that the internal functions are not callable by signed-in
 users, and that warehouse users only see tickets linked to posts they can see. The Phase 3 script covers saving a sync (first-sync
 baseline, inactive tracking, same-day reruns, the 80% sanity check, 60-day cleanup), that a warehouse user only sees their own
-warehouses' units, and that only the owner or a manager can start a sync. The Phase 4 script covers price history, saving orders and returns, the
-dispatch-deadline alert (once per order, owner and managers only), that warehouse users only see their own warehouses' orders and
-returns, the sales, stock-drop and return-rate calculations, and how the order runs pause, wait and restart. Each runs inside a transaction
+warehouses' units, and that only an owner or an admin can start a sync. The Phase 4 script covers price history, saving orders and returns, the
+dispatch-deadline alert (once per order, owners and admins only), that warehouse users only see their own warehouses' orders and
+returns, the sales, stock-drop and return-rate calculations, and how the order runs pause, wait and restart. The Phase 5 script covers the three roles (an admin cannot change settings, users or anyone's role; the last active owner can never be demoted, deactivated or deleted), that only owners and admins can post, see or be assigned a new-listing request, that marking one done needs a trimmed SKU, and the live check against the Flipkart listings (live and active, inactive, over the weight limit, not found, the 3-day alert, no repeats). Each runs inside a transaction
 and rolls back, so it leaves no data behind and is safe on production. Paste one into the Supabase SQL editor
 and run it: the result is `All ... checks passed`, or an error naming the rule that failed.
 
@@ -173,10 +174,12 @@ and run it: the result is `All ... checks passed`, or an error naming the rule t
 
 | Role | Posts and tickets | Users and settings |
 |---|---|---|
-| owner | Everything | Yes |
-| manager | Everything | No |
-| listing | Everything | No |
-| warehouse | Posts tagged with one of their warehouses, assigned to them, or created by them; tickets linked to those posts | No |
+| owner | Everything. There can be several owners; the last active one can never be demoted or deactivated | Yes |
+| admin | Everything, including new-listing requests, tickets and Sync now | No |
+| warehouse | Posts tagged with one of their warehouses, assigned to them, or created by them; tickets linked to those posts. Never new-listing requests | No |
+
+**Default for anything new:** every new screen, tab or action is **owner and admin only** until the owner reviews access. Warehouse users
+get nothing new unless it is said so. Cost and profit data (Phase 6) is owner-only in the database, always.
 
 ## How to add a user
 
@@ -199,8 +202,8 @@ To remove someone: untick "Active". They can no longer sign in; their posts and 
 
 ## Flipkart stock sync
 
-The Stock page shows a copy of Flipkart stock, refreshed every day at **8:00 AM IST** and whenever the owner or a
-manager taps **Sync now**. The sync only **reads** from Flipkart: the code can make exactly three kinds of request
+The Stock page shows a copy of Flipkart stock, refreshed every day at **8:00 AM IST** and whenever an owner or an
+admin taps **Sync now**. The sync only **reads** from Flipkart: the code can make exactly three kinds of request
 (get a token, run a listing search, read listing details) and refuses anything else before it is sent.
 
 ### Turning it on (one time, by the owner)
@@ -285,7 +288,7 @@ No redeploy is needed. If the app ID changes too, replace `FLIPKART_APP_ID` the 
 ## The Flipkart page
 
 The **Flipkart** tab (it used to be called Stock; old /stock links still work) has six sections. Warehouse users see the first
-four, for their own warehouses only (enforced in the database); owner, manager and listing see all six.
+four, for their own warehouses only (enforced in the database); owner and admin see all six.
 
 | Tab | What it shows |
 |---|---|
@@ -358,7 +361,7 @@ Upcoming.)
 ### Alerts
 
 When a pending or upcoming sweep finishes, every Active order (dispatch-after reached) that is within 4 hours of its dispatch
-deadline (or just past it), not on hold and not Under Processing is counted once, ever (`alerted_at`), and the owner and managers get
+deadline (or just past it), not on hold and not Under Processing is counted once, ever (`alerted_at`), and the owners and admins get
 one push per sweep: "3 orders may miss their dispatch deadline: Delhi 2 · Bhiwandi 1 · earliest 2:30 pm". Orders first found already
 more than an hour late are marked without an alert. Under Processing (`PACKING_IN_PROGRESS`) is Flipkart's own work; Seller Hub says
 those delays do not affect account health, so they never alert.

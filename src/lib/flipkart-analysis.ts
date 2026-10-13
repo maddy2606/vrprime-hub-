@@ -108,7 +108,7 @@ export function buildPriceRows(inputs: PriceInput[], settings: FlipkartSettings,
 
 // --- Listing health -----------------------------------------------------------------------------------------
 
-export type HealthProblem = "no_size" | "no_weight" | "slow_dispatch" | "sku_space" | "no_tax";
+export type HealthProblem = "no_size" | "no_weight" | "slow_dispatch" | "sku_space" | "no_tax" | "over_weight";
 
 export const HEALTH_LABEL: Record<HealthProblem, string> = {
   no_size: "Missing package size",
@@ -116,9 +116,10 @@ export const HEALTH_LABEL: Record<HealthProblem, string> = {
   slow_dispatch: "Slow dispatch SLA",
   sku_space: "Space in SKU",
   no_tax: "Missing HSN / tax code",
+  over_weight: "Over the weight limit",
 };
 
-export const HEALTH_KEYS: HealthProblem[] = ["no_size", "no_weight", "slow_dispatch", "sku_space", "no_tax"];
+export const HEALTH_KEYS: HealthProblem[] = ["no_size", "no_weight", "slow_dispatch", "sku_space", "no_tax", "over_weight"];
 
 export type HealthInput = {
   sku: string;
@@ -130,6 +131,8 @@ export type HealthInput = {
   taxCode: string | null;
   /** False until a sync has looked at the tax fields: then HSN is unknown, not missing. */
   taxRead: boolean;
+  /** Set when a new-listing request for this SKU found Flipkart's real package over the weight limit. */
+  listingPost?: { id: string; number: number; total: number } | null;
 };
 
 export type HealthRow = {
@@ -140,6 +143,8 @@ export type HealthRow = {
   dispatchSla: number | null;
   hsn: string | null;
   taxCode: string | null;
+  /** The new-listing request this SKU came from, when its real package is over the limit. */
+  listingPost: { id: string; number: number; total: number } | null;
 };
 
 function positive(value: unknown): boolean {
@@ -170,7 +175,8 @@ export function buildHealthRows(inputs: HealthInput[], settings: FlipkartSetting
     if (sla !== null && sla > settings.dispatchSlaDays) problems.push("slow_dispatch");
     if (l.sku !== l.sku.trim()) problems.push("sku_space");
     if (l.taxRead && (!l.hsn || !l.taxCode)) problems.push("no_tax");
-    if (problems.length) rows.push({ sku: l.sku, title: l.title, status: l.status, problems, dispatchSla: sla, hsn: l.hsn, taxCode: l.taxCode });
+    if (l.listingPost) problems.push("over_weight");
+    if (problems.length) rows.push({ sku: l.sku, title: l.title, status: l.status, problems, dispatchSla: sla, hsn: l.hsn, taxCode: l.taxCode, listingPost: l.listingPost ?? null });
   }
   return rows;
 }
@@ -368,14 +374,14 @@ export type ActionRow = {
 };
 
 export type ActionSection = {
-  key: "orders" | "empty" | "prices" | "inactive" | "returns" | "running";
+  key: "orders" | "empty" | "prices" | "inactive" | "listings" | "returns" | "running";
   title: string;
   rows: ActionRow[];
 };
 
 export type NeedsInput = {
   now: Date;
-  /** Owner, manager and listing see prices, listing problems and new inactive listings; warehouse users do not. */
+  /** Owner and admin see prices, listing problems and new inactive listings; warehouse users do not. */
   staff: boolean;
   warehouses: { id: string; name: string }[];
   /** The counts per warehouse (late, due today, due tomorrow, next deadline). */
@@ -387,6 +393,8 @@ export type NeedsInput = {
   returnRates: ReturnRate[];
   covers: Cover[];
   newInactive: { sku: string; inactiveSince: string | null }[];
+  /** New-listing requests marked done 3+ days ago and still not found on Flipkart (owner and admin only). */
+  listingsNotFound?: { postId: string; number: number; title: string; sku: string; doneAt: string }[];
 };
 
 export function ticketHref(sku: string | null, issue: "wrong_return" | "listing_blocked" | "other" = "other"): string {
@@ -474,6 +482,24 @@ export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: st
         })),
       });
     }
+  }
+
+  // 4b. A new listing marked done days ago that Flipkart still does not have: the SKU may be wrong.
+  if (input.staff && input.listingsNotFound?.length) {
+    sections.push({
+      key: "listings",
+      title: "New listings not found on Flipkart",
+      rows: input.listingsNotFound.map((p) => {
+        const days = Math.max(0, Math.floor((input.now.getTime() - Date.parse(p.doneAt)) / 86_400_000));
+        return {
+          key: `listing-${p.postId}`,
+          title: `VR-${p.number} · ${p.sku}`,
+          detail: `${p.title}. Marked done ${days} ${days === 1 ? "day" : "days"} ago and still not in your Flipkart listings. The SKU may be wrong.`,
+          tone: "bad" as const,
+          actions: [{ label: "Open post", href: `/posts/${p.postId}` }, hub("Open in Seller Hub", links.sellerHubListings)],
+        };
+      }),
+    });
   }
 
   // 5. High return rate.

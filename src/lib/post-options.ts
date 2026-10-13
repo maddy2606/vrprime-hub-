@@ -11,6 +11,8 @@ export type FilterValues = {
   assignee: string;
   priority: string;
   overdue: boolean;
+  /** New listings view: open requests, done and live, done but not found on Flipkart. */
+  nl: string;
   sort: string;
 };
 
@@ -32,6 +34,15 @@ export type PostFormValues = {
   qty_needed: string;
   assignee_id: string;
   due_date: string;
+  // New-listing request details (all optional)
+  product_name: string;
+  reference_url: string;
+  target_price: string;
+  mrp: string;
+  dim_l: string;
+  dim_b: string;
+  dim_h: string;
+  weight_kg: string;
 };
 
 export const EMPTY_POST: PostFormValues = {
@@ -45,4 +56,18 @@ export const EMPTY_POST: PostFormValues = {
   qty_needed: "",
   assignee_id: "",
   due_date: "",
+  product_name: "",
+  reference_url: "",
+  target_price: "",
+  mrp: "",
+  dim_l: "",
+  dim_b: "",
+  dim_h: "",
+  weight_kg: "",
 };
+
+export const NEW_LISTING_VIEWS = [
+  { value: "open", label: "Open requests" },
+  { value: "live", label: "Done and live" },
+  { value: "missing", label: "Done, not found" },
+] as const;

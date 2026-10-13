@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getActiveUser } from "@/lib/auth";
+import { canManage, getActiveUser } from "@/lib/auth";
 import { logError } from "@/lib/redact";
 import { dbError, invalid, NOT_SIGNED_IN } from "@/server/action-helpers";
 import { postNumber } from "@/lib/format";
 import { STATUS_LABEL } from "@/lib/labels";
+import { cleanSku } from "@/lib/new-listing";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult, Post, PostComment } from "@/lib/types";
 import {
@@ -27,12 +28,32 @@ async function restockTitle(
   return `Restock ${sku} × ${qty} to ${data?.name ?? "warehouse"}`;
 }
 
+type PostValues = z.output<typeof postSchema>;
+
+/** The optional request details of a new listing. */
+function listingDetails(v: PostValues) {
+  return {
+    product_name: v.product_name,
+    reference_url: v.reference_url,
+    target_price: v.target_price,
+    mrp: v.mrp,
+    dim_l: v.dim_l,
+    dim_b: v.dim_b,
+    dim_h: v.dim_h,
+    weight_kg: v.weight_kg,
+  };
+}
+
 export async function createPost(input: unknown): Promise<ActionResult<{ id: string }>> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   const parsed = postSchema.safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
   const v = parsed.data;
+  const listing = v.type === "new_listing";
+  if (listing && !canManage(user)) {
+    return { ok: false, message: "Only an owner or an admin can post a new-listing request." };
+  }
 
   const supabase = await createClient();
   const title =
@@ -45,13 +66,15 @@ export async function createPost(input: unknown): Promise<ActionResult<{ id: str
       title,
       details: v.details,
       priority: v.priority,
-      sku: v.sku,
-      warehouse_id: v.warehouse_id,
-      platform: v.platform,
+      // The SKU of a new listing is entered when it is marked done.
+      sku: listing ? null : v.sku,
+      warehouse_id: listing ? null : v.warehouse_id,
+      platform: listing ? (v.platform ?? "flipkart") : v.platform,
       qty_needed: v.type === "restock" ? v.qty_needed : null,
       assignee_id: v.assignee_id,
       due_date: v.due_date,
       created_by: user.id,
+      ...(listing ? listingDetails(v) : {}),
     })
     .select("id, number")
     .single();
@@ -75,18 +98,20 @@ export async function updatePost(postId: unknown, input: unknown): Promise<Actio
     v.title ?? (await restockTitle(supabase, v.sku ?? "", v.qty_needed ?? 0, v.warehouse_id ?? ""));
 
   // The type of a post is fixed once created, so it is not updated here.
+  const listing = v.type === "new_listing";
   const { data, error } = await supabase
     .from("posts")
     .update({
       title,
       details: v.details,
       priority: v.priority,
-      sku: v.sku,
-      warehouse_id: v.warehouse_id,
+      // A new listing's SKU is set by marking it done, not here.
+      ...(listing ? {} : { sku: v.sku, warehouse_id: v.warehouse_id }),
       platform: v.platform,
       qty_needed: v.type === "restock" ? v.qty_needed : null,
       assignee_id: v.assignee_id,
       due_date: v.due_date,
+      ...(listing ? listingDetails(v) : {}),
     })
     .eq("id", id.data)
     .select("number");
@@ -141,7 +166,10 @@ export async function markDone(input: unknown): Promise<ActionResult> {
       proof.done_no_ticket_reason = null;
     }
   } else if (post.type === "new_listing") {
-    if (!v.listing_id) errors.listing_id = "Enter the FSN or listing ID";
+    // The SKU is the proof: it is looked up in the Flipkart listings at the next daily sync. The FSN is optional.
+    const sku = cleanSku(v.sku);
+    if (!sku.ok) errors.sku = sku.message;
+    else proof.sku = sku.sku;
     proof.done_listing_id = v.listing_id;
   } else if (post.type === "restock") {
     if (v.qty === null) errors.qty = "Enter the quantity sent";
@@ -211,7 +239,7 @@ export async function removeAttachment(attachmentId: unknown): Promise<ActionRes
     .eq("id", id.data)
     .select("path, post_id");
   if (error) return dbError(error, "remove the photo");
-  if (!removed.length) return { ok: false, message: "Only the person who added a photo, or a manager, can remove it." };
+  if (!removed.length) return { ok: false, message: "Only the person who added a photo, or an owner or admin, can remove it." };
 
   // Best effort: the record is already gone, so a leftover file is only wasted space.
   const { error: storageError } = await supabase.storage.from("post-attachments").remove([removed[0].path]);

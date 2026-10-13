@@ -20,6 +20,7 @@ import {
   type ReturnRate,
 } from "@/lib/flipkart-analysis";
 import { addDays, todayIST } from "@/lib/format";
+import { NOT_FOUND_DAYS } from "@/lib/new-listing";
 import { logError } from "@/lib/redact";
 import { SETTING_KEYS } from "@/lib/settings-keys";
 import { createClient } from "@/lib/supabase/server";
@@ -172,7 +173,7 @@ export async function loadNewInactive(supabase: Supabase, today: string, days: n
   return (data ?? []).map((r) => ({ sku: r.sku, inactiveSince: r.inactive_since }));
 }
 
-// --- Prices and listing health (owner, manager, listing only: the database enforces it for prices) ---------------------------
+// --- Prices and listing health (owner and admin only: the database enforces it for prices) ---------------------------
 
 type ListingPriceRow = { sku: string; title: string | null; status: string; mrp: number | null; selling_price: number | null };
 
@@ -227,8 +228,19 @@ export async function loadHealthRows(supabase: Supabase, settings: FlipkartSetti
     }>((from, to) =>
       supabase.from("stock_listings").select("sku, title, status, packages, fulfillment, hsn, tax_code, tax_read").eq("platform", "flipkart").order("sku").range(from, to),
     );
+    // New listings whose real package, read from Flipkart, is over the weight limit (owner and admin only: the
+    // database hides these posts from everyone else).
+    const { data: heavy } = await supabase
+      .from("posts")
+      .select("id, number, sku, live_package")
+      .eq("type", "new_listing")
+      .eq("status", "done")
+      .eq("live_over_weight", true);
+    const heavyBySku = new Map<string, { id: string; number: number; total: number }>();
+    for (const p of heavy ?? []) if (p.sku) heavyBySku.set(p.sku, { id: p.id, number: p.number, total: Number(p.live_package?.total ?? 0) });
+
     const rows = buildHealthRows(
-      listings.map((l) => ({ sku: l.sku, title: l.title, status: l.status, packages: l.packages, fulfillment: l.fulfillment, hsn: l.hsn, taxCode: l.tax_code, taxRead: l.tax_read })),
+      listings.map((l) => ({ sku: l.sku, title: l.title, status: l.status, packages: l.packages, fulfillment: l.fulfillment, hsn: l.hsn, taxCode: l.tax_code, taxRead: l.tax_read, listingPost: heavyBySku.get(l.sku) ?? null })),
       settings,
     );
     return { rows, total: listings.length, taxUnread: listings.filter((l) => !l.tax_read).length };
@@ -237,10 +249,25 @@ export async function loadHealthRows(supabase: Supabase, settings: FlipkartSetti
   }
 }
 
+/** New-listing requests marked done 3 or more days ago that the daily sync still cannot find on Flipkart. */
+export async function loadListingsNotFound(supabase: Supabase, now: Date): Promise<{ postId: string; number: number; title: string; sku: string; doneAt: string }[]> {
+  const cutoff = new Date(now.getTime() - NOT_FOUND_DAYS * 86_400_000).toISOString();
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id, number, title, sku, done_at")
+    .eq("type", "new_listing")
+    .eq("status", "done")
+    .eq("live_found", false)
+    .lte("done_at", cutoff)
+    .order("done_at");
+  if (error) return fail("new listings not found", error);
+  return (data ?? []).flatMap((p) => (p.sku && p.done_at ? [{ postId: p.id, number: p.number, title: p.title, sku: p.sku, doneAt: p.done_at }] : []));
+}
+
 // --- Who sees what -----------------------------------------------------------------------------------------------------------------
 
 export const canSeePrices = (user: Pick<SessionUser, "role">) => user.role !== "warehouse";
-export const canSyncOrders = (user: Pick<SessionUser, "role">) => user.role === "owner" || user.role === "manager";
+export const canSyncOrders = (user: Pick<SessionUser, "role">) => user.role === "owner" || user.role === "admin";
 
 export async function warehousesFor(user: SessionUser): Promise<{ id: string; name: string }[]> {
   const lookups = await getLookups();

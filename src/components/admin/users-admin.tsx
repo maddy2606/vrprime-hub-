@@ -51,12 +51,13 @@ function generatePassword(): string {
 function UserForm({
   initial,
   warehouses,
-  isSelf,
+  soleOwner,
   onClose,
 }: {
   initial: FormState;
   warehouses: Warehouse[];
-  isSelf: boolean;
+  /** The only active owner: their role and access cannot be changed until another owner exists. */
+  soleOwner: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -130,8 +131,8 @@ function UserForm({
           </Field>
         )}
 
-        <Field label="Role" htmlFor="u-role" required error={errors.role} hint={ROLE_HINT[form.role]}>
-          <select id="u-role" className="input" value={form.role} disabled={isSelf} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
+        <Field label="Role" htmlFor="u-role" required error={errors.role} hint={soleOwner ? "You are the only owner. Make someone else an owner before changing your own role." : ROLE_HINT[form.role]}>
+          <select id="u-role" className="input" value={form.role} disabled={soleOwner} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
             {ROLES.map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABEL[r]}
@@ -185,7 +186,7 @@ function UserForm({
           </div>
         </Field>
 
-        {editing && !isSelf ? (
+        {editing && !soleOwner ? (
           <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
             <input type="checkbox" className="h-5 w-5 accent-(--accent)" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
             Active (untick to block sign-in; their posts and history stay)
@@ -208,6 +209,8 @@ function UserForm({
 export function UsersAdmin({ users, warehouses, meId }: { users: AdminUser[]; warehouses: Warehouse[]; meId: string }) {
   const [editing, setEditing] = useState<FormState | null>(null);
   const warehouseName = new Map(warehouses.map((w) => [w.id, w.name]));
+  const owners = users.filter((u) => u.role === "owner" && u.active);
+  const soleOwnerId = owners.length === 1 ? owners[0].id : null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -228,7 +231,7 @@ export function UsersAdmin({ users, warehouses, meId }: { users: AdminUser[]; wa
           key={editing.id ?? "new"}
           initial={editing}
           warehouses={warehouses}
-          isSelf={editing.id === meId}
+          soleOwner={editing.id !== null && editing.id === soleOwnerId}
           onClose={() => setEditing(null)}
         />
       ) : null}

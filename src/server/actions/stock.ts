@@ -7,13 +7,13 @@ import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
 
-const CAN_SYNC = ["owner", "manager"];
+const CAN_SYNC = ["owner", "admin"];
 
-/** The "Sync now" button. Owner and manager only (the database checks this too). */
+/** The "Sync now" button. Owner and admin only (the database checks this too). */
 export async function startStockSync(): Promise<ActionResult<{ run: SyncSummary }>> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
-  if (!CAN_SYNC.includes(user.role)) return { ok: false, message: "Only the owner or a manager can sync stock." };
+  if (!CAN_SYNC.includes(user.role)) return { ok: false, message: "Only an owner or an admin can sync stock." };
 
   const supabase = await createClient();
   const { data: runId, error } = await supabase.rpc("request_stock_sync");

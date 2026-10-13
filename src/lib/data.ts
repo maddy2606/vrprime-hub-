@@ -30,3 +30,11 @@ export const getLookups = cache(async (): Promise<Lookups> => {
   ]);
   return buildLookups(people.data ?? [], warehouses.data ?? []);
 });
+
+/** The weight limit setting (everyone may read settings). Size in cm multiplied, plus weight in grams. */
+export const getWeightLimit = cache(async (): Promise<number> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("app_settings").select("value").eq("key", "weight_alert_limit").maybeSingle();
+  const n = Number(data?.value);
+  return Number.isFinite(n) && n > 0 ? n : 2000;
+});

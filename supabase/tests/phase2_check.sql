@@ -9,7 +9,7 @@ begin;
 
 do $$
 declare
-  u_mgr uuid := gen_random_uuid();   -- manager
+  u_mgr uuid := gen_random_uuid();   -- admin
   u_blr uuid := gen_random_uuid();   -- warehouse user, Bangalore
   u_del uuid := gen_random_uuid();   -- warehouse user, Delhi
   u_off uuid := gen_random_uuid();   -- deactivated warehouse user, Bangalore
@@ -34,7 +34,7 @@ begin
     (u_del, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p2-del@example.test'),
     (u_off, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'p2-off@example.test');
   insert into public.profiles (id, name, role, active) values
-    (u_mgr, 'P2 Manager', 'manager', true),
+    (u_mgr, 'P2 Admin', 'admin', true),
     (u_blr, 'P2 Bangalore', 'warehouse', true),
     (u_del, 'P2 Delhi', 'warehouse', true),
     (u_off, 'P2 Deactivated', 'warehouse', false)
@@ -190,7 +190,7 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', u_mgr, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into n from public.search_tickets('P2-TKT');
-  assert n = 3, 'manager should find all three test tickets';
+  assert n = 3, 'an admin should find all three test tickets';
   select count(*) into n from public.search_tickets('p2-sku-1');
   assert n = 1, 'ticket search should match SKU, ignoring case';
   select count(*) into n from public.search_tickets('VR-T-' || (select number from public.tickets where id = t_blr));

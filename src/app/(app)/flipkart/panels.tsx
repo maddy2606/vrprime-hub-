@@ -25,6 +25,7 @@ import {
   loadFlipkartSettings,
   loadHealthRows,
   loadInTransit,
+  loadListingsNotFound,
   loadOrderSyncState,
   loadPriceRows,
   loadReturnRates,
@@ -60,15 +61,16 @@ export async function NeedsPanel({ user }: { user: SessionUser }) {
     loadEmpties(supabase),
     loadCover(supabase, today),
   ]);
-  const [priceRows, newInactive, returns] = await Promise.all([
+  const [priceRows, newInactive, listingsNotFound, returns] = await Promise.all([
     staff && snapshotDate ? loadPriceRows(supabase, snapshotDate, settings, false) : Promise.resolve([]),
     staff ? loadNewInactive(supabase, today, settings.newInactiveDays) : Promise.resolve([]),
+    staff ? loadListingsNotFound(supabase, now) : Promise.resolve([]),
     loadReturnRates(supabase, settings, today, cover.coverageFrom),
   ]);
 
   const cards = readCards(counts, warehouses);
   const sections = buildNeedsAction(
-    { now, staff, warehouses, cards, empties, settings, priceRows, returnRates: returns.rates, covers: cover.covers, newInactive },
+    { now, staff, warehouses, cards, empties, settings, priceRows, returnRates: returns.rates, covers: cover.covers, newInactive, listingsNotFound },
     { sellerHubOrders: SELLER_HUB.orders, sellerHubListings: SELLER_HUB.listings },
   );
 
@@ -129,7 +131,7 @@ export async function StockPanel({ user, sp }: { user: SessionUser; sp: Search }
           body={
             canSync
               ? "Press Sync now to read stock from Flipkart. This needs FLIPKART_APP_ID and FLIPKART_APP_SECRET to be set in Supabase (Edge Functions > Secrets). After that it syncs by itself every day at 8:00 AM."
-              : "Stock has not been synced from Flipkart yet. The owner or a manager needs to run the first sync."
+              : "Stock has not been synced from Flipkart yet. An owner or an admin needs to run the first sync."
           }
         />
       </>

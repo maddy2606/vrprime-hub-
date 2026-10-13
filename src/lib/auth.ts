@@ -37,6 +37,12 @@ export async function getActiveUser(): Promise<SessionUser | null> {
   return user;
 }
 
+/** Owner and admin: everything except settings and users (those are owner only). */
 export function canManage(user: Pick<SessionUser, "role">): boolean {
-  return user.role === "owner" || user.role === "manager";
+  return user.role === "owner" || user.role === "admin";
+}
+
+/** Settings and users. */
+export function isOwner(user: Pick<SessionUser, "role">): boolean {
+  return user.role === "owner";
 }

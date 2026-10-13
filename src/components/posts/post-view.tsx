@@ -10,6 +10,7 @@ import { buttonClass, Card, Chip, PriorityChip, StatusChip, TypeChip } from "@/c
 import type { Lookups } from "@/lib/data";
 import { formatDate, formatDateTime, formatNumber, postNumber, ticketNumber } from "@/lib/format";
 import { FIELD_LABEL, PLATFORM_LABEL, PRIORITY_LABEL, STATUS_LABEL, TICKET_STATUS_LABEL, TICKET_STATUS_TONE } from "@/lib/labels";
+import { checkWeight, liveLine, liveState, weightWarning } from "@/lib/new-listing";
 import type { Json, Platform, Post, PostComment, PostEvent, PostStatus, Priority, Ticket } from "@/lib/types";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -50,6 +51,7 @@ function describeEvent(event: PostEvent, lookups: Lookups, today: string): strin
       const lines = [`marked it ${(STATUS_LABEL[to] ?? String(c.to)).toLowerCase()}`];
       if (c.ticket_id) lines.push(`Ticket ID: ${text(c.ticket_id)}`);
       if (c.no_ticket_reason) lines.push(`No ticket needed: ${text(c.no_ticket_reason)}`);
+      if (c.sku) lines.push(`SKU: ${text(c.sku)}`);
       if (c.listing_id) lines.push(`Listing ID: ${text(c.listing_id)}`);
       if (c.qty !== undefined) lines.push(`Quantity sent: ${text(c.qty)}`);
       if (c.reference) lines.push(`Invoice / challan: ${text(c.reference)}`);
@@ -78,9 +80,84 @@ type Props = {
   comments: PostComment[];
   events: PostEvent[];
   photos: Photo[];
+  /** The weight limit setting, for the new-listing weight check. */
+  weightLimit: number;
 };
 
-export function PostView({ post, tickets, lookups, today, comments, events, photos }: Props) {
+function money(value: number): string {
+  return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+/** The request details, the weight check, and what Flipkart says once it is done. New-listing posts only. */
+function NewListingCard({ post, today, weightLimit }: { post: Post; today: string; weightLimit: number }) {
+  const request = checkWeight(post.dim_l, post.dim_b, post.dim_h, post.weight_kg, weightLimit);
+  const state = liveState(post);
+  const line = liveLine(state, (iso) => formatDate(iso, today));
+  const pkg = post.live_package;
+  const hasRequestDetails = Boolean(
+    post.product_name || post.reference_url || post.target_price !== null || post.mrp !== null || post.dim_l !== null || post.weight_kg !== null,
+  );
+  // Before listing, the numbers entered on the request; once live, Flipkart's real package.
+  const beforeWarning = request?.over && state.kind !== "live" ? weightWarning(request) : null;
+  const liveWarning =
+    state.kind === "live" && state.overWeight && pkg
+      ? `Flipkart's package: ${pkg.l}×${pkg.b}×${pkg.h} cm, ${pkg.kg} kg = ${formatNumber(pkg.total)}, over the limit of ${formatNumber(weightLimit)} by ${formatNumber(pkg.total - weightLimit)}. Fix the package on Flipkart.`
+      : null;
+  return (
+    <>
+      {hasRequestDetails ? (
+        <Card className="p-4">
+          <h2 className="mb-3 text-base font-extrabold">Request details</h2>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+            {post.product_name ? <Fact label="Product name">{post.product_name}</Fact> : null}
+            {post.target_price !== null ? <Fact label="Target price">{money(post.target_price)}</Fact> : null}
+            {post.mrp !== null ? <Fact label="MRP">{money(post.mrp)}</Fact> : null}
+            {post.dim_l !== null && post.dim_b !== null && post.dim_h !== null ? (
+              <Fact label="Size (L × B × H)">
+                {post.dim_l} × {post.dim_b} × {post.dim_h} cm
+              </Fact>
+            ) : null}
+            {post.weight_kg !== null ? <Fact label="Weight">{post.weight_kg} kg</Fact> : null}
+            {post.reference_url ? (
+              <Fact label="Reference link">
+                <a href={post.reference_url} target="_blank" rel="noreferrer noopener" className="text-accent-text underline">
+                  Open link
+                </a>
+              </Fact>
+            ) : null}
+          </dl>
+        </Card>
+      ) : null}
+
+      {beforeWarning ? (
+        <Card className="border-warn/50 bg-warn-soft p-4">
+          <p className="text-sm font-extrabold text-warn">Over the weight limit</p>
+          <p className="mt-1 text-sm">{beforeWarning}</p>
+        </Card>
+      ) : null}
+
+      {line && post.status === "done" ? (
+        <Card
+          className={`p-4 ${state.kind === "live" ? "border-ok/40 bg-ok-soft" : state.kind === "not_found" && state.late ? "border-bad/40 bg-bad-soft" : ""}`}
+        >
+          <p className={`text-sm font-extrabold ${state.kind === "live" ? "text-ok" : state.kind === "not_found" && state.late ? "text-bad" : ""}`}>{line}</p>
+          {state.kind === "not_found" && state.late ? (
+            <p className="mt-1 text-sm">
+              It was marked done more than 3 days ago and is still not in your Flipkart listings. The SKU may be wrong: check it and
+              edit it if needed.
+            </p>
+          ) : null}
+          {state.kind === "not_found" && !state.late ? (
+            <p className="mt-1 text-sm text-muted">Flipkart can take a day or two. It is checked again at every daily stock sync.</p>
+          ) : null}
+          {liveWarning ? <p className="mt-2 text-sm font-semibold text-warn">{liveWarning}</p> : null}
+        </Card>
+      ) : null}
+    </>
+  );
+}
+
+export function PostView({ post, tickets, lookups, today, comments, events, photos, weightLimit }: Props) {
   const done = post.status === "done";
   return (
     <div>
@@ -123,6 +200,8 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
               <Fact label="Created">{formatDateTime(post.created_at)}</Fact>
             </dl>
           </Card>
+
+          {post.type === "new_listing" ? <NewListingCard post={post} today={today} weightLimit={weightLimit} /> : null}
 
           {done ? (
             <Card className="border-ok/40 bg-ok-soft p-4">

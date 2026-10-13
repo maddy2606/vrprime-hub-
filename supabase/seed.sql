@@ -3,7 +3,7 @@
 -- NEVER run this against the production project.
 --
 -- All four fake users sign in with the password:  local-dev-only
---   owner@example.test, manager@example.test, listing@example.test, warehouse@example.test
+--   owner@example.test, manager@example.test (an admin), listing@example.test (an admin), warehouse@example.test
 
 do $$
 declare
@@ -43,8 +43,8 @@ begin
 
   insert into public.profiles (id, name, role, must_change_password) values
     (u_owner, 'Test Owner', 'owner', false),
-    (u_manager, 'Sample Manager', 'manager', false),
-    (u_listing, 'Demo Lister', 'listing', false),
+    (u_manager, 'Sample Admin', 'admin', false),
+    (u_listing, 'Demo Admin', 'admin', false),
     (u_warehouse, 'Fake Warehouse BLR', 'warehouse', false)
   on conflict (id) do update set name = excluded.name, role = excluded.role,
                                  must_change_password = excluded.must_change_password;

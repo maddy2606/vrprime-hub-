@@ -1,14 +1,12 @@
 "use client";
 
-import imageCompression from "browser-image-compression";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { CameraIcon, CloseIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
-import { safeError } from "@/lib/redact";
-import { createClient } from "@/lib/supabase/client";
-import { addAttachment, removeAttachment } from "@/server/actions/posts";
+import { removeAttachment } from "@/server/actions/posts";
+import { uploadPostPhotos } from "./upload-photos";
 
 export type Photo = { id: string; url: string | null; canRemove: boolean };
 
@@ -22,30 +20,7 @@ export function Photos({ postId, photos }: { postId: string; photos: Photo[] }) 
   const [pending, startTransition] = useTransition();
 
   const upload = async (files: File[]) => {
-    const supabase = createClient();
-    let added = 0;
-    for (const [index, file] of files.entries()) {
-      setProgress(`Uploading ${index + 1} of ${files.length}…`);
-      try {
-        // Phone photos are often 5 to 10 MB. Shrink to about 400 KB before sending.
-        const compressed = await imageCompression(file, {
-          maxSizeMB: 0.4,
-          maxWidthOrHeight: 1600,
-          fileType: "image/jpeg",
-          useWebWorker: true,
-        });
-        const path = `${postId}/${crypto.randomUUID()}.jpg`;
-        const { error } = await supabase.storage
-          .from("post-attachments")
-          .upload(path, compressed, { contentType: "image/jpeg", upsert: false });
-        if (error) throw error;
-        const result = await addAttachment({ postId, path });
-        if (!result.ok) throw new Error(result.message);
-        added += 1;
-      } catch (error) {
-        console.error("Photo upload failed", safeError(error));
-      }
-    }
+    const added = await uploadPostPhotos(postId, files, (i, total) => setProgress(`Uploading ${i} of ${total}…`));
     setProgress(null);
     if (added === files.length) toast.show(added === 1 ? "Photo added" : `${added} photos added`);
     else toast.show(`${files.length - added} of ${files.length} photos could not be uploaded. Try again.`, "bad");

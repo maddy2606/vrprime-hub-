@@ -4,7 +4,7 @@ import { cache } from "react";
 import type { Photo } from "@/components/posts/photos";
 import { PostView } from "@/components/posts/post-view";
 import { canManage, requireUser } from "@/lib/auth";
-import { getLookups } from "@/lib/data";
+import { getLookups, getWeightLimit } from "@/lib/data";
 import { postNumber, todayIST } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,8 +32,9 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   if (!post) notFound();
   const supabase = await createClient();
 
-  const [lookups, comments, events, attachments, tickets] = await Promise.all([
+  const [lookups, weightLimit, comments, events, attachments, tickets] = await Promise.all([
     getLookups(),
+    getWeightLimit(),
     supabase.from("post_comments").select("*").eq("post_id", id).order("created_at"),
     supabase.from("post_events").select("*").eq("post_id", id).order("created_at", { ascending: false }).order("id", { ascending: false }),
     supabase.from("post_attachments").select("*").eq("post_id", id).order("created_at"),
@@ -60,6 +61,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
         comments={comments.data ?? []}
         events={events.data ?? []}
         photos={photos}
+        weightLimit={weightLimit}
     />
   );
 }

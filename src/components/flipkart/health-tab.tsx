@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Column } from "@/components/stock/data-table";
 import { ChipFilter, ListView } from "@/components/flipkart/list-view";
@@ -27,6 +28,11 @@ export function HealthTab({ rows, total, taxUnread, slaLimit }: { rows: HealthRo
             {/* A space at the start or end is the problem, so show it. */}
             <span className="break-all font-mono text-[13px] font-bold leading-tight">{r.problems.includes("sku_space") ? `"${r.sku}"` : r.sku}</span>
             {r.status === "INACTIVE" ? <Chip>Inactive</Chip> : null}
+            {r.listingPost ? (
+              <Link prefetch={false} href={`/posts/${r.listingPost.id}`} className="focus-ring rounded font-mono text-xs font-semibold text-accent-text underline">
+                VR-{r.listingPost.number}
+              </Link>
+            ) : null}
           </div>
           {r.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.title}</p> : null}
         </div>
@@ -42,7 +48,11 @@ export function HealthTab({ rows, total, taxUnread, slaLimit }: { rows: HealthRo
         <div className="flex min-w-48 flex-wrap gap-1">
           {r.problems.map((p) => (
             <Chip key={p} tone={p === "slow_dispatch" ? "warn" : "bad"}>
-              {p === "slow_dispatch" && r.dispatchSla !== null ? `Dispatch SLA ${r.dispatchSla} days` : HEALTH_LABEL[p]}
+              {p === "slow_dispatch" && r.dispatchSla !== null
+                ? `Dispatch SLA ${r.dispatchSla} days`
+                : p === "over_weight" && r.listingPost
+                  ? `Over the weight limit: ${Math.round(r.listingPost.total).toLocaleString("en-IN")}`
+                  : HEALTH_LABEL[p]}
             </Chip>
           ))}
         </div>

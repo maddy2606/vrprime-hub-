@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { SearchIcon } from "@/components/icons";
-import { ChipFilter } from "@/components/flipkart/list-view";
+import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
 import { OrdersSyncBar } from "@/components/flipkart/orders-sync-bar";
 import { BUCKET_TONE, SkuGroups } from "@/components/flipkart/sku-groups";
 import { DataTable, type Column } from "@/components/stock/data-table";
@@ -13,7 +12,6 @@ import {
   ACTIVE_BUCKETS,
   BUCKET_LABEL,
   DEFAULT_SORT,
-  ORDER_VIEWS,
   STATUS_FILTERS,
   type CancelLine,
   type CancelType,
@@ -21,10 +19,7 @@ import {
   type OrdersQuery,
   type OrdersViewResult,
   type OrderView,
-  type PickDue,
-  type PickRow,
   type StatusFilter,
-  type UpcomingRow,
   type WarehouseOrders,
 } from "@/lib/orders-view";
 import type { OrderSyncState } from "@/lib/orders-sync";
@@ -43,18 +38,21 @@ type Props = {
   initialData: OrdersViewResult;
 };
 
-const VIEW_LABEL: Record<OrderView, string> = {
+/**
+ * The views on the page. (The Pick list and Upcoming vs stock views were taken off the page; the server still knows
+ * them, but nothing here opens them, and an old address that asks for one lands on By SKU.)
+ */
+export const SHOWN_VIEWS = ["sku", "list", "cancelled"] as const;
+const VIEW_LABEL: Record<(typeof SHOWN_VIEWS)[number], string> = {
   sku: "By SKU",
   list: "Order list",
-  pick: "Pick list",
-  upcoming: "Upcoming vs stock",
-  cancelled: "Cancelled (30 days)",
+  cancelled: "Cancelled",
 };
 
 const SKU_SORTS: { key: string; dir: "asc" | "desc"; label: string }[] = [
-  { key: "due", dir: "asc", label: "Earliest dispatch-by" },
-  { key: "units", dir: "desc", label: "Most units" },
   { key: "orders", dir: "desc", label: "Most orders" },
+  { key: "units", dir: "desc", label: "Most units" },
+  { key: "due", dir: "asc", label: "Earliest dispatch-by" },
   { key: "sku", dir: "asc", label: "SKU A to Z" },
 ];
 
@@ -90,11 +88,10 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
   const [failed, setFailed] = useState(false);
   const request = useRef(0);
   const first = useRef(true);
-  // The numbers shown on the view chips, kept from the last time that view was loaded.
-  const [badges, setBadges] = useState<{ cancelled: number | null; upcoming: number | null }>({
-    cancelled: initialData.view === "cancelled" ? initialData.summary.seller_total + initialData.summary.buyer_total : null,
-    upcoming: initialData.view === "upcoming" ? initialData.shortCount : null,
-  });
+  // The number shown on the Cancelled view, kept from the last time it was loaded.
+  const [cancelledCount, setCancelledCount] = useState<number | null>(
+    initialData.view === "cancelled" ? initialData.summary.seller_total + initialData.summary.buyer_total : null,
+  );
 
   const load = useCallback((q: OrdersQuery, append: boolean) => {
     const id = ++request.current;
@@ -108,8 +105,7 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
         return;
       }
       const next = result.data;
-      if (next.view === "cancelled" && q.offset === 0) setBadges((b) => ({ ...b, cancelled: next.summary.seller_total + next.summary.buyer_total }));
-      if (next.view === "upcoming") setBadges((b) => ({ ...b, upcoming: next.shortCount }));
+      if (next.view === "cancelled" && q.offset === 0) setCancelledCount(next.summary.seller_total + next.summary.buyer_total);
       setData((prev) => {
         if (!append || prev.view !== next.view) return next;
         const rows = [...prev.rows, ...next.rows] as typeof next.rows;
@@ -196,41 +192,6 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
     { key: "after", label: "Active from", sort: sortable, cell: (o) => <span className="whitespace-nowrap text-xs">{o.dispatch_after ? formatDue(o.dispatch_after, now) : "—"}</span>, csv: () => null },
   ];
 
-  const pickColumns: Column<PickRow>[] = [
-    { key: "sku", label: "SKU", sort: sortable, cell: (r) => skuCell(r.sku, r.title), csv: () => null },
-    { key: "units", label: "Units", align: "right", sort: sortable, cell: (r) => <span className="text-base font-extrabold tabular-nums">{formatNumber(r.units)}</span>, csv: () => null },
-    {
-      key: "stock",
-      label: "Stock",
-      align: "right",
-      sort: sortable,
-      cell: (r) =>
-        r.stock === null ? (
-          <span className="text-xs text-muted">not listed</span>
-        ) : (
-          <span className={`tabular-nums ${r.stock < r.units ? "font-bold text-bad" : ""}`}>
-            {formatNumber(r.stock)}
-            {r.stock < r.units ? <span className="block whitespace-nowrap text-[11px]">short by {formatNumber(r.units - r.stock)}</span> : null}
-          </span>
-        ),
-      csv: () => null,
-    },
-    { key: "due", label: "Dispatch by", sort: sortable, cell: (r) => <span className={`whitespace-nowrap text-xs font-semibold ${isRed(urgency(r.due, now)) ? "text-bad" : ""}`}>{r.due ? formatDue(r.due, now) : "—"}</span>, csv: () => null },
-    { key: "orders", label: "Orders", align: "right", sort: sortable, cell: (r) => formatNumber(r.orders), csv: () => null },
-    { key: "accept", label: "To Accept", align: "right", sort: sortable, cell: (r) => formatNumber(r.to_accept), csv: () => null },
-    { key: "pack", label: "To Pack", align: "right", sort: sortable, cell: (r) => formatNumber(r.to_pack), csv: () => null },
-  ];
-
-  const upcomingColumns: Column<UpcomingRow>[] = [
-    { key: "sku", label: "SKU", sort: sortable, cell: (r) => skuCell(r.sku, r.title, nameOf(r.warehouse_id)), csv: () => null },
-    { key: "upcoming", label: "Upcoming units", align: "right", sort: sortable, cell: (r) => <span className="font-bold tabular-nums">{formatNumber(r.upcoming)}</span>, csv: () => null },
-    { key: "stock", label: "Stock", align: "right", sort: sortable, cell: (r) => (r.stock === null ? <span className="text-xs text-muted">not listed</span> : <span className="tabular-nums">{formatNumber(r.stock)}</span>), csv: () => null },
-    { key: "short", label: "Short by", align: "right", sort: sortable, cell: (r) => (r.short > 0 ? <span className="font-bold tabular-nums text-bad">{formatNumber(r.short)}</span> : <span className="text-muted">—</span>), csv: () => null },
-    { key: "first", label: "First active", sort: sortable, cell: (r) => <span className="whitespace-nowrap text-xs">{r.first_active ? formatDue(r.first_active, now) : "—"}</span>, csv: () => null },
-    { key: "orders", label: "Orders", align: "right", sort: sortable, cell: (r) => formatNumber(r.orders), csv: () => null },
-    { key: "active", label: "Active units", align: "right", sort: sortable, cell: (r) => formatNumber(r.active), csv: () => null },
-  ];
-
   const cancelColumns: Column<CancelLine>[] = [
     { key: "date", label: "Cancelled", sort: sortable, cell: (c) => <span className="whitespace-nowrap">{c.cancelled_at ? formatDate(todayIST(new Date(c.cancelled_at)), today) : "—"}</span>, csv: () => null },
     { key: "type", label: "By", sort: sortable, cell: (c) => <Chip tone={c.cancel_type === "seller" ? "bad" : "neutral"}>{c.cancel_type === "seller" ? "Seller" : "Buyer"}</Chip>, csv: () => null },
@@ -268,36 +229,27 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
         emptyBody={emptyBody}
       />
     );
-  } else {
-    const noun = data.view === "pick" ? ["SKU", "SKUs"] : data.view === "upcoming" ? ["SKU at a warehouse", "SKUs at a warehouse"] : data.view === "cancelled" ? ["cancelled line", "cancelled lines"] : ["order line", "order lines"];
-    const empty =
-      data.view === "pick"
-        ? { title: "Nothing to pack", body: query.pickDue === "today" ? "No Active orders due today or late need packing here. Try All active." : "No Active orders need packing at this warehouse." }
-        : data.view === "upcoming"
-          ? { title: "No upcoming orders", body: "No upcoming orders here, or the nightly read of every upcoming order has not run yet." }
-          : data.view === "cancelled"
-            ? { title: "No cancellations", body: "No cancelled orders in the last 30 days, or the daily read has not covered them yet." }
-            : { title: "No orders here", body: emptyBody };
+  } else if (data.view === "list" || data.view === "cancelled") {
+    const isCancel = data.view === "cancelled";
+    const noun = isCancel ? ["cancelled line", "cancelled lines"] : ["order line", "order lines"];
+    const empty = isCancel
+      ? { title: "No cancellations", body: "No cancelled orders in the last 30 days, or the daily read has not covered them yet." }
+      : { title: "No orders here", body: emptyBody };
     body = (
       <>
-        <p className="mb-2 text-xs text-muted">
+        <Caption>
           {formatNumber(data.total)} {data.total === 1 ? noun[0] : noun[1]}
-          {data.view === "pick" ? ` · ${formatNumber(data.units)} units to pack at ${nameOf(data.warehouseId)}` : ""}
-          {scope && data.view !== "pick" ? ` · ${scope}` : ""}
-        </p>
+          {scope ? ` · ${scope}` : ""}
+        </Caption>
         {data.rows.length === 0 ? (
           <EmptyState title={query.q ? "Nothing matches your search" : empty.title} body={query.q ? "Try a shorter part of the text, or clear the search." : empty.body} />
         ) : data.view === "list" ? (
           table(data.rows, listColumns, (r) => r.order_item_id)
-        ) : data.view === "pick" ? (
-          table(data.rows, pickColumns, (r) => r.sku)
-        ) : data.view === "upcoming" ? (
-          table(data.rows, upcomingColumns, (r) => `${r.sku}|${r.warehouse_id}`)
         ) : (
           table(data.rows, cancelColumns, (r) => r.order_item_id)
         )}
         {data.rows.length > 0 && data.rows.length < data.total ? (
-          <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2 disabled:opacity-60">
+          <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">
             {loading ? "Loading…" : `Show ${formatNumber(Math.min(50, data.total - data.rows.length))} more (${formatNumber(data.total - data.rows.length)} not shown; the CSV has all of them)`}
           </button>
         ) : null}
@@ -306,16 +258,18 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
   }
 
   const summary = ready && data.view === "cancelled" ? data.summary : null;
+  const shownView = (SHOWN_VIEWS as readonly string[]).includes(query.view) ? (query.view as (typeof SHOWN_VIEWS)[number]) : "sku";
 
   return (
     <>
-      <OrdersSyncBar state={state} canSync={canSync} kind={query.status === "upcoming" || query.view === "upcoming" ? "upcoming" : "pending"} today={today} />
+      <OrdersSyncBar state={state} canSync={canSync} kind={query.status === "upcoming" ? "upcoming" : "pending"} today={today} />
 
-      {/* On a phone the warehouses scroll sideways, so the lists start near the top; wider screens get a grid. */}
-      <div className="-mx-4 mb-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
+      {/* One tidy grid of warehouses: three counts you act on, the rest muted, and the next deadline as a chip. */}
+      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((w) => {
           const on = query.wh !== "" && query.wh === w.warehouseId;
           const u = urgency(w.nextDue, now);
+          const red = w.late > 0 || (Boolean(w.nextDue) && isRed(u));
           return (
             <button
               key={w.warehouseId ?? "unknown"}
@@ -323,26 +277,28 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
               aria-pressed={on}
               disabled={w.warehouseId === null}
               onClick={() => toggleWarehouse(w.warehouseId)}
-              className={`focus-ring w-72 min-w-0 shrink-0 snap-start rounded-xl border p-3 text-left transition sm:w-auto ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-accent"}`}
+              className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-ink/30"}`}
             >
-              <span className="flex items-baseline justify-between gap-2">
-                <span className={`truncate text-sm font-extrabold ${on ? "text-accent-text" : ""}`}>{w.name}</span>
-                <span className="shrink-0 text-xs font-semibold text-muted">{formatNumber(w.active)} active</span>
+              <span className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-extrabold">{w.name}</span>
+                <span
+                  className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    red ? "bg-bad-soft text-bad" : "bg-surface2 text-muted"
+                  }`}
+                >
+                  {w.nextDue ? (w.late ? `${formatNumber(w.late)} late` : formatDue(w.nextDue, now)) : "No deadline"}
+                </span>
               </span>
-              <span className="mt-1.5 grid grid-cols-3 gap-1 text-center">
+              <span className="mt-2 grid grid-cols-3 divide-x divide-line text-center">
                 {ACTIVE_BUCKETS.map((b) => (
-                  <span key={b} className="rounded-lg bg-surface2 px-1 py-1.5">
-                    <span className="block text-lg font-extrabold leading-none">{formatNumber(w[b])}</span>
-                    <span className="block text-[11px] font-semibold text-muted">{BUCKET_LABEL[b]}</span>
+                  <span key={b} className="px-1">
+                    <span className="block font-mono text-lg font-bold leading-none tabular-nums">{formatNumber(w[b])}</span>
+                    <span className="mt-1 block text-[11px] font-semibold text-muted">{BUCKET_LABEL[b]}</span>
                   </span>
                 ))}
               </span>
-              <span className="mt-1.5 block text-xs font-semibold text-muted">
-                Upcoming {formatNumber(w.upcoming)} · Under Processing {formatNumber(w.processing)} · In Transit {formatNumber(w.inTransit)}
-              </span>
-              <span className={`mt-1 block text-xs font-semibold ${w.nextDue && isRed(u) ? "text-bad" : "text-muted"}`}>
-                {w.nextDue ? `Next dispatch by ${formatDue(w.nextDue, now)}` : "No deadline"}
-                {w.late ? ` · ${w.late} late` : ""}
+              <span className="mt-2 block text-[11px] text-muted">
+                Upcoming {formatNumber(w.upcoming)} · Processing {formatNumber(w.processing)} · In transit {formatNumber(w.inTransit)}
                 {w.held ? ` · ${w.held} on hold` : ""}
               </span>
             </button>
@@ -351,146 +307,75 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
         {cards.length === 0 ? <p className="text-sm text-muted">No warehouse to show.</p> : null}
       </div>
 
-      <div className="mb-3 flex flex-col gap-2">
-        <ChipFilter<OrderView>
+      <Toolbar>
+        <Segmented<(typeof SHOWN_VIEWS)[number]>
           label="Orders views"
-          value={query.view}
+          value={shownView}
           onChange={setView}
-          options={ORDER_VIEWS.map((v) => ({
-            key: v,
-            label: VIEW_LABEL[v],
-            ...(v === "cancelled" && badges.cancelled !== null ? { count: badges.cancelled } : v === "upcoming" && badges.upcoming !== null ? { count: badges.upcoming } : {}),
-          }))}
+          options={SHOWN_VIEWS.map((v) => ({ key: v, label: VIEW_LABEL[v], ...(v === "cancelled" && cancelledCount !== null ? { count: cancelledCount } : {}) }))}
         />
         {showStatus ? (
-          <>
-            <ChipFilter<StatusFilter>
-              label="Seller Hub tabs"
-              value={query.status}
-              onChange={(status) => patch({ status })}
-              options={STATUS_FILTERS.map((s) => ({ key: s, label: s === "active" ? "All active" : BUCKET_LABEL[s], count: statusCount(s) }))}
-            />
-            <p className="text-xs text-muted">
-              In Transit: <span className="font-bold text-ink">{formatNumber(transitCount)}</span> (shipped, not yet delivered){query.wh ? ` at ${nameOf(query.wh)}` : ""}. Counts are orders as Seller Hub counts them (shipments).
-            </p>
-            {query.status === "processing" ? (
-              <p className="rounded-lg bg-info-soft px-3 py-2 text-xs font-semibold text-info">
-                Under Processing: Flipkart is working on these orders. Seller Hub says delays here do not affect account health, so they are never shown as late or in Needs action.
-              </p>
-            ) : null}
-            {query.status === "upcoming" ? (
-              <p className="rounded-lg bg-info-soft px-3 py-2 text-xs font-semibold text-info">
-                Upcoming: dispatch-after is still in the future. Every upcoming order is read each night at 10:30 PM; new ones that come in during the day show up after that read.
-              </p>
-            ) : null}
-          </>
+          <Dropdown
+            label="Show"
+            value={query.status}
+            onChange={(status) => patch({ status: status as StatusFilter })}
+            options={STATUS_FILTERS.map((st) => ({ value: st, label: `${st === "active" ? "All active" : BUCKET_LABEL[st]} (${formatNumber(statusCount(st))})` }))}
+          />
         ) : null}
-
-        {query.view === "pick" ? (
-          <>
-            <ChipFilter<string>
-              label="Warehouse for the pick list"
-              value={(ready && data.view === "pick" ? data.warehouseId : query.wh) || ""}
-              onChange={(id) => patch({ wh: id })}
-              options={warehouses.map((w) => ({ key: w.id, label: w.name }))}
-            />
-            <ChipFilter<PickDue>
-              label="Which orders"
-              value={query.pickDue}
-              onChange={(pickDue) => patch({ pickDue })}
-              options={[
-                { key: "today", label: "Due today or late" },
-                { key: "all", label: "All active" },
-              ]}
-            />
-            <p className="text-xs text-muted">Units still to pack: To Accept and To Pack orders (To Dispatch is packed already). Orders on hold are left out. Red stock is less than the units to pack.</p>
-          </>
-        ) : null}
-
-        {query.view === "upcoming" ? (
-          <>
-            <ChipFilter<"short" | "all">
-              label="Which SKUs"
-              value={query.shortOnly ? "short" : "all"}
-              onChange={(k) => patch({ shortOnly: k === "short" })}
-              options={[
-                { key: "all", label: "All upcoming" },
-                { key: "short", label: "Short of stock", ...(badges.upcoming !== null ? { count: badges.upcoming } : {}) },
-              ]}
-            />
-            <p className="text-xs text-muted">Upcoming units (dispatch-after still in the future) against the stock there now. Short by = upcoming units minus stock. Active units are shown for context.</p>
-          </>
-        ) : null}
-
         {query.view === "cancelled" ? (
-          <ChipFilter<CancelType>
-            label="Who cancelled"
+          <Dropdown
+            label="By"
             value={query.cancelType}
-            onChange={(cancelType) => patch({ cancelType })}
+            onChange={(cancelType) => patch({ cancelType: cancelType as CancelType })}
             options={[
-              { key: "all", label: "All", ...(summary ? { count: summary.seller_total + summary.buyer_total } : {}) },
-              { key: "seller", label: "Seller cancelled", ...(summary ? { count: summary.seller_total } : {}) },
-              { key: "buyer", label: "Buyer cancelled", ...(summary ? { count: summary.buyer_total } : {}) },
+              { value: "all", label: `All${summary ? ` (${formatNumber(summary.seller_total + summary.buyer_total)})` : ""}` },
+              { value: "seller", label: `Seller${summary ? ` (${formatNumber(summary.seller_total)})` : ""}` },
+              { value: "buyer", label: `Buyer${summary ? ` (${formatNumber(summary.buyer_total)})` : ""}` },
             ]}
           />
         ) : null}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-52 flex-1">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-            <label htmlFor="orders-search" className="sr-only">
-              Search
-            </label>
-            <input
-              id="orders-search"
-              type="search"
-              className="input pl-10"
-              placeholder={query.view === "sku" ? "Search SKU, title or order ID" : query.view === "cancelled" ? "Search order ID, SKU or reason" : query.view === "list" ? "Search order ID or SKU" : "Search SKU or title"}
-              value={qInput}
-              onChange={(e) => setQInput(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          {query.view === "sku" ? (
-            <>
-              <label htmlFor="orders-sku-sort" className="sr-only">
-                Sort by
-              </label>
-              <select
-                id="orders-sku-sort"
-                className="input w-auto min-w-0"
-                value={`${query.sort}|${query.dir}`}
-                onChange={(e) => {
-                  const [sort, dir] = e.target.value.split("|");
-                  patch({ sort, dir: dir === "desc" ? "desc" : "asc" });
-                }}
-              >
-                {SKU_SORTS.map((s) => (
-                  <option key={s.key} value={`${s.key}|${s.dir}`}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </>
-          ) : null}
-          <a
-            href={exportHref(query)}
-            download
-            className="focus-ring inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2"
-          >
-            Download CSV
-          </a>
-        </div>
-        {failed ? (
-          <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
-            Could not load this list. Check your connection and try again.
-          </p>
+        {warehouses.length > 1 ? (
+          <Dropdown label="Warehouse" value={query.wh} onChange={(wh) => patch({ wh })} options={[{ value: "", label: "All" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))]} />
         ) : null}
-      </div>
+        {query.view === "sku" ? (
+          <Dropdown
+            label="Sort"
+            value={`${query.sort}|${query.dir}`}
+            onChange={(v) => {
+              const [sort, dir] = v.split("|");
+              patch({ sort, dir: dir === "desc" ? "desc" : "asc" });
+            }}
+            options={SKU_SORTS.map((o) => ({ value: `${o.key}|${o.dir}`, label: o.label }))}
+          />
+        ) : null}
+        <SearchField
+          value={qInput}
+          onChange={setQInput}
+          placeholder={query.view === "sku" ? "Search SKU, title or order ID" : query.view === "cancelled" ? "Search order ID, SKU or reason" : "Search order ID or SKU"}
+        />
+        <CsvButton href={exportHref(query)} />
+        <InfoTip>
+          <p>
+            Counts are orders as Seller Hub counts them (shipments). In Transit: <b>{formatNumber(transitCount)}</b> (shipped, not yet delivered){query.wh ? ` at ${nameOf(query.wh)}` : ""}. Tap a warehouse above to look at it alone.
+          </p>
+          <p className="mt-2">Tap a SKU to see its orders and the stock at each warehouse. Red dates are due today or late.</p>
+          <p className="mt-2">
+            <b>Under Processing:</b> Flipkart is working on these. Delays here do not affect account health, so they are never shown as late or in Needs action.
+          </p>
+          <p className="mt-2">
+            <b>Upcoming:</b> dispatch-after is still in the future. Every upcoming order is read each night at 10:30 PM; new ones that come in during the day show up after that read.
+          </p>
+        </InfoTip>
+      </Toolbar>
+      {failed ? (
+        <p role="alert" className="mb-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+          Could not load this list. Check your connection and try again.
+        </p>
+      ) : null}
 
       {summary ? (
-        <div className="mb-3 overflow-x-auto rounded-xl border border-line bg-surface">
-          <table className="w-full min-w-max border-collapse text-sm">
+        <div className="mb-4 overflow-x-auto rounded-xl border border-line bg-surface">
+          <table className="w-full border-collapse text-sm">
             <caption className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-muted">Cancellations per day</caption>
             <thead>
               <tr className="border-y border-line bg-surface2 text-xs uppercase tracking-wide text-muted">
@@ -503,8 +388,8 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
               {summary.days.map((d) => (
                 <tr key={d.day} className="border-b border-line last:border-b-0">
                   <td className="px-3 py-1.5">{formatDate(d.day, today)}</td>
-                  <td className={`px-3 py-1.5 text-right tabular-nums ${d.seller ? "font-bold text-bad" : "text-muted"}`}>{d.seller}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-muted">{d.buyer}</td>
+                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${d.seller ? "font-bold text-bad" : "text-muted"}`}>{d.seller}</td>
+                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-muted">{d.buyer}</td>
                 </tr>
               ))}
             </tbody>
@@ -516,4 +401,3 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
     </>
   );
 }
-

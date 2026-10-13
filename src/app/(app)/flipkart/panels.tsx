@@ -1,4 +1,5 @@
 import { ForecastTab } from "@/components/flipkart/forecast-tab";
+import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { HealthTab } from "@/components/flipkart/health-tab";
 import { NeedsAction } from "@/components/flipkart/needs-action";
 import { OrdersTab } from "@/components/flipkart/orders-tab";
@@ -57,13 +58,12 @@ export async function NeedsPanel({ user }: { user: SessionUser }) {
 
   // Everything here is a small answer from the database (counts, a short list, a few SKUs), asked together:
   // the page no longer reads the whole stock snapshot or every pending order to work this out.
-  const [settings, snapshotDate, warehouses, counts, empties, cover] = await Promise.all([
+  const [settings, snapshotDate, warehouses, counts, cover] = await Promise.all([
     loadFlipkartSettings(supabase),
     latestSnapshotDate(supabase),
     warehousesFor(user),
     loadOrderCounts(supabase),
-    loadEmpties(supabase),
-    loadCover(supabase, today),
+    loadCover(supabase),
   ]);
   const [priceRows, newInactive, listingsNotFound, returns, moneyFlags] = await Promise.all([
     staff && snapshotDate ? loadPriceRows(supabase, snapshotDate, settings, false) : Promise.resolve([]),
@@ -76,7 +76,7 @@ export async function NeedsPanel({ user }: { user: SessionUser }) {
 
   const cards = readCards(counts, warehouses);
   const sections = buildNeedsAction(
-    { now, staff, warehouses, cards, empties, settings, priceRows, returnRates: returns.rates, covers: cover.covers, newInactive, listingsNotFound,
+    { now, staff, warehouses, cards, settings, priceRows, returnRates: returns.rates, covers: cover.covers, newInactive, listingsNotFound,
       money: moneyFlags
         ? { lowMarginPercent: moneyFlags.low_margin_percent, negative: moneyFlags.negative, low: moneyFlags.low, unpaid: moneyFlags.unpaid, costMissing: moneyFlags.cost_missing, latest: moneyFlags.latest }
         : null,
@@ -106,7 +106,7 @@ export async function OrdersPanel({ user, sp }: { user: SessionUser; sp: Search 
   const wh = one(sp.wh);
   const view = one(sp.view);
   const status = one(sp.status);
-  const asked = ordersQuerySchema.safeParse({ ...defaultQuery("sku"), view: view || "sku", status: status || "active", wh: UUID.test(wh) ? wh : "" });
+  const asked = ordersQuerySchema.safeParse({ ...defaultQuery("sku"), view: view === "list" || view === "cancelled" ? view : "sku", status: status || "active", wh: UUID.test(wh) ? wh : "" });
   const query: OrdersQuery = asked.success ? defaultQuery(asked.data.view, { status: asked.data.status, wh: asked.data.wh }) : defaultQuery("sku");
 
   // The cards and the first page of the list the address asks for are read together; only the pick list has to
@@ -129,7 +129,9 @@ export async function StockPanel({ user, sp }: { user: SessionUser; sp: Search }
     hide: one(sp.hide) === "1",
     q: one(sp.q).slice(0, 100),
   });
-  const query = asked.success ? asked.data : defaultStockQuery("low");
+  let query = asked.success ? asked.data : defaultStockQuery("low");
+  // One warehouse picked shows its two problem lists: out of stock there, and low there.
+  if (query.wh && query.view !== "low" && query.view !== "out") query = defaultStockQuery("out", { wh: query.wh, hide: query.hide, q: query.q });
   const desk = await loadStockDesk(user, query, STOCK_INITIAL_PAGE_SIZE);
 
   if (desk.kind === "empty") {
@@ -222,4 +224,18 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
   const parsed = error ? null : readForecast(data);
   if (!parsed) return <EmptyState title="The forecast could not be loaded" body="Reload the page. If it keeps happening, tell the developer." />;
   return <ForecastTab meta={parsed.meta} raw={parsed.raw} warehouses={warehouses} window={days} />;
+}
+
+// --- Overfill Orders ----------------------------------------------------------------------------------------------
+
+export async function OverfillPanel({ user }: { user: SessionUser }) {
+  const supabase = await createClient();
+  const [empties, warehouses] = await Promise.all([loadEmpties(supabase), warehousesFor(user)]);
+  const skus = [...new Set(empties.map((e) => e.sku))];
+  const titles = new Map<string, string | null>();
+  if (skus.length) {
+    const { data } = await supabase.from("stock_listings").select("sku, title").eq("platform", "flipkart").in("sku", skus);
+    for (const r of data ?? []) titles.set(r.sku, r.title);
+  }
+  return <OverfillTab rows={empties.map((e) => ({ ...e, title: titles.get(e.sku) ?? null }))} warehouses={warehouses} />;
 }

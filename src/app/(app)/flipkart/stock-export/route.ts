@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   const desk = await loadStockDesk(user, parsed.data);
   if (desk.kind !== "ready") return new Response("There is no stock yet", { status: 404 });
-  const { headers, body } = stockCsv(desk.page.data, parsed.data, desk.cover.soonest);
+  const { headers, body } = stockCsv(desk.page.data, parsed.data, desk.soonest);
   const name = `vrprime-stock-${parsed.data.view}-${desk.meta.snapshotDate}.csv`;
   return new Response(`\uFEFF${toCsv(headers, body)}`, {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "no-store" },

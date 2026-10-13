@@ -67,7 +67,7 @@ export function SyncBar({ latest: initialLatest, lastDone: initialDone, snapshot
   const progress = latest && latest.total > 0 ? Math.min(100, Math.round((latest.cursor / latest.total) * 100)) : 0;
 
   return (
-    <div className="mb-4 rounded-xl border border-line bg-surface p-3">
+    <div className="mb-4 rounded-xl border border-line bg-surface px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-40">
           {running ? (

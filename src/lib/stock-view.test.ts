@@ -79,3 +79,19 @@ test("a request for the Stock tab is checked before it reaches the server", () =
     assert.equal(stockQuerySchema.safeParse({ ...defaultStockQuery("low"), ...bad }).success, false, JSON.stringify(bad));
   }
 });
+
+test("one warehouse picked: its out-of-stock list is what is 0 there, its low list is what is under the level there", () => {
+  const d = desk([
+    listing("OUT-AT-DELHI", [0, 500]),
+    listing("LOW-AT-DELHI", [40, 500]),
+    listing("FINE", [200, 0]),
+    listing("OUT-EVERYWHERE", [0, 0]),
+    listing("ONLY-PUNE", [null, 5]),
+  ]);
+  const delhi = { wh: WH[0].id };
+  const out = buildStockView(d, { ...defaultStockQuery("out"), ...delhi }, null);
+  assert.deepEqual(out.rows.map((r) => r.sku).sort(), ["OUT-AT-DELHI", "OUT-EVERYWHERE"], "0 units at Delhi, whatever Pune has");
+  const low = buildStockView(d, { ...defaultStockQuery("low"), ...delhi }, null);
+  assert.deepEqual(low.rows.map((r) => r.sku), ["LOW-AT-DELHI"], "under 100 but not 0 at Delhi; a SKU not listed at Delhi is in neither list");
+  assert.deepEqual([out.counts.out, out.counts.low], [2, 1], "the counts on the two buttons");
+});

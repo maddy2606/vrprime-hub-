@@ -48,7 +48,7 @@ export function PricesTab({ rows, today, dropLimit, snapshotDate }: { rows: Pric
     { key: "title", label: "Title", csvOnly: true, cell: () => null, csv: (r) => r.title },
     { key: "selling", label: "Selling price", align: "right", sort: (r) => r.sellingPrice, cell: (r) => rupees(r.sellingPrice), csv: (r) => r.sellingPrice },
     { key: "mrp", label: "MRP", align: "right", sort: (r) => r.mrp, cell: (r) => rupees(r.mrp), csv: (r) => r.mrp },
-    { key: "discount", label: "Discount", align: "right", sort: (r) => r.discountPct, cell: (r) => (r.discountPct === null ? "—" : `${r.discountPct}%`), csv: (r) => r.discountPct },
+    { key: "discount", label: "Discount", align: "right", sort: (r) => r.discountPct, cell: (r) => (r.discountPct === null ? "—" : `${r.discountPct}%`), csv: (r) => r.discountPct, minor: true },
     {
       key: "flags",
       label: "Problem",
@@ -91,7 +91,7 @@ export function PricesTab({ rows, today, dropLimit, snapshotDate }: { rows: Pric
         ),
       csv: (r) => (r.lastChange ? `${r.lastChange.date}: ${changeText(r.lastChange)}` : null),
     },
-    { key: "changes", label: "Changes", align: "right", sort: (r) => r.changes.length, cell: (r) => formatNumber(r.changes.length), csv: (r) => r.changes.length },
+    { key: "changes", label: "Changes", align: "right", sort: (r) => r.changes.length, cell: (r) => formatNumber(r.changes.length), csv: (r) => r.changes.length, minor: true },
   ];
 
   return (
@@ -119,8 +119,8 @@ export function PricesTab({ rows, today, dropLimit, snapshotDate }: { rows: Pric
               { key: "all", label: "All SKUs", count: visible.length },
             ]}
           />
-          <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" className="h-5 w-5 accent-(--accent)" checked={hideInactive} onChange={(e) => setHideInactive(e.target.checked)} />
+          <label className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold sm:min-h-9">
+            <input type="checkbox" className="h-4 w-4 accent-(--accent)" checked={hideInactive} onChange={(e) => setHideInactive(e.target.checked)} />
             Hide inactive listings
           </label>
         </>

@@ -213,7 +213,6 @@ const baseInput = {
   staff: true,
   warehouses: [{ id: "w1", name: "Delhi" }, { id: "w2", name: "Pune" }],
   cards: [] as WarehouseOrders[],
-  empties: [] as { sku: string; warehouseId: string; orders: number; units: number }[],
   settings: S,
   priceRows: [],
   returnRates: [],
@@ -240,13 +239,10 @@ test("needs action: orders about to miss dispatch, most urgent first, with a lin
   assert.match(s.rows[0].detail, /Earliest deadline was /);
 });
 
-test("needs action: a SKU empty at a warehouse with orders waiting for it", () => {
-  const sections = buildNeedsAction({ ...baseInput, empties: [{ sku: "A", warehouseId: "w1", orders: 2, units: 3 }] }, LINKS);
-  const s = sections.find((x) => x.key === "empty");
-  assert.ok(s);
-  assert.equal(s.rows.length, 1);
-  assert.match(s.rows[0].detail, /0 units at Delhi, 2 orders waiting \(3 units\)/);
-  assert.ok(s.rows[0].actions[0].href.startsWith("/posts/new?type=restock&sku=A&warehouse="));
+test("needs action no longer has an \"empty where orders wait\" section (it is the Overfill Orders tab now)", () => {
+  const sections = buildNeedsAction({ ...baseInput }, LINKS);
+  assert.equal(sections.some((x) => (x.key as string) === "empty"), false);
+  assert.deepEqual(sections, []);
 });
 
 test("needs action: staff-only sections stay out for a warehouse user", () => {

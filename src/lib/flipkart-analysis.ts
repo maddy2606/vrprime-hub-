@@ -225,7 +225,7 @@ export type Cover = {
   /** Units used per day. */
   rate: number;
   days: number;
-  source: "orders" | "stock";
+  source: "orders" | "stock" | "dispatch";
 };
 
 export type CoverState = {
@@ -374,7 +374,7 @@ export type ActionRow = {
 };
 
 export type ActionSection = {
-  key: "orders" | "empty" | "prices" | "inactive" | "listings" | "returns" | "running" | "money";
+  key: "orders" | "prices" | "inactive" | "listings" | "returns" | "running" | "money";
   title: string;
   rows: ActionRow[];
 };
@@ -386,8 +386,6 @@ export type NeedsInput = {
   warehouses: { id: string; name: string }[];
   /** The counts per warehouse (late, due today, due tomorrow, next deadline). */
   cards: WarehouseOrders[];
-  /** SKUs with no stock at a warehouse that has orders waiting to be packed there. */
-  empties: { sku: string; warehouseId: string; orders: number; units: number }[];
   settings: FlipkartSettings;
   priceRows: PriceRow[];
   returnRates: ReturnRate[];
@@ -441,20 +439,7 @@ export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: st
     });
   }
 
-  // 2. A SKU that is empty at a warehouse that has orders waiting to be packed there.
-  if (input.empties.length) {
-    sections.push({
-      key: "empty",
-      title: "Empty where orders are waiting",
-      rows: input.empties.map((w) => ({
-        key: `empty-${w.sku}-${w.warehouseId}`,
-        title: w.sku,
-        detail: `0 units at ${nameOf(w.warehouseId)}, ${w.orders} ${w.orders === 1 ? "order" : "orders"} waiting (${w.units} ${w.units === 1 ? "unit" : "units"})`,
-        tone: "bad",
-        actions: [{ label: "+ Restock", href: restockHref(w.sku, w.warehouseId) }, { label: "Raise ticket", href: ticketHref(w.sku) }],
-      })),
-    });
-  }
+  // (SKUs that are empty where orders wait now have their own tab, Overfill Orders.)
 
   if (input.staff) {
     // 3. Price errors.
@@ -567,7 +552,7 @@ export function buildNeedsAction(input: NeedsInput, links: { sellerHubOrders: st
       rows: soon.map((c) => ({
         key: `run-${c.sku}-${c.warehouseId}`,
         title: c.sku,
-        detail: `${formatDays(c.days)} ${c.days <= 1 ? "day" : "days"} left at ${nameOf(c.warehouseId)}: ${c.units} units, using ${Math.round(c.rate * 10) / 10} a day (from ${c.source === "orders" ? "orders" : "stock drops"})`,
+        detail: `${formatDays(c.days)} ${c.days <= 1 ? "day" : "days"} left at ${nameOf(c.warehouseId)}: ${c.units} units, using ${Math.round(c.rate * 10) / 10} a day (units dispatched per day)`,
         tone: c.days < 3 ? "bad" : "warn",
         actions: [{ label: "+ Restock", href: restockHref(c.sku, c.warehouseId) }],
       })),

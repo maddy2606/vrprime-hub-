@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SearchIcon } from "@/components/icons";
-import { ChipFilter, ListView } from "@/components/flipkart/list-view";
+import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, StatTile, Toolbar } from "@/components/flipkart/kit";
+import { ListView } from "@/components/flipkart/list-view";
 import { OrdersSyncBar } from "@/components/flipkart/orders-sync-bar";
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { Chip, EmptyState } from "@/components/ui";
@@ -35,7 +35,7 @@ const sortable = () => null;
 
 function TicketLink({ sku }: { sku: string | null }) {
   return (
-    <Link prefetch={false} href={ticketHref(sku, "wrong_return")} className="focus-ring inline-flex min-h-9 items-center whitespace-nowrap rounded-lg px-2 text-xs font-bold text-accent-text hover:bg-accent-soft">
+    <Link prefetch={false} href={ticketHref(sku, "wrong_return")} className="focus-ring inline-flex min-h-11 items-center whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-xs font-bold hover:bg-surface2 sm:min-h-9">
       Raise ticket
     </Link>
   );
@@ -101,9 +101,9 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
     { key: "type", label: "Type", sort: sortable, cell: (r) => <Chip tone={r.source === "courier_return" ? "warn" : "info"}>{SOURCE_LABEL[r.source]}</Chip>, csv: () => null },
     { key: "reason", label: "Reason", sort: sortable, cell: (r) => <span className="text-xs">{[r.reason, r.sub_reason].filter(Boolean).join(" · ").replaceAll("_", " ") || "—"}</span>, csv: () => null },
     { key: "qty", label: "Qty", align: "right", sort: sortable, cell: (r) => formatNumber(r.quantity), csv: () => null },
-    { key: "wh", label: "Warehouse", cell: (r) => nameOf(r.warehouse_id), csv: () => null },
+    { key: "wh", label: "Warehouse", cell: (r) => nameOf(r.warehouse_id), csv: () => null, minor: true },
     { key: "status", label: "Status", sort: sortable, cell: (r) => <span className="text-xs capitalize">{(r.return_status ?? "—").replaceAll("_", " ")}</span>, csv: () => null },
-    { key: "order", label: "Order ID", sort: sortable, cell: (r) => <span className="break-all font-mono text-xs">{r.order_id ?? "—"}</span>, csv: () => null },
+    { key: "order", label: "Order ID", sort: sortable, cell: (r) => <span className="break-all font-mono text-xs">{r.order_id ?? "—"}</span>, csv: () => null, minor: true },
     { key: "ticket", label: "", screenOnly: true, cell: (r) => <TicketLink sku={r.sku} />, csv: () => null },
   ];
 
@@ -119,86 +119,64 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
   const units = summary.courier_units + summary.customer_units;
   const lines = summary.courier_lines + summary.customer_lines;
 
+  const viewSwitch = (
+    <Segmented<View>
+      label="Returns lists"
+      value={view}
+      onChange={setView}
+      options={[
+        { key: "list", label: "All returns", count: lines },
+        { key: "rates", label: "Return rate by SKU", count: rates.filter((r) => r.flagged).length },
+      ]}
+    />
+  );
+
   return (
     <>
       <OrdersSyncBar state={state} canSync={canSync} kind="daily" today={today} />
 
       {!historyReady ? (
-        <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-xs font-semibold text-warn">
-          Only returns that changed in the last few days are loaded so far. The full 30 days arrive when the nightly load finishes, so the counts below are low until then.
+        <p className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-xs font-semibold text-warn">
+          Only returns that changed in the last few days are loaded so far. The full 30 days arrive when the nightly load finishes, so the counts are low until then.
         </p>
       ) : null}
 
       <div className="mb-4 grid grid-cols-3 gap-2">
-        {[
-          { label: "Returns, 30 days", value: formatNumber(units), sub: `${formatNumber(lines)} lines` },
-          { label: "Courier returns", value: formatNumber(summary.courier_units), sub: "came back undelivered" },
-          { label: "Customer returns", value: formatNumber(summary.customer_units), sub: "sent back by the buyer" },
-        ].map((t) => (
-          <div key={t.label} className="min-w-0 rounded-xl border border-line bg-surface p-3">
-            <span className="block text-xs font-bold leading-tight text-muted">{t.label}</span>
-            <span className="mt-1 block text-2xl font-extrabold leading-none tracking-tight">{t.value}</span>
-            <span className="mt-1 block text-xs font-semibold text-muted">{t.sub}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="mb-3">
-        <ChipFilter<View>
-          label="Returns lists"
-          value={view}
-          onChange={setView}
-          options={[
-            { key: "list", label: "All returns", count: summary.courier_lines + summary.customer_lines },
-            { key: "rates", label: "Return rate by SKU", count: rates.filter((r) => r.flagged).length },
-          ]}
-        />
+        <StatTile label="Returns, 30 days" value={formatNumber(units)} sub={`${formatNumber(lines)} lines`} />
+        <StatTile label="Courier returns" value={formatNumber(summary.courier_units)} sub="came back undelivered" />
+        <StatTile label="Customer returns" value={formatNumber(summary.customer_units)} sub="sent back by the buyer" />
       </div>
 
       {view === "list" ? (
         <>
-          <div className="mb-3 flex flex-col gap-2">
-            <ChipFilter<Source>
-              label="Kind of return"
+          <Toolbar>
+            {viewSwitch}
+            <Dropdown
+              label="Kind"
               value={query.source}
-              onChange={(source) => patch({ source })}
+              onChange={(source) => patch({ source: source as Source })}
               options={[
-                { key: "all", label: "All", count: summary.courier_lines + summary.customer_lines },
-                { key: "courier_return", label: "Courier", count: summary.courier_lines },
-                { key: "customer_return", label: "Customer", count: summary.customer_lines },
+                { value: "all", label: `All (${formatNumber(lines)})` },
+                { value: "courier_return", label: `Courier (${formatNumber(summary.courier_lines)})` },
+                { value: "customer_return", label: `Customer (${formatNumber(summary.customer_lines)})` },
               ]}
             />
             {warehouses.length > 1 ? (
-              <div>
-                <label htmlFor="returns-wh" className="sr-only">Warehouse</label>
-                <select id="returns-wh" className="input max-w-60" value={query.wh} onChange={(e) => patch({ wh: e.target.value })}>
-                  <option value="">All warehouses</option>
-                  {warehouses.map((w) => (
-                    <option key={w.id} value={w.id}>{w.name}</option>
-                  ))}
-                </select>
-              </div>
+              <Dropdown label="Warehouse" value={query.wh} onChange={(wh) => patch({ wh })} options={[{ value: "", label: "All" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))]} />
             ) : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-52 flex-1">
-                <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-                <label htmlFor="returns-search" className="sr-only">Search SKU, order ID or reason</label>
-                <input id="returns-search" type="search" className="input pl-10" placeholder="Search SKU, order ID or reason" value={qInput} onChange={(e) => setQInput(e.target.value)} autoComplete="off" />
-              </div>
-              <a href={exportHref(query)} download className="focus-ring inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2">
-                Download CSV
-              </a>
-            </div>
-            <p className="text-xs text-muted">
-              {formatNumber(page.total)} {page.total === 1 ? "return" : "returns"}
-              {query.wh ? ` · ${nameOf(query.wh)} only` : ""}
+            <SearchField value={qInput} onChange={setQInput} placeholder="Search SKU, order ID or reason" />
+            <CsvButton href={exportHref(query)} />
+            <InfoTip>Courier returns came back undelivered. Customer returns were sent back by the buyer. The last 30 days are shown.</InfoTip>
+          </Toolbar>
+          <Caption>
+            {formatNumber(page.total)} {page.total === 1 ? "return" : "returns"}
+            {query.wh ? ` · ${nameOf(query.wh)} only` : ""}
+          </Caption>
+          {failed ? (
+            <p role="alert" className="mb-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+              Could not load this list. Check your connection and try again.
             </p>
-            {failed ? (
-              <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
-                Could not load this list. Check your connection and try again.
-              </p>
-            ) : null}
-          </div>
+          ) : null}
           {page.rows.length === 0 ? (
             <EmptyState title={query.q ? "Nothing matches your search" : "No returns"} body={query.q ? "Try a shorter part of the text, or clear the search." : "No returns in the last 30 days, or the daily read has not covered them yet."} />
           ) : (
@@ -207,7 +185,7 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
                 <DataTable columns={columns} rows={page.rows} sortKey={query.sort} sortDir={query.dir} onSort={onSort} rowKey={(r) => `${r.return_id}|${r.order_item_id}`} />
               </div>
               {page.rows.length < page.total ? (
-                <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2 disabled:opacity-60">
+                <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">
                   {loading ? "Loading…" : `Show ${formatNumber(Math.min(RETURNS_PAGE_SIZE, page.total - page.rows.length))} more (${formatNumber(page.total - page.rows.length)} not shown; the CSV has all of them)`}
                 </button>
               ) : null}
@@ -226,12 +204,11 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
           searchLabel="Search SKU"
           csvName="vrprime-return-rates.csv"
           noun={["SKU", "SKUs"]}
+          controls={viewSwitch}
           note={
-            <p className="text-xs text-muted">
-              {historyReady
-                ? `Return rate = units returned ÷ units sold in the last 30 days. Flagged above ${rateLimit}% once at least 10 units were sold.`
-                : "Rates need 30 days of shipped orders, which are still being loaded at night. Returns are already counted."}
-            </p>
+            historyReady
+              ? `Return rate = units returned ÷ units sold in the last 30 days. Flagged above ${rateLimit}% once at least 10 units were sold.`
+              : "Rates need 30 days of shipped orders, which are still being loaded at night. Returns are already counted."
           }
           emptyTitle="No data yet"
           emptyBody="There are no returns or shipped orders to work out rates from."

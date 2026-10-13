@@ -54,7 +54,7 @@ export type OrdersQuery = z.infer<typeof ordersQuerySchema>;
 
 /** How each list is sorted when it is first opened. */
 export const DEFAULT_SORT: Record<OrderView, { sort: string; dir: "asc" | "desc" }> = {
-  sku: { sort: "due", dir: "asc" },
+  sku: { sort: "orders", dir: "desc" },
   list: { sort: "due", dir: "asc" },
   pick: { sort: "units", dir: "desc" },
   upcoming: { sort: "short", dir: "desc" },

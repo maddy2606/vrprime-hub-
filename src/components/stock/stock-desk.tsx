@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { SyncBar } from "@/components/stock/sync-bar";
-import { SearchIcon } from "@/components/icons";
+import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
 import { Chip, EmptyState } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/format";
 import { formatDays, type CoverState } from "@/lib/flipkart-analysis";
@@ -84,39 +84,6 @@ function RestockLink({ href }: { href: string }) {
   );
 }
 
-function Tile({
-  label,
-  value,
-  sub,
-  subTone = "text-muted",
-  active,
-  onClick,
-  className = "",
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  subTone?: string;
-  active: boolean;
-  onClick: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${
-        active ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-accent"
-      } ${className}`}
-    >
-      <span className={`block text-xs font-bold leading-tight ${active ? "text-accent-text" : "text-muted"}`}>{label}</span>
-      <span className="mt-1 block text-2xl font-extrabold leading-none tracking-tight">{value}</span>
-      {sub ? <span className={`mt-1 block text-xs font-semibold ${subTone}`}>{sub}</span> : null}
-    </button>
-  );
-}
-
 const sortable = () => null;
 
 export function exportHref(q: StockQuery): string {
@@ -180,10 +147,6 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
   }, [query.view, query.wh, query.q, query.hide]);
 
   const patch = (p: Partial<StockQuery>) => setQuery((q) => ({ ...q, ...p, offset: 0 }));
-  const choose = (view: ViewKey) => {
-    patch({ view, ...DEFAULT_STOCK_SORT[view] });
-    document.getElementById("stock-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
   const onSort = (key: string) => setQuery((q) => ({ ...q, offset: 0, sort: key, dir: q.sort === key ? (q.dir === "asc" ? "desc" : "asc") : TEXT_KEYS.has(key) ? "asc" : "desc" }));
   const more = () => load({ ...query, offset: data.rows.length }, true);
 
@@ -199,11 +162,10 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
   const selected = query.wh ? warehouses.findIndex((w) => w.id === query.wh) : -1;
   const scope = selected >= 0 ? [selected] : warehouses.map((_, i) => i);
   const scopeName = selected >= 0 ? warehouses[selected].name : meta.fullAccess ? null : "your warehouses";
-  const where = selected >= 0 ? ` at ${warehouses[selected].name}` : meta.fullAccess ? " everywhere" : " at your warehouses";
   const { tiles } = data;
   const change = tiles.unitsChange;
   const sinceLabel = meta.previousDate ? `since ${formatDate(meta.previousDate, meta.today)}` : "";
-  const view = query.view;
+  const view = selected >= 0 && query.view !== "low" && query.view !== "out" ? ("out" as ViewKey) : query.view;
 
   // Columns -----------------------------------------------------------------------------------------
   const skuColumn: Column<StockRow>[] = [
@@ -229,9 +191,11 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
             const c = r.cover;
             if (!c) return <span className="text-muted">{cover.state.state === "collecting" ? "…" : "—"}</span>;
             return (
-              <span className={c.days < cover.limit ? "font-semibold text-bad" : ""} title={`${c.units} units at ${cover.warehouseNames[c.warehouseId] ?? ""}, using ${Math.round(c.rate * 10) / 10} a day, from ${c.source === "orders" ? "orders" : "stock drops"}`}>
+              <span
+                className={c.days < cover.limit ? "font-bold text-bad" : ""}
+                title={`${formatNumber(c.units)} units at ${formatNumber(Math.round(c.rate * 10) / 10)} dispatched a day`}
+              >
                 {formatDays(c.days)}
-                <span className="block text-[11px] font-normal text-muted">{cover.warehouseNames[c.warehouseId] ?? ""}</span>
               </span>
             );
           },
@@ -240,12 +204,29 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
       ]
     : [];
 
+  // One warehouse picked: two plain lists, what is out of stock there and what is low there.
+  const oneWarehouse = selected >= 0;
+  const hereIndex = selected;
+  const here = (r: StockRow) => (hereIndex >= 0 ? r.now[hereIndex] : null);
+  const whOutColumns: Column<StockRow>[] = [
+    ...skuColumn,
+    { key: "ranout", label: "Ran out", sort: sortable, cell: (r) => (r.prevTotal !== null && r.prevTotal > 0 ? <Chip tone="bad">Today</Chip> : <span className="text-muted">Before</span>), csv: () => null },
+    { key: "yesterday", label: meta.previousDate ? `Units on ${formatDate(meta.previousDate, meta.today)}` : "Units before", align: "right", sort: sortable, cell: (r) => (r.prevTotal === null ? <span className="text-muted">—</span> : formatNumber(r.prevTotal)), csv: () => null, minor: true },
+    restockColumn,
+  ];
+  const whLowColumns: Column<StockRow>[] = [
+    ...skuColumn,
+    { key: "total", label: "Units here", align: "right", sort: sortable, cell: (r) => <Qty n={here(r)} low={settings.low} />, csv: () => null },
+    ...coverColumn,
+    restockColumn,
+  ];
+
   const columns: Record<ViewKey, Column<StockRow>[]> = {
     low: [
       ...skuColumn,
       { key: "empty", label: "Empty at", sort: sortable, cell: (r) => <Chips items={r.empty.map((i) => ({ label: wn(i), tone: "bad" as Tone }))} />, csv: () => null },
       { key: "lowAt", label: "Low at", sort: sortable, cell: (r) => <Chips items={r.low.map((i) => ({ label: `${wn(i)} ${formatNumber(r.now[i] as number)}`, tone: "warn" as Tone }))} />, csv: () => null },
-      { key: "ok", label: "In stock at", sort: sortable, cell: (r) => <Chips items={r.ok.map((i) => ({ label: `${wn(i)} ${formatNumber(r.now[i] as number)}`, tone: "ok" as Tone }))} />, csv: () => null },
+      { key: "ok", label: "In stock at", sort: sortable, cell: (r) => <Chips items={r.ok.map((i) => ({ label: `${wn(i)} ${formatNumber(r.now[i] as number)}`, tone: "ok" as Tone }))} />, csv: () => null, minor: true },
       totalColumn,
       ...coverColumn,
       restockColumn,
@@ -276,6 +257,7 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
                 return <span className={d > 0 ? "font-semibold text-ok" : "font-semibold text-bad"}>{d > 0 ? `+${formatNumber(d)}` : `−${formatNumber(-d)}`}</span>;
               },
               csv: () => null,
+              minor: true,
             },
           ]
         : []),
@@ -333,44 +315,37 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
     inactive: inactiveColumns(skuColumn, meta),
   };
 
-  const cols = columns[view];
+  const cols = oneWarehouse ? (view === "low" ? whLowColumns : whOutColumns) : columns[view];
   const sortKnown = cols.some((c) => c.key === query.sort);
-  const tileSub = (n: number | null) => (n === null ? "no earlier day to compare" : n === 0 ? `no change ${sinceLabel}` : `${n > 0 ? "+" : "−"}${formatNumber(Math.abs(n))} ${sinceLabel}`);
   const body: ReactNode =
     data.rows.length === 0 ? (
-      <EmptyState title={query.q ? "No SKU matches your search" : emptyTitle(view)} body={query.q ? "Try a shorter part of the SKU or title, or clear the search." : emptyBody(view)} />
+      <EmptyState
+        title={query.q ? "No SKU matches your search" : oneWarehouse ? (view === "low" ? `Nothing is low at ${warehouses[selected].name}` : `Nothing is out of stock at ${warehouses[selected].name}`) : emptyTitle(view)}
+        body={query.q ? "Try a shorter part of the SKU or title, or clear the search." : oneWarehouse ? "Pick another warehouse, or all warehouses, from the list above." : emptyBody(view)}
+      />
     ) : (
       <>
         <div className={loading ? "opacity-60 transition" : "transition"}>
           <DataTable columns={cols} rows={data.rows} sortKey={sortKnown ? query.sort : ""} sortDir={query.dir} onSort={onSort} rowKey={(r) => r.sku} />
         </div>
         {data.rows.length < data.total ? (
-          <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2 disabled:opacity-60">
+          <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">
             {loading ? "Loading…" : `Show ${formatNumber(Math.min(STOCK_PAGE_SIZE, data.total - data.rows.length))} more (${formatNumber(data.total - data.rows.length)} not shown; the CSV has all of them)`}
           </button>
         ) : null}
       </>
     );
 
+  const pickWarehouse = (id: string) => {
+    if (!id) return patch({ wh: "" });
+    // A warehouse shows its two problem lists. Keep Low if that is what was open, otherwise start at Out of stock.
+    const nextView: ViewKey = query.view === "low" ? "low" : "out";
+    patch({ wh: id, view: nextView, ...DEFAULT_STOCK_SORT[nextView] });
+  };
+
   return (
     <>
       <SyncBar latest={latest} lastDone={lastDone} snapshotDate={meta.snapshotDate} previousDate={meta.previousDate} canSync={canSync} />
-
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <Tile
-          className="col-span-2 sm:col-span-1"
-          label="Units in stock (active SKUs)"
-          value={formatNumber(tiles.units)}
-          sub={tileSub(change)}
-          subTone={change === null || change === 0 ? "text-muted" : change > 0 ? "text-ok" : "text-bad"}
-          active={view === "location"}
-          onClick={() => choose("location")}
-        />
-        <Tile label="Low stock SKUs" value={formatNumber(tiles.low)} sub={`under ${formatNumber(settings.low)} units`} subTone={tiles.low ? "text-warn" : "text-muted"} active={view === "low"} onClick={() => choose("low")} />
-        <Tile label={`Out of stock${where}`} value={formatNumber(tiles.out)} sub="0 units" subTone={tiles.out ? "text-bad" : "text-muted"} active={view === "out"} onClick={() => choose("out")} />
-        <Tile label="Weight alerts" value={formatNumber(tiles.weight)} sub={`over ${formatNumber(settings.weightLimit)}`} subTone={tiles.weight ? "text-warn" : "text-muted"} active={view === "weight"} onClick={() => choose("weight")} />
-        <Tile label="New inactive" value={formatNumber(tiles.newInactive)} sub={`last ${settings.newInactiveDays} days`} subTone={tiles.newInactive ? "text-bad" : "text-muted"} active={view === "new"} onClick={() => choose("new")} />
-      </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {data.cards.map((card) => {
@@ -380,16 +355,16 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
               key={card.id}
               type="button"
               aria-pressed={on}
-              onClick={() => patch({ wh: on ? "" : card.id })}
-              className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-accent"}`}
+              onClick={() => pickWarehouse(on ? "" : card.id)}
+              className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-ink/30"}`}
             >
               <span className="flex items-baseline justify-between gap-2">
-                <span className={`truncate text-sm font-extrabold ${on ? "text-accent-text" : ""}`}>{card.name}</span>
+                <span className="truncate text-sm font-extrabold">{card.name}</span>
                 <span className="shrink-0 text-xs font-semibold text-muted">{Math.round(card.share * 100)}%</span>
               </span>
-              <span className="mt-1 block text-xl font-extrabold leading-none tracking-tight">{formatNumber(card.units)}</span>
-              <span className="mt-1.5 flex flex-wrap gap-x-3 text-xs font-semibold">
-                <span className={card.empty ? "text-bad" : "text-muted"}>{formatNumber(card.empty)} empty</span>
+              <span className="mt-1 block font-mono text-xl font-bold leading-none tabular-nums">{formatNumber(card.units)}</span>
+              <span className="mt-2 flex flex-wrap gap-x-3 text-xs font-semibold">
+                <span className={card.empty ? "text-bad" : "text-muted"}>{formatNumber(card.empty)} out</span>
                 <span className={card.low ? "text-warn" : "text-muted"}>{formatNumber(card.low)} low</span>
               </span>
             </button>
@@ -397,62 +372,61 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
         })}
       </div>
 
-      <div id="stock-table" className="mb-3 flex flex-col gap-2">
-        <div role="tablist" aria-label="Stock lists" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
-          {VIEW_KEYS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={view === key}
-              onClick={() => patch({ view: key, ...DEFAULT_STOCK_SORT[key] })}
-              className={`focus-ring flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-bold ${
-                view === key ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface text-muted hover:text-ink"
-              }`}
-            >
-              {VIEW_LABEL[key]}
-              <span className={`text-xs ${view === key ? "text-accent-ink/80" : "text-muted"}`}>{formatNumber(data.counts[key])}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-52 flex-1">
-            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-            <label htmlFor="stock-search" className="sr-only">
-              Search SKU or title
-            </label>
-            <input id="stock-search" type="search" className="input pl-10" placeholder="Search SKU or title" value={qInput} onChange={(e) => setQInput(e.target.value)} autoComplete="off" />
-          </div>
-          <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" className="h-5 w-5 accent-(--accent)" checked={query.hide} onChange={(e) => patch({ hide: e.target.checked })} />
-            Hide inactive listings
-          </label>
-          <a href={exportHref(query)} download className="focus-ring inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2">
-            Download CSV
-          </a>
-        </div>
-
-        <p className="text-xs text-muted">
-          {formatNumber(data.total)} {data.total === 1 ? "SKU" : "SKUs"}
-          {scopeName ? ` · ${scopeName} only` : ""}
-          {selected >= 0 ? " (tap the warehouse again to see all)" : ""}
-          {view === "weight" ? ` · size in cm multiplied, plus weight in grams, over ${formatNumber(settings.weightLimit)}` : ""}
-          {view === "low" ? ` · under ${formatNumber(settings.low)} units at a warehouse, still in stock somewhere` : ""}
+      <div id="stock-table" />
+      <Toolbar>
+        {oneWarehouse ? (
+          <Segmented<"out" | "low">
+            label={`Stock problems at ${warehouses[selected].name}`}
+            value={view === "low" ? "low" : "out"}
+            onChange={(k) => patch({ view: k, ...DEFAULT_STOCK_SORT[k] })}
+            options={[
+              { key: "out", label: `Out of stock at ${warehouses[selected].name}`, count: data.counts.out },
+              { key: "low", label: `Low at ${warehouses[selected].name}`, count: data.counts.low },
+            ]}
+          />
+        ) : (
+          <Segmented<ViewKey>
+            label="Stock lists"
+            value={view}
+            onChange={(key) => patch({ view: key, ...DEFAULT_STOCK_SORT[key] })}
+            options={VIEW_KEYS.map((key) => ({ key, label: VIEW_LABEL[key], count: data.counts[key] }))}
+          />
+        )}
+        {warehouses.length > 1 ? (
+          <Dropdown label="Warehouse" value={query.wh} onChange={pickWarehouse} options={[{ value: "", label: meta.fullAccess ? "All warehouses" : "All mine" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))]} />
+        ) : null}
+        <SearchField value={qInput} onChange={setQInput} placeholder="Search SKU or title" />
+        <label className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold sm:min-h-9">
+          <input type="checkbox" className="h-4 w-4 accent-(--accent)" checked={query.hide} onChange={(e) => patch({ hide: e.target.checked })} />
+          Hide inactive
+        </label>
+        <CsvButton href={exportHref(query)} />
+        <InfoTip>
+          <p>
+            {oneWarehouse
+              ? `Out of stock = 0 units at ${warehouses[selected].name}. Low = under ${formatNumber(settings.low)} units there but not 0. Tap the warehouse again, or choose All warehouses, to see every SKU.`
+              : `Low stock = still in stock somewhere, but 0 or under ${formatNumber(settings.low)} units at a warehouse. Pick a warehouse to see just what is out of stock or low there.`}
+          </p>
+          {cover ? (
+            <p className="mt-2">
+              {cover.state.state === "collecting"
+                ? `Days left: collecting data${cover.state.readyOn ? `, ready on ${formatDate(cover.state.readyOn, meta.today)}` : ""}. It needs 7 days of dispatch history.`
+                : `Days left = stock ÷ units dispatched per day over the last 30 days (by dispatch day), the same as Forecasting. Red under ${cover.limit} days.`}
+            </p>
+          ) : null}
+          {view === "weight" ? <p className="mt-2">Weight alert: size in cm multiplied, plus weight in grams, over {formatNumber(settings.weightLimit)}.</p> : null}
+        </InfoTip>
+      </Toolbar>
+      <Caption>
+        {formatNumber(data.total)} {data.total === 1 ? "SKU" : "SKUs"}
+        {scopeName ? ` · ${scopeName}` : ""}
+        {!oneWarehouse ? ` · ${formatNumber(tiles.units)} units in stock${change === null ? "" : change === 0 ? ` (no change ${sinceLabel})` : ` (${change > 0 ? "+" : "−"}${formatNumber(Math.abs(change))} ${sinceLabel})`}` : ""}
+      </Caption>
+      {failed ? (
+        <p role="alert" className="mb-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+          Could not load this list. Check your connection and try again.
         </p>
-        {cover && (view === "low" || view === "location") ? (
-          <p className="text-xs text-muted">
-            {cover.state.state === "collecting"
-              ? `Days left: collecting data${cover.state.readyOn ? `, ready on ${formatDate(cover.state.readyOn, meta.today)}` : ""}. It needs 7 days of stock history or of shipped orders.`
-              : `Days left = units ÷ units used per day at the warehouse that runs out first (red under ${cover.limit} days). It uses real orders where there are some, stock drops otherwise.`}
-          </p>
-        ) : null}
-        {failed ? (
-          <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
-            Could not load this list. Check your connection and try again.
-          </p>
-        ) : null}
-      </div>
+      ) : null}
 
       {body}
     </>

@@ -60,11 +60,6 @@ begin
   assert (r ->> 'disp')::int = 60, 'Bangalore dispatched 30 + 30 = 60: the order dated 40 days ago counts on its DISPATCH day, today''s 5 and the cancelled order do not';
   select x into r from jsonb_array_elements(res -> 'rows') x where x ->> 'sku' = 'FC-SKU' and x ->> 'wid' = w_del::text;
   assert (r ->> 'disp')::int = 40, 'Delhi dispatched 40';
-  select x into r from jsonb_array_elements(res -> 'rows') x where x ->> 'sku' = 'FC-SKU' and x ->> 'wid' = w_blr::text;
-  assert (r ->> 'b1')::int = 2 + 1, 'booked today (1 day) = the pending 2 and the left_pending 1';
-  assert (r ->> 'b7')::int = 2 + 3 + 4 + 1, 'booked in 7 days includes tomorrow and day 3';
-  select x into r from jsonb_array_elements(res -> 'rows') x where x ->> 'sku' = 'FC-SKU' and x ->> 'wid' = w_del::text;
-  assert (r ->> 'b30')::int = 5, 'booked in 30 days: day 20 yes, day 40 no';
   -- the whole window is the days of the history there is (never more than asked)
   assert (res ->> 'days')::int <= 30 and (res ->> 'days')::int >= 1, 'days used';
   res := public.flipkart_forecast(7);

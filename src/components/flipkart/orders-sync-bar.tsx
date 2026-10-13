@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { InfoTip } from "@/components/flipkart/kit";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
 import { daysBetween } from "@/lib/stock-analysis";
@@ -83,7 +84,7 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
   const daysLoaded = backfill?.coverageFrom ? Math.min(30, daysBetween(backfill.coverageFrom, today) + 1) : 0;
 
   return (
-    <div className="mb-4 rounded-xl border border-line bg-surface p-3">
+    <div className="mb-4 rounded-xl border border-line bg-surface px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-40">
           {running ? (
@@ -95,17 +96,21 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
             </>
           ) : last?.finishedAt ? (
             <>
-              <p className="text-sm font-bold">{TITLE[kind]} read {formatDateTime(last.finishedAt)}</p>
-              <p className="mt-0.5 text-xs text-muted">
-                {HOW_OFTEN[kind]}
-                {kind === "pending" ? (state.lastUpcoming?.finishedAt ? ` All upcoming orders last read ${formatDateTime(state.lastUpcoming.finishedAt)}.` : " All upcoming orders are read every night at 10:30 PM.") : ""}
-                {waiting ? " A new read is waiting for another sync to finish." : ""}
-              </p>
+              <div className="flex items-center gap-1">
+                <p className="text-sm font-bold">{TITLE[kind]} read {formatDateTime(last.finishedAt)}</p>
+                <InfoTip label="How often this is read">
+                  {HOW_OFTEN[kind]}
+                  {kind === "pending" ? (state.lastUpcoming?.finishedAt ? ` All upcoming orders last read ${formatDateTime(state.lastUpcoming.finishedAt)}.` : " All upcoming orders are read every night at 10:30 PM.") : ""}
+                  {waiting ? " A new read is waiting for another sync to finish." : ""}
+                </InfoTip>
+              </div>
             </>
           ) : (
             <>
-              <p className="text-sm font-bold">{kind === "upcoming" ? "All upcoming orders not read yet" : "Not read from Flipkart yet"}</p>
-              <p className="mt-0.5 text-xs text-muted">{HOW_OFTEN[kind]}</p>
+              <div className="flex items-center gap-1">
+                <p className="text-sm font-bold">{kind === "upcoming" ? "All upcoming orders not read yet" : "Not read from Flipkart yet"}</p>
+                <InfoTip label="How often this is read">{HOW_OFTEN[kind]}</InfoTip>
+              </div>
             </>
           )}
         </div>

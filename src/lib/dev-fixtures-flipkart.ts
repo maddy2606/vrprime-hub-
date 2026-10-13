@@ -239,10 +239,6 @@ export function fakeNeedsAction() {
       staff: true,
       warehouses,
       cards: fakeCards(),
-      empties: [
-        { sku: "FAKE-SKU-0003", warehouseId: warehouses[2].id, orders: 6, units: 6 },
-        { sku: "FAKE-SKU-0011", warehouseId: warehouses[1].id, orders: 3, units: 4 },
-      ],
       settings: { ...DEFAULT_FLIPKART_SETTINGS, newInactiveDays: 2 },
       priceRows: fakePriceRows(),
       returnRates: fakeReturnRates(true),

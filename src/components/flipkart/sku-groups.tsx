@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDownIcon } from "@/components/icons";
+import { Caption } from "@/components/flipkart/kit";
 import { Chip, EmptyState } from "@/components/ui";
 import { formatDue, isRed, urgency } from "@/lib/flipkart-analysis";
 import { formatNumber } from "@/lib/format";
@@ -65,10 +66,10 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
 
   return (
     <>
-      <p className="mb-3 text-xs text-muted">
+      <Caption>
         {formatNumber(total)} {total === 1 ? "SKU" : "SKUs"} · {formatNumber(orders)} orders · {formatNumber(units)} units
-        {scope ? ` · ${scope}` : ""}. Tap a SKU to see its orders and the stock at each warehouse. Red dates are due today or late.
-      </p>
+        {scope ? ` · ${scope}` : ""}
+      </Caption>
 
       {rows.length === 0 ? (
         <EmptyState title={searching ? "Nothing matches your search" : "No orders here"} body={searching ? "Try a shorter part of the text, or clear the search." : emptyBody} />

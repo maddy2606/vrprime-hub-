@@ -73,7 +73,7 @@ export type StockViewData = {
 export type CoverLike = { days: number };
 
 /** The soonest-to-run-out warehouse for a SKU. */
-export type CoverFull = CoverLike & { warehouseId: string; units: number; rate: number; source: "orders" | "stock" };
+export type CoverFull = CoverLike & { warehouseId: string; units: number; rate: number; source: "orders" | "stock" | "dispatch" };
 
 /** A row of the list, with its days of cover when there are any. */
 export type StockRow = Row & { cover: CoverFull | null };

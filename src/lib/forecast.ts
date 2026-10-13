@@ -2,8 +2,8 @@
 //
 // Basis: the DISPATCH day. History is what was dispatched, by units (not the order day, which would lump preorders
 // that dispatch weeks later). Rate = units dispatched in the window / complete days in the window; the window ends
-// yesterday. Forecast = rate x 1, 7 or 30, rounded. "Booked" is a different thing: units already scheduled to
-// dispatch in the next 1, 7 or 30 days. The two are never added together.
+// yesterday. Forecast = rate x 1, 7 or 30, rounded. Days of cover comes from cover.ts, shared with the Stock tab.
+import { daysOfCover, ratePerDay } from "./cover.ts";
 
 export const WINDOWS = [7, 14, 30] as const;
 export type Window = (typeof WINDOWS)[number];
@@ -13,9 +13,6 @@ export type ForecastRaw = {
   wid: string | null;
   title: string | null;
   disp: number;
-  b1: number;
-  b7: number;
-  b30: number;
   stock: number;
 };
 
@@ -42,9 +39,6 @@ export type ForecastRow = {
   f1: number;
   f7: number;
   f30: number;
-  b1: number;
-  b7: number;
-  b30: number;
   /** stock / rate, or null when the rate is 0 */
   cover: number | null;
 };
@@ -66,9 +60,6 @@ export function readForecast(value: unknown): { meta: ForecastMeta; raw: Forecas
       wid: typeof x.wid === "string" ? x.wid : null,
       title: typeof x.title === "string" ? x.title : null,
       disp: num(x.disp),
-      b1: num(x.b1),
-      b7: num(x.b7),
-      b30: num(x.b30),
       stock: num(x.stock),
     });
   }
@@ -87,8 +78,8 @@ export function readForecast(value: unknown): { meta: ForecastMeta; raw: Forecas
 }
 
 /** One row from sums. 100 units over 10 days: rate 10, forecasts 10 / 70 / 300. */
-export function forecastRow(r: { sku: string; wid: string | null; title: string | null; disp: number; b1: number; b7: number; b30: number; stock: number }, days: number): ForecastRow {
-  const rate = days > 0 ? r.disp / days : 0;
+export function forecastRow(r: ForecastRaw, days: number): ForecastRow {
+  const rate = ratePerDay(r.disp, days);
   return {
     key: `${r.sku}|${r.wid ?? ""}`,
     sku: r.sku,
@@ -100,10 +91,7 @@ export function forecastRow(r: { sku: string; wid: string | null; title: string 
     f1: Math.round(rate),
     f7: Math.round(rate * 7),
     f30: Math.round(rate * 30),
-    b1: r.b1,
-    b7: r.b7,
-    b30: r.b30,
-    cover: rate > 0 ? r.stock / rate : null,
+    cover: daysOfCover(r.stock, rate),
   };
 }
 
@@ -118,9 +106,6 @@ export function buildRows(raw: ForecastRaw[], days: number, splitByWarehouse: bo
       sums.set(r.sku, { ...r, wid: null });
     } else {
       cur.disp += r.disp;
-      cur.b1 += r.b1;
-      cur.b7 += r.b7;
-      cur.b30 += r.b30;
       cur.stock += r.stock;
       cur.title ??= r.title;
     }

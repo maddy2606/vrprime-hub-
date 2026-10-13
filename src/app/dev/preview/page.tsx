@@ -13,6 +13,7 @@ import { ForecastTab } from "@/components/flipkart/forecast-tab";
 import { HealthTab } from "@/components/flipkart/health-tab";
 import { NeedsAction } from "@/components/flipkart/needs-action";
 import { OrdersTab } from "@/components/flipkart/orders-tab";
+import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { PricesTab } from "@/components/flipkart/prices-tab";
 import { ReturnsTab } from "@/components/flipkart/returns-tab";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
@@ -74,8 +75,7 @@ const VIEWS = [
   "fneeds",
   "forders",
   "flist",
-  "fpick",
-  "fupcoming",
+  "foverfill",
   "fprocessing",
   "fcancelled",
   "freturns",
@@ -92,8 +92,6 @@ const VIEWS = [
 const FAKE_ORDER_VIEW: Record<string, { view: OrderView; status: StatusFilter } | undefined> = {
   forders: { view: "sku", status: "active" },
   flist: { view: "list", status: "to_accept" },
-  fpick: { view: "pick", status: "active" },
-  fupcoming: { view: "upcoming", status: "active" },
   fprocessing: { view: "sku", status: "processing" },
   fcancelled: { view: "cancelled", status: "active" },
 };
@@ -313,14 +311,24 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
         <ReturnsTab initialPage={fakeReturnsPage().page} initialSummary={fakeReturnsPage().summary} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
       ) : null}
       {view === "fprices" ? <PricesTab rows={fakePriceRows()} today={today} dropLimit={15} snapshotDate={today} /> : null}
+      {view === "foverfill" ? (
+        <OverfillTab
+          warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))}
+          rows={[
+            { sku: "FAKE-SKU-0003", title: "Fake steel bottle, 1 litre, brushed finish", warehouseId: FAKE_WAREHOUSES[2].id, orders: 6, units: 6 },
+            { sku: "FAKE-SKU-0011", title: "Fake lunch box set", warehouseId: FAKE_WAREHOUSES[1].id, orders: 3, units: 4 },
+            { sku: "FAKE-SKU-0020", title: null, warehouseId: FAKE_WAREHOUSES[2].id, orders: 2, units: 2 },
+          ]}
+        />
+      ) : null}
       {view === "fforecast" ? (
         <ForecastTab
           meta={{ today, windowStart: addDays(today, -24), windowEnd: addDays(today, -1), days: 24, asked: 30, historyFrom: addDays(today, -24), snapshot: today }}
           raw={[
-            { sku: "FAKE-SKU-RED-XL", wid: FAKE_WAREHOUSES[0].id, title: "Fake red cleaner, extra large pack, long title that wraps", disp: 720, b1: 30, b7: 210, b30: 600, stock: 400 },
-            { sku: "FAKE-SKU-RED-XL", wid: FAKE_WAREHOUSES[1].id, title: null, disp: 240, b1: 10, b7: 70, b30: 180, stock: 90 },
-            { sku: "FAKE-SKU-BLU-M", wid: FAKE_WAREHOUSES[0].id, title: "Fake blue spray", disp: 48, b1: 0, b7: 6, b30: 20, stock: 1000 },
-            { sku: "FAKE-NO-SALES", wid: FAKE_WAREHOUSES[0].id, title: "Never sold", disp: 0, b1: 0, b7: 0, b30: 0, stock: 25 },
+            { sku: "FAKE-SKU-RED-XL", wid: FAKE_WAREHOUSES[0].id, title: "Fake red cleaner, extra large pack, long title that wraps", disp: 720, stock: 400 },
+            { sku: "FAKE-SKU-RED-XL", wid: FAKE_WAREHOUSES[1].id, title: null, disp: 240, stock: 90 },
+            { sku: "FAKE-SKU-BLU-M", wid: FAKE_WAREHOUSES[0].id, title: "Fake blue spray", disp: 48, stock: 1000 },
+            { sku: "FAKE-NO-SALES", wid: FAKE_WAREHOUSES[0].id, title: "Never sold", disp: 0, stock: 25 },
           ]}
           warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))}
           window={30}

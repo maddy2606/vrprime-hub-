@@ -4,12 +4,8 @@ import {
   buildHealthRows,
   buildPriceRows,
   buildReturnRates,
-  computeCover,
   DEFAULT_FLIPKART_SETTINGS,
-  readSalesRates,
-  readStockDrops,
   returnHistoryReady,
-  soonestBySku,
   type Cover,
   type CoverState,
   type FlipkartSettings,
@@ -19,6 +15,8 @@ import {
   type PriceRow,
   type ReturnRate,
 } from "@/lib/flipkart-analysis";
+import { COVER_HISTORY_DAYS, coverBySku, coversPerWarehouse, type DispatchRow } from "@/lib/cover";
+import { readForecast } from "@/lib/forecast";
 import { addDays, todayIST } from "@/lib/format";
 import { NOT_FOUND_DAYS } from "@/lib/new-listing";
 import { logError } from "@/lib/redact";
@@ -130,23 +128,38 @@ export async function loadReturnRates(
 
 // --- Days of cover ---------------------------------------------------------------------------------------------------------------
 
-export type CoverData = { covers: Cover[]; state: CoverState; soonest: Record<string, Cover>; coverageFrom: string | null };
+export type CoverData = {
+  covers: Cover[];
+  state: CoverState;
+  /** Every SKU's cover over all warehouses. A scoped version is made with coverBySku(raw, days, ids). */
+  soonest: Record<string, Cover>;
+  coverageFrom: string | null;
+  /** The dispatch rows the covers come from (units dispatched and stock per SKU and warehouse). */
+  raw: DispatchRow[];
+  days: number;
+};
 
-/** Days of cover, from the sales, the stock drops and the stock itself: three small answers from the database, asked together. */
-export async function loadCover(supabase: Supabase, today: string): Promise<CoverData> {
-  const [sales, drops, units] = await Promise.all([
-    supabase.rpc("flipkart_sales_rates"),
-    supabase.rpc("flipkart_stock_drops"),
-    supabase.rpc("flipkart_stock_units"),
-  ]);
-  if (sales.error || drops.error || units.error) fail("days of cover", sales.error ?? drops.error ?? units.error);
-  const salesRates = readSalesRates(sales.data);
-  const stockUnits = (Array.isArray(units.data) ? units.data : []).flatMap((u) => {
-    const r = u as { sku?: unknown; wid?: unknown; units?: unknown };
-    return typeof r.sku === "string" && typeof r.wid === "string" && typeof r.units === "number" ? [{ sku: r.sku, warehouseId: r.wid, units: r.units }] : [];
-  });
-  const { covers, state } = computeCover({ units: stockUnits, sales: salesRates, drops: readStockDrops(drops.data), today });
-  return { covers, state, soonest: soonestBySku(covers), coverageFrom: salesRates.coverageFrom };
+/**
+ * Days of cover: ONE calculation (src/lib/cover.ts) from the same dispatch history the Forecasting tab uses: units
+ * dispatched per day over the last 30 complete days, and the stock there is now. Row level security means a warehouse
+ * user's numbers cover only their own warehouses.
+ */
+export async function loadCover(supabase: Supabase): Promise<CoverData> {
+  const { data, error } = await supabase.rpc("flipkart_forecast", { p_days: 30 });
+  if (error) fail("days of cover", error);
+  const parsed = readForecast(data);
+  if (!parsed) fail("days of cover", new Error("unreadable forecast"));
+  const { meta, raw } = parsed as NonNullable<typeof parsed>;
+  const rows: DispatchRow[] = raw.map((r) => ({ sku: r.sku, wid: r.wid, disp: r.disp, stock: r.stock }));
+  const ready = meta.days >= COVER_HISTORY_DAYS;
+  const covers: Cover[] = ready ? coversPerWarehouse(rows, meta.days) : [];
+  const state: CoverState = {
+    state: ready ? "ready" : "collecting",
+    readyOn: meta.historyFrom ? addDays(meta.historyFrom, COVER_HISTORY_DAYS) : null,
+    ordersReady: ready,
+    stockReady: ready,
+  };
+  return { covers, state, soonest: ready ? coverBySku(rows, meta.days, null) : {}, coverageFrom: meta.historyFrom, raw: rows, days: meta.days };
 }
 
 /** SKUs with no stock at a warehouse that has orders waiting to be packed there. */

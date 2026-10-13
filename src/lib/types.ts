@@ -349,6 +349,11 @@ export type Database = {
         Returns: Json;
       };
       flipkart_empty_with_orders: { Args: Record<string, never>; Returns: Json };
+      flipkart_returns_summary: { Args: { p_wh?: string | null }; Returns: Json };
+      flipkart_returns_page: {
+        Args: { p_wh?: string | null; p_source?: string | null; p_q?: string | null; p_sort?: string; p_dir?: string; p_limit?: number; p_offset?: number };
+        Returns: Json;
+      };
       flipkart_stock_units: { Args: Record<string, never>; Returns: Json };
       send_test_notification: { Args: Record<string, never>; Returns: undefined };
       register_push_subscription: {

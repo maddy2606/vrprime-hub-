@@ -22,7 +22,7 @@ export type StockDeskData =
  * Reads the snapshot and works the Stock tab out on the server. Only `view` (counts, tiles, cards and one page of the
  * list that is open) is sent to the browser; the snapshot itself never leaves the server.
  */
-export async function loadStockDesk(user: SessionUser, q: StockQuery): Promise<StockDeskData> {
+export async function loadStockDesk(user: SessionUser, q: StockQuery, limit?: number): Promise<StockDeskData> {
   const supabase = await createClient();
   const [page, settings, cover] = await Promise.all([loadStockPage(user, canSyncOrders(user)), loadFlipkartSettings(supabase), loadCover(supabase, todayIST())]);
   if (page.kind === "empty") return { kind: "empty", page };
@@ -30,7 +30,7 @@ export async function loadStockDesk(user: SessionUser, q: StockQuery): Promise<S
     kind: "ready",
     page,
     meta: stockMeta(page.data),
-    view: buildStockView(page.data, q, cover.soonest),
+    view: buildStockView(page.data, q, cover.soonest, limit),
     cover,
     coverLimit: settings.runningOutDays,
   };

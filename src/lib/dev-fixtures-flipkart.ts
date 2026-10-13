@@ -13,6 +13,7 @@ import {
 } from "@/lib/flipkart-analysis";
 import { fakeDesk, FAKE_WAREHOUSES } from "@/lib/dev-fixtures";
 import type { OrderSyncState, RunSummary } from "@/lib/orders-sync";
+import type { ReturnLine, ReturnsPage, ReturnsSummary } from "@/lib/returns-view";
 import { type CancelLine, type OrderLine, type OrdersViewResult, type PickRow, type SkuRow, type UpcomingRow, type WarehouseOrders } from "@/lib/orders-view";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -130,20 +131,21 @@ export function fakeOrdersView(view: "sku" | "list" | "pick" | "upcoming" | "can
 }
 
 
-export function fakeReturns() {
-  return Array.from({ length: 25 }, (_, k) => ({
-    returnId: `FAKE-R-${k}`,
-    orderItemId: `FAKE-OI-R${k}`,
-    orderId: `FAKE-OD-${3000 + k}`,
+export function fakeReturnsPage(): { page: ReturnsPage; summary: ReturnsSummary } {
+  const rows: ReturnLine[] = Array.from({ length: 30 }, (_, k) => ({
+    return_id: `FAKE-R-${k}`,
+    order_item_id: `FAKE-OI-R${k}`,
+    order_id: `FAKE-OD-${3000 + k}`,
     sku: k % 8 === 0 ? null : `FAKE-SKU-${String((k % 6) + 1).padStart(4, "0")}`,
     quantity: 1 + (k % 2),
-    warehouseId: FAKE_WAREHOUSES[k % 5].id,
-    source: (k % 3 === 0 ? "courier_return" : "customer_return") as "courier_return" | "customer_return",
-    status: k % 2 ? "created" : "completed",
+    warehouse_id: FAKE_WAREHOUSES[k % 5].id,
+    source: k % 3 === 0 ? "courier_return" : "customer_return",
+    return_status: k % 2 ? "created" : "completed",
     reason: ["WRONG_ITEM_RECEIVED", "DAMAGED", "NOT_AS_DESCRIBED", "NO_LONGER_NEEDED"][k % 4],
-    subReason: k % 4 === 0 ? "DIFFERENT_PRODUCT" : null,
-    createdDate: day(-(k % 28)),
+    sub_reason: k % 4 === 0 ? "DIFFERENT_PRODUCT" : null,
+    created_date: day(-(k % 28)),
   }));
+  return { page: { total: 5831, rows }, summary: { courier_units: 3967, customer_units: 1972, courier_lines: 3859, customer_lines: 1972 } };
 }
 
 export function fakeReturnRates(ready: boolean) {

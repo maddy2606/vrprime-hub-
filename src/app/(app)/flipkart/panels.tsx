@@ -7,8 +7,9 @@ import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { EmptyState } from "@/components/ui";
 import { buildNeedsAction } from "@/lib/flipkart-analysis";
-import { defaultQuery, ordersQuerySchema, readCards, type OrdersQuery } from "@/lib/orders-view";
-import { defaultStockQuery, stockQuerySchema } from "@/lib/stock-view";
+import { defaultQuery, INITIAL_PAGE_SIZE, ordersQuerySchema, readCards, type OrdersQuery } from "@/lib/orders-view";
+import { defaultReturnsQuery, RETURNS_INITIAL_PAGE_SIZE } from "@/lib/returns-view";
+import { defaultStockQuery, STOCK_INITIAL_PAGE_SIZE, stockQuerySchema } from "@/lib/stock-view";
 import { formatDate, todayIST } from "@/lib/format";
 import { SELLER_HUB } from "@/lib/seller-hub";
 import { isViewKey } from "@/lib/stock-views";
@@ -27,10 +28,10 @@ import {
   loadOrderSyncState,
   loadPriceRows,
   loadReturnRates,
-  loadReturns,
   warehousesFor,
 } from "@/server/flipkart-data";
 import { loadOrderCounts, loadOrdersView, pickWarehouseOf } from "@/server/orders-view";
+import { loadReturnsPage, loadReturnsSummary } from "@/server/returns-view";
 import { loadStockDesk } from "@/server/stock-view";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -100,7 +101,7 @@ export async function OrdersPanel({ user, sp }: { user: SessionUser; sp: Search 
   // wait for the cards (it opens on the first warehouse that has something to pack).
   const [counts, state, warehouses, inTransit] = await Promise.all([loadOrderCounts(supabase), loadOrderSyncState(supabase, canSync), warehousesFor(user), loadInTransit(supabase)]);
   const cards = readCards(counts, warehouses, inTransit);
-  const initialData = await loadOrdersView(supabase, query, pickWarehouseOf(query.wh, cards, warehouses));
+  const initialData = await loadOrdersView(supabase, query, pickWarehouseOf(query.wh, cards, warehouses), INITIAL_PAGE_SIZE);
   return <OrdersTab cards={cards} warehouses={warehouses} state={state} canSync={canSync} today={today} nowIso={now.toISOString()} initialQuery={query} initialData={initialData} />;
 }
 
@@ -117,7 +118,7 @@ export async function StockPanel({ user, sp }: { user: SessionUser; sp: Search }
     q: one(sp.q).slice(0, 100),
   });
   const query = asked.success ? asked.data : defaultStockQuery("low");
-  const desk = await loadStockDesk(user, query);
+  const desk = await loadStockDesk(user, query, STOCK_INITIAL_PAGE_SIZE);
 
   if (desk.kind === "empty") {
     return (
@@ -155,13 +156,27 @@ export async function ReturnsPanel({ user }: { user: SessionUser }) {
   const canSync = canSyncOrders(user);
   const today = todayIST();
   const settings = await loadFlipkartSettings(supabase);
-  const [returns, rates, state, warehouses] = await Promise.all([
-    loadReturns(supabase, today),
+  const query = defaultReturnsQuery();
+  const [page, summary, rates, state, warehouses] = await Promise.all([
+    loadReturnsPage(supabase, query, RETURNS_INITIAL_PAGE_SIZE),
+    loadReturnsSummary(supabase, ""),
     loadReturnRates(supabase, settings, today),
     loadOrderSyncState(supabase, canSync),
     warehousesFor(user),
   ]);
-  return <ReturnsTab returns={returns} rates={rates.rates} historyReady={rates.historyReady} rateLimit={settings.returnRatePercent} warehouses={warehouses} state={state} canSync={canSync} today={today} />;
+  return (
+    <ReturnsTab
+      initialPage={page}
+      initialSummary={summary}
+      rates={rates.rates}
+      historyReady={rates.historyReady}
+      rateLimit={settings.returnRatePercent}
+      warehouses={warehouses}
+      state={state}
+      canSync={canSync}
+      today={today}
+    />
+  );
 }
 
 // --- Prices and listing health ----------------------------------------------------------------------------------

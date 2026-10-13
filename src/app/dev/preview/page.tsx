@@ -43,7 +43,7 @@ import {
   fakeOrderSync,
   fakePriceRows,
   fakeReturnRates,
-  fakeReturns,
+  fakeReturnsPage,
 } from "@/lib/dev-fixtures-flipkart";
 import { todayIST } from "@/lib/format";
 import { defaultQuery, type OrderView, type StatusFilter } from "@/lib/orders-view";
@@ -293,7 +293,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
         />
       ) : null}
       {view === "freturns" || view === "frates" ? (
-        <ReturnsTab returns={fakeReturns()} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
+        <ReturnsTab initialPage={fakeReturnsPage().page} initialSummary={fakeReturnsPage().summary} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
       ) : null}
       {view === "fprices" ? <PricesTab rows={fakePriceRows()} today={today} dropLimit={15} snapshotDate={today} /> : null}
       {health ? <HealthTab rows={health.rows} total={health.total} taxUnread={0} slaLimit={2} /> : null}

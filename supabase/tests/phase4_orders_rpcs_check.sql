@@ -32,6 +32,7 @@ begin
   insert into public.user_warehouses values (u_blr, w_blr);
 
   delete from public.fk_order_items;
+  delete from public.fk_returns;
   delete from public.stock_runs;
 
   -- A finished stock sync with stock for a few SKUs.
@@ -64,6 +65,11 @@ begin
     ('R-X2', 'R-O10', 'R-S11', 'R-B', 1, w_del, 'cancelled', 'CANCELLED', false, now(), now(), now(), today);
   update public.fk_order_items set cancel_type = 'seller', cancelled_at = now(), cancel_reason = 'seller_cancellation' where order_item_id = 'R-X1';
   update public.fk_order_items set cancel_type = 'buyer', cancelled_at = now() - interval '2 days', cancel_reason = 'buyer_cancellation' where order_item_id = 'R-X2';
+
+  insert into public.fk_returns (return_id, order_item_id, source, sku, quantity, warehouse_id, created_date, reason) values
+    ('R-RT1', 'R-I1', 'customer_return', 'R-A', 2, w_blr, today, 'WRONG_ITEM'),
+    ('R-RT2', 'R-I4', 'courier_return', 'R-A', 1, w_del, today - 40, 'RTO'),
+    ('R-RT3', 'R-I4', 'courier_return', 'R-A', 1, w_del, today, 'RTO');
 
   perform set_config('request.jwt.claims', json_build_object('sub', u_own, 'role', 'authenticated')::text, true);
   set local role authenticated;
@@ -148,6 +154,18 @@ begin
   res := public.flipkart_cancel_lines(w_blr, null, null, 'date', 'desc', 50, 0);
   assert (res ->> 'total')::int = 1, 'Bangalore has one cancellation';
 
+  -- ===== returns, a page at a time =====
+  res := public.flipkart_returns_summary(null);
+  assert (res ->> 'customer_units')::int = 2 and (res ->> 'courier_units')::int = 1 and (res ->> 'courier_lines')::int = 1, 'the 30-day totals leave out the return from 40 days ago';
+  res := public.flipkart_returns_page(null, null, null, 'date', 'desc', 50, 0);
+  assert (res ->> 'total')::int = 2, 'two returns in the last 30 days';
+  res := public.flipkart_returns_page(null, 'courier_return', null, 'date', 'desc', 50, 0);
+  assert (res ->> 'total')::int = 1 and (res -> 'rows' -> 0 ->> 'return_id') = 'R-RT3', 'the courier filter';
+  res := public.flipkart_returns_page(w_blr, null, 'wrong', 'qty', 'desc', 1, 0);
+  assert (res ->> 'total')::int = 1 and (res -> 'rows' -> 0 ->> 'quantity')::int = 2, 'a warehouse, a search on the reason, a page of one';
+  res := public.flipkart_returns_page(null, null, 'x', 'bad; sort', 'sideways', 50, -3);
+  assert (res ->> 'total')::int = 0, 'an odd sort word is ignored, a search with no match finds nothing';
+
   -- ===== Needs action helpers =====
   res := public.flipkart_empty_with_orders();
   -- R-A has 0 units at Delhi, but its only Delhi order (S3) is To Dispatch: already packed, so nothing is waiting to be packed there.
@@ -179,6 +197,10 @@ begin
   assert (res ->> 'buyer_total')::int = 0, 'the Delhi cancellation is not counted for them';
   res := public.flipkart_upcoming_vs_stock(null, false, null, 'short', 'desc', 50, 0);
   assert (res ->> 'total')::int = 0, 'Delhi''s upcoming order is not theirs';
+  res := public.flipkart_returns_page(null, null, null, 'date', 'desc', 50, 0);
+  assert (res ->> 'total')::int = 1 and (res -> 'rows' -> 0 ->> 'return_id') = 'R-RT1', 'only Bangalore returns';
+  res := public.flipkart_returns_summary(null);
+  assert (res ->> 'courier_units')::int = 0, 'Delhi''s courier return is not counted for them';
   reset role;
 end $$;
 

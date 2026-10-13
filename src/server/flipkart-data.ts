@@ -106,66 +106,8 @@ export async function loadOrderSyncState(supabase: Supabase, canSeeError: boolea
   }
 }
 
-// --- Returns -----------------------------------------------------------------------------------------------------------------
-
-export type ReturnListRow = {
-  returnId: string;
-  orderItemId: string;
-  orderId: string | null;
-  sku: string | null;
-  quantity: number;
-  warehouseId: string | null;
-  source: "courier_return" | "customer_return";
-  status: string | null;
-  reason: string | null;
-  subReason: string | null;
-  createdDate: string | null;
-};
-
-export async function loadReturns(supabase: Supabase, today: string): Promise<ReturnListRow[]> {
-  const since = addDays(today, -29);
-  try {
-    const rows = await fetchAll<{
-      return_id: string;
-      order_item_id: string;
-      order_id: string | null;
-      sku: string | null;
-      quantity: number;
-      warehouse_id: string | null;
-      source: "courier_return" | "customer_return";
-      return_status: string | null;
-      reason: string | null;
-      sub_reason: string | null;
-      created_date: string | null;
-    }>((from, to) =>
-      supabase
-        .from("fk_returns")
-        .select("return_id, order_item_id, order_id, sku, quantity, warehouse_id, source, return_status, reason, sub_reason, created_date")
-        .eq("platform", "flipkart")
-        .gte("created_date", since)
-        .order("return_id")
-        .order("order_item_id")
-        .range(from, to),
-    );
-    return rows
-      .map((r) => ({
-        returnId: r.return_id,
-        orderItemId: r.order_item_id,
-        orderId: r.order_id,
-        sku: r.sku,
-        quantity: r.quantity,
-        warehouseId: r.warehouse_id,
-        source: r.source,
-        status: r.return_status,
-        reason: r.reason,
-        subReason: r.sub_reason,
-        createdDate: r.created_date,
-      }))
-      .sort((a, b) => (b.createdDate ?? "").localeCompare(a.createdDate ?? ""));
-  } catch (error) {
-    return fail("returns", error);
-  }
-}
+// --- Returns ---------------------------------------------------------------------------------------------------------------
+// The list and its totals are read a page at a time: see src/server/returns-view.ts.
 
 export async function loadReturnRates(
   supabase: Supabase,

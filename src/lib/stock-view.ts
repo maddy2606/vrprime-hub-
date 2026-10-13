@@ -22,6 +22,9 @@ import { VIEW_KEYS, type ViewKey } from "./stock-views.ts";
 
 export const STOCK_PAGE_SIZE = 50;
 
+/** The first page sent with the page itself is smaller, so the page loads fast; "Show more" brings 50 at a time. */
+export const STOCK_INITIAL_PAGE_SIZE = 30;
+
 export const stockQuerySchema = z.object({
   view: z.enum(VIEW_KEYS),
   wh: z.union([z.literal(""), z.string().uuid()]),

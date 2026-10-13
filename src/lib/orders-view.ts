@@ -8,6 +8,9 @@ import { z } from "zod";
 
 export const PAGE_SIZE = 50;
 
+/** The first page sent with the page itself is smaller, so the page loads fast; "Show more" brings 50 at a time. */
+export const INITIAL_PAGE_SIZE = 30;
+
 export const ORDER_VIEWS = ["sku", "list", "pick", "upcoming", "cancelled"] as const;
 export type OrderView = (typeof ORDER_VIEWS)[number];
 

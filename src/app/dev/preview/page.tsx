@@ -45,7 +45,7 @@ import {
   fakeReturnRates,
   fakeReturnsPage,
 } from "@/lib/dev-fixtures-flipkart";
-import { todayIST } from "@/lib/format";
+import { addDays, todayIST } from "@/lib/format";
 import { defaultQuery, type OrderView, type StatusFilter } from "@/lib/orders-view";
 import { EMPTY_POST } from "@/lib/post-options";
 import { buildStockView, defaultStockQuery, stockMeta } from "@/lib/stock-view";
@@ -152,8 +152,8 @@ export default async function PreviewPage({
         <div className="flex flex-col gap-10">
           {[
             { title: "Open request with details (over the weight limit)", post: { ...FAKE_POSTS[0], type: "new_listing" as const, title: "List rat spray 500 ml on Flipkart", product_name: "Rat spray 500 ml", reference_url: "https://example.test/rat-spray", target_price: 199, mrp: 299, dim_l: 30, dim_b: 20, dim_h: 10, weight_kg: 1.25, platform: "flipkart" as const } },
-            { title: "Done, live and over the limit on Flipkart", post: { ...FAKE_POSTS[0], type: "new_listing" as const, status: "done" as const, title: "List rat spray 500 ml", sku: "RS-500", done_at: new Date(Date.now() - 2 * 86_400_000).toISOString(), done_by: FAKE_PEOPLE[1].id, live_found: true, live_status: "ACTIVE", live_since: today, live_over_weight: true, live_package: { l: 30, b: 20, h: 10, kg: 1.25, total: 7250 } } },
-            { title: "Done, not found for 4 days", post: { ...FAKE_POSTS[0], type: "new_listing" as const, status: "done" as const, title: "List fly trap", sku: "FLY-1", done_at: new Date(Date.now() - 4 * 86_400_000).toISOString(), done_by: FAKE_PEOPLE[1].id, live_found: false } },
+            { title: "Done, live and over the limit on Flipkart", post: { ...FAKE_POSTS[0], type: "new_listing" as const, status: "done" as const, title: "List rat spray 500 ml", sku: "RS-500", done_at: new Date(`${addDays(today, -2)}T12:00:00+05:30`).toISOString(), done_by: FAKE_PEOPLE[1].id, live_found: true, live_status: "ACTIVE", live_since: today, live_over_weight: true, live_package: { l: 30, b: 20, h: 10, kg: 1.25, total: 7250 } } },
+            { title: "Done, not found for 4 days", post: { ...FAKE_POSTS[0], type: "new_listing" as const, status: "done" as const, title: "List fly trap", sku: "FLY-1", done_at: new Date(`${addDays(today, -4)}T12:00:00+05:30`).toISOString(), done_by: FAKE_PEOPLE[1].id, live_found: false } },
           ].map((x) => (
             <div key={x.title}>
               <p className="mb-2 text-sm font-bold text-muted">{x.title}</p>

@@ -235,7 +235,7 @@ export function warehouseCards(data: DeskData, hideInactive: boolean): Warehouse
 }
 
 /** The warehouse a "Create restock post" should point at: where this SKU is emptiest. */
-export function restockWarehouse(row: Row, data: DeskData, scope: number[]): string | null {
+export function restockWarehouse(row: Row, data: Pick<DeskData, "warehouses">, scope: number[]): string | null {
   const candidates = scope.filter((i) => row.now[i] !== null && row.now[i] !== undefined);
   if (candidates.length === 0) return scope.length === 1 ? data.warehouses[scope[0]].id : null;
   const emptiest = candidates.reduce((best, i) => ((row.now[i] as number) < (row.now[best] as number) ? i : best), candidates[0]);

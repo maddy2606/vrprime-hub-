@@ -9,12 +9,11 @@ import {
   readSalesRates,
   readStockDrops,
   soonestBySku,
-  type PendingOrder,
   type PriceInput,
-  type StockBySku,
 } from "@/lib/flipkart-analysis";
 import { fakeDesk, FAKE_WAREHOUSES } from "@/lib/dev-fixtures";
 import type { OrderSyncState, RunSummary } from "@/lib/orders-sync";
+import { type CancelLine, type OrderLine, type OrdersViewResult, type PickRow, type SkuRow, type UpcomingRow, type WarehouseOrders } from "@/lib/orders-view";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
@@ -24,51 +23,112 @@ function day(offset: number): string {
 
 const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
 
-export function fakeOrders(): PendingOrder[] {
-  const statuses = ["APPROVED", "APPROVED", "PACKING_IN_PROGRESS", "PACKED", "READY_TO_DISPATCH"];
-  const due = [-5, -1, 1, 2, 3, 9, 14, 30, 50, 120, 200];
-  return Array.from({ length: 60 }, (_, k) => ({
-    orderItemId: `FAKE-OI-${1000 + k}`,
-    orderId: `FAKE-OD-${5000 + Math.floor(k / 1.3)}`,
-    shipmentId: `FAKE-SH-${5000 + Math.floor(k / 1.3)}`,
-    sku: k % 7 === 0 ? "FAKE-SKU-0011" : `FAKE-SKU-${String((k % 20) + 1).padStart(4, "0")}`,
-    quantity: 1 + (k % 3),
-    warehouseId: FAKE_WAREHOUSES[k % 5].id,
-    status: statuses[k % 5],
-    hold: k === 13,
-    dispatchBy: hoursFromNow(due[k % due.length]),
-    // The far-off ones are Upcoming: dispatch-after still in the future.
-    dispatchAfter: hoursFromNow(due[k % due.length] - 24),
+/** The cards: counts per warehouse in Seller Hub's tabs. */
+export function fakeCards(): WarehouseOrders[] {
+  return FAKE_WAREHOUSES.map((w, i) => ({
+    warehouseId: w.id,
+    name: w.name,
+    to_accept: 20 + i * 7,
+    to_pack: 4 + i,
+    to_dispatch: 300 + i * 40,
+    upcoming: 500 + i * 310,
+    processing: i * 3,
+    active: 324 + i * 48,
+    inTransit: 1400 + i * 120,
+    held: i === 1 ? 2 : 0,
+    late: i === 0 ? 5 : i === 2 ? 12 : 0,
+    today: i === 0 ? 3 : 0,
+    tomorrow: 40 + i * 30,
+    nextDue: hoursFromNow(i === 0 ? -30 : i === 1 ? 2 : 14),
   }));
 }
 
-/** Fake stock per SKU: some warehouses short of what is ordered there. */
-export function fakeStockBySku(): StockBySku {
-  const out: StockBySku = {};
-  for (let n = 1; n <= 20; n++) {
-    const sku = `FAKE-SKU-${String(n).padStart(4, "0")}`;
-    out[sku] = { title: `Fake product number ${n}`, units: Object.fromEntries(FAKE_WAREHOUSES.map((w, i) => [w.id, (n * 7 + i * 3) % 9 === 0 ? 0 : ((n * 13 + i * 5) % 40)])) };
+const fakeSku = (n: number) => `FAKE-SKU-${String(n).padStart(4, "0")}`;
+
+/** The first page of each list, shaped like what the database sends. */
+export function fakeOrdersView(view: "sku" | "list" | "pick" | "upcoming" | "cancelled"): OrdersViewResult {
+  const wh = FAKE_WAREHOUSES.map((w) => w.id);
+  if (view === "sku") {
+    const rows: SkuRow[] = Array.from({ length: 50 }, (_, k) => ({
+      sku: k === 4 ? "FAKE-SKU-WITH-A-VERY-LONG-CODE-0005-EXTRA-LONG-PART" : fakeSku(k + 1),
+      title: `Fake product number ${k + 1} with a fairly long title that has to wrap`,
+      orders: 3 + (k % 9),
+      units: 4 + (k % 11),
+      due: hoursFromNow((k % 7) - 2),
+      active_due: k % 5 === 4 ? null : hoursFromNow((k % 7) - 2),
+      to_accept: k % 3,
+      to_pack: k % 4,
+      to_dispatch: 2 + (k % 6),
+      upcoming: k % 5 === 0 ? 3 : 0,
+      processing: k % 8 === 0 ? 1 : 0,
+      by_wh: { [wh[k % 5]]: 2 + (k % 6), [wh[(k + 2) % 5]]: 1 + (k % 3) },
+    }));
+    return { view: "sku", total: 143, orders: 1748, units: 1778, rows };
   }
-  return out;
-}
-
-export function fakeInTransit(): Record<string, number> {
-  return Object.fromEntries(FAKE_WAREHOUSES.map((w, i) => [w.id, 40 + i * 17]));
-}
-
-export function fakeCancellations() {
-  return Array.from({ length: 16 }, (_, k) => ({
-    orderItemId: `FAKE-CX-${k}`,
-    orderId: `FAKE-OD-${4000 + k}`,
-    sku: `FAKE-SKU-${String((k % 9) + 1).padStart(4, "0")}`,
+  if (view === "list") {
+    const rows: OrderLine[] = Array.from({ length: 50 }, (_, k) => ({
+      order_item_id: `FAKE-OI-${1000 + k}`,
+      order_id: `FAKE-OD-${5000 + k}`,
+      sku: fakeSku((k % 20) + 1),
+      quantity: 1 + (k % 3),
+      warehouse_id: wh[k % 5],
+      bucket: (["to_accept", "to_pack", "to_dispatch", "to_dispatch", "upcoming"] as const)[k % 5],
+      hold: k === 13,
+      dispatch_by: hoursFromNow((k % 9) - 3),
+      dispatch_after: hoursFromNow((k % 9) - 27),
+    }));
+    return { view: "list", total: 1748, rows };
+  }
+  if (view === "pick") {
+    const rows: PickRow[] = Array.from({ length: 50 }, (_, k) => ({
+      sku: fakeSku(k + 1),
+      title: `Fake product number ${k + 1}`,
+      units: 2 + (k % 14),
+      to_accept: k % 5,
+      to_pack: 2 + (k % 9),
+      orders: 1 + (k % 8),
+      due: hoursFromNow((k % 6) - 2),
+      stock: k % 6 === 0 ? null : (k * 3) % 17,
+    }));
+    return { view: "pick", warehouseId: wh[0], total: 87, units: 612, rows };
+  }
+  if (view === "upcoming") {
+    const rows: UpcomingRow[] = Array.from({ length: 50 }, (_, k) => {
+      const upcoming = 3 + (k % 12);
+      const stock = k % 7 === 0 ? null : (k * 5) % 19;
+      return {
+        sku: fakeSku(k + 1),
+        title: `Fake product number ${k + 1}`,
+        warehouse_id: wh[k % 5],
+        upcoming,
+        orders: 1 + (k % 6),
+        first_active: hoursFromNow(6 + k * 3),
+        active: k % 9,
+        stock,
+        short: stock === null ? 0 : Math.max(0, upcoming - stock),
+      };
+    });
+    return { view: "upcoming", total: 385, shortCount: 23, rows };
+  }
+  const rows: CancelLine[] = Array.from({ length: 50 }, (_, k) => ({
+    order_item_id: `FAKE-CX-${k}`,
+    order_id: `FAKE-OD-${4000 + k}`,
+    sku: fakeSku((k % 9) + 1),
     quantity: 1,
-    warehouseId: FAKE_WAREHOUSES[k % 5].id,
-    type: (k % 4 === 0 ? "seller" : "buyer") as "seller" | "buyer",
-    cancelledAt: hoursFromNow(-(k * 9 + 3)),
-    reason: k % 4 === 0 ? "seller_cancellation" : "buyer_cancellation",
-    subReason: k % 4 === 0 ? "order_over_sla" : null,
+    warehouse_id: wh[k % 5],
+    cancel_type: k % 4 === 0 ? "seller" : "buyer",
+    cancelled_at: hoursFromNow(-(k * 9 + 3)),
+    cancel_reason: k % 4 === 0 ? "seller_cancellation" : "buyer_cancellation",
+    cancel_sub_reason: k % 4 === 0 ? "order_over_sla" : null,
   }));
+  return {
+    view: "cancelled",
+    total: 2693,
+    rows,
+    summary: { seller_total: 23, buyer_total: 2670, days: Array.from({ length: 14 }, (_, d) => ({ day: day(-d), seller: d % 4 === 0 ? 3 : 0, buyer: 150 + d * 7 })) },
+  };
 }
+
 
 export function fakeReturns() {
   return Array.from({ length: 25 }, (_, k) => ({
@@ -169,14 +229,18 @@ export function fakeNeedsAction() {
     coverage_from: day(-20),
     rows: desk.listings.slice(0, 25).flatMap((l, k) => warehouses.map((w) => ({ sku: l.sku, wid: w.id, u7: 7 + ((k * 13) % 90), u14: 14 + ((k * 17) % 120) }))),
   });
-  const { covers, state } = computeCover({ listings: desk.listings, warehouses, sales, drops: readStockDrops(null), today: desk.today });
+  const units = desk.listings.flatMap((l) => (l.status === "ACTIVE" ? warehouses.flatMap((w, i) => ((l.now[i] ?? 0) > 0 ? [{ sku: l.sku, warehouseId: w.id, units: l.now[i] as number }] : [])) : []));
+  const { covers, state } = computeCover({ units, sales, drops: readStockDrops(null), today: desk.today });
   const sections = buildNeedsAction(
     {
       now: new Date(),
       staff: true,
       warehouses,
-      orders: fakeOrders(),
-      listings: desk.listings,
+      cards: fakeCards(),
+      empties: [
+        { sku: "FAKE-SKU-0003", warehouseId: warehouses[2].id, orders: 6, units: 6 },
+        { sku: "FAKE-SKU-0011", warehouseId: warehouses[1].id, orders: 3, units: 4 },
+      ],
       settings: { ...DEFAULT_FLIPKART_SETTINGS, newInactiveDays: 2 },
       priceRows: fakePriceRows(),
       returnRates: fakeReturnRates(true),

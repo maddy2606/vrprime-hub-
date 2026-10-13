@@ -324,6 +324,32 @@ export type Database = {
       flipkart_sales_rates: { Args: Record<string, never>; Returns: Json };
       flipkart_stock_drops: { Args: Record<string, never>; Returns: Json };
       flipkart_return_rates: { Args: { p_days?: number }; Returns: Json };
+      flipkart_snapshot_date: { Args: Record<string, never>; Returns: string | null };
+      flipkart_order_counts: { Args: Record<string, never>; Returns: Json };
+      flipkart_order_skus: {
+        Args: { p_wh?: string | null; p_status?: string; p_q?: string | null; p_sort?: string; p_dir?: string; p_limit?: number; p_offset?: number };
+        Returns: Json;
+      };
+      flipkart_order_lines: {
+        Args: { p_wh?: string | null; p_status?: string; p_sku?: string | null; p_q?: string | null; p_sort?: string; p_dir?: string; p_limit?: number; p_offset?: number };
+        Returns: Json;
+      };
+      flipkart_sku_stock: { Args: { p_sku: string }; Returns: Json };
+      flipkart_pick_list: {
+        Args: { p_wh: string; p_today_only?: boolean; p_q?: string | null; p_sort?: string; p_dir?: string; p_limit?: number; p_offset?: number };
+        Returns: Json;
+      };
+      flipkart_upcoming_vs_stock: {
+        Args: { p_wh?: string | null; p_short_only?: boolean; p_q?: string | null; p_sort?: string; p_dir?: string; p_limit?: number; p_offset?: number };
+        Returns: Json;
+      };
+      flipkart_cancel_summary: { Args: { p_wh?: string | null }; Returns: Json };
+      flipkart_cancel_lines: {
+        Args: { p_wh?: string | null; p_type?: string | null; p_q?: string | null; p_sort?: string; p_dir?: string; p_limit?: number; p_offset?: number };
+        Returns: Json;
+      };
+      flipkart_empty_with_orders: { Args: Record<string, never>; Returns: Json };
+      flipkart_stock_units: { Args: Record<string, never>; Returns: Json };
       send_test_notification: { Args: Record<string, never>; Returns: undefined };
       register_push_subscription: {
         Args: { p_endpoint: string; p_p256dh: string; p_auth: string };

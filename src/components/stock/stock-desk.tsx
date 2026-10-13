@@ -1,28 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { SearchIcon } from "@/components/icons";
 import { Chip, EmptyState } from "@/components/ui";
-import { downloadCsv, toCsv, type CsvCell } from "@/lib/csv";
 import { formatDate, formatNumber } from "@/lib/format";
-import { formatDays, type Cover, type CoverState } from "@/lib/flipkart-analysis";
+import { formatDays, type CoverState } from "@/lib/flipkart-analysis";
 import type { Tone } from "@/lib/labels";
-import {
-  analyze,
-  restockHref,
-  restockWarehouse,
-  searchRows,
-  sortRows,
-  warehouseCards,
-  weightMetric,
-  type DeskData,
-  type Row,
-} from "@/lib/stock-analysis";
+import { restockHref, restockWarehouse, weightMetric } from "@/lib/stock-analysis";
 import type { SyncSummary } from "@/lib/stock-sync";
+import { DEFAULT_STOCK_SORT, STOCK_PAGE_SIZE, type StockMeta, type StockQuery, type StockRow, type StockViewData } from "@/lib/stock-view";
 import { VIEW_KEYS, type ViewKey } from "@/lib/stock-views";
+import { loadStockViewAction } from "@/server/actions/stock-view";
 
 const VIEW_LABEL: Record<ViewKey, string> = {
   low: "Low stock",
@@ -33,29 +24,24 @@ const VIEW_LABEL: Record<ViewKey, string> = {
   inactive: "All inactive",
 };
 
-type SortState = { key: string; dir: "asc" | "desc" };
-const DEFAULT_SORT: Record<ViewKey, SortState> = {
-  low: { key: "empty", dir: "desc" },
-  location: { key: "sku", dir: "asc" },
-  out: { key: "ranout", dir: "desc" },
-  weight: { key: "total", dir: "desc" },
-  new: { key: "since", dir: "desc" },
-  inactive: { key: "since", dir: "desc" },
-};
+/** Columns whose first tap sorts A to Z (the others sort biggest first). */
+const TEXT_KEYS = new Set(["sku", "status", "listing"]);
 
 export type StockDeskProps = {
-  data: DeskData;
+  meta: StockMeta;
+  /** The first page of the list the address asked for, read on the server. */
+  initialQuery: StockQuery;
+  initialData: StockViewData;
   latest: SyncSummary | null;
   lastDone: SyncSummary | null;
   canSync: boolean;
-  initial: { view: ViewKey; warehouseId: string; q: string; hide: boolean };
-  /** Days of cover per SKU (the warehouse that runs out first), from orders or stock drops. */
-  cover: { soonest: Record<string, Cover>; state: CoverState; limit: number; warehouseNames: Record<string, string> } | null;
+  /** Days of cover per SKU come with each row; this says whether there is enough history yet. */
+  cover: { state: CoverState; limit: number; warehouseNames: Record<string, string> } | null;
 };
 
 // --- Small pieces ------------------------------------------------------------------------------
 
-function SkuCell({ row }: { row: Row }) {
+function SkuCell({ row }: { row: StockRow }) {
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -131,31 +117,75 @@ function Tile({
   );
 }
 
+const sortable = () => null;
+
+export function exportHref(q: StockQuery): string {
+  const params = new URLSearchParams({ view: q.view, sort: q.sort, dir: q.dir });
+  if (q.wh) params.set("wh", q.wh);
+  if (q.q) params.set("q", q.q);
+  if (q.hide) params.set("hide", "1");
+  return `/flipkart/stock-export?${params.toString()}`;
+}
+
 // --- The desk ---------------------------------------------------------------------------------------
 
-export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: StockDeskProps) {
-  const { warehouses, settings } = data;
-  const initialIndex = warehouses.findIndex((w) => w.id === initial.warehouseId);
+export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, canSync, cover }: StockDeskProps) {
+  const { warehouses, settings } = meta;
+  const [query, setQuery] = useState<StockQuery>(initialQuery);
+  const [qInput, setQInput] = useState(initialQuery.q);
+  const [data, setData] = useState<StockViewData>(initialData);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const request = useRef(0);
+  const first = useRef(true);
 
-  const [view, setView] = useState<ViewKey>(initial.view);
-  const [selected, setSelected] = useState<number | null>(initialIndex >= 0 ? initialIndex : null);
-  const [q, setQ] = useState(initial.q);
-  const [hide, setHide] = useState(initial.hide);
-  const [sorts, setSorts] = useState<Record<ViewKey, SortState>>(DEFAULT_SORT);
+  const load = useCallback((q: StockQuery, append: boolean) => {
+    const id = ++request.current;
+    setLoading(true);
+    setFailed(false);
+    void loadStockViewAction(q).then((result) => {
+      if (id !== request.current) return; // a newer request has taken over
+      setLoading(false);
+      if (!result.ok || !result.data) {
+        setFailed(true);
+        return;
+      }
+      const next = result.data;
+      setData((prev) => (append ? { ...next, rows: [...prev.rows, ...next.rows] } : next));
+    });
+  }, []);
+
+  // A new list, search, sort or warehouse starts again from the first page.
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    load({ ...query, offset: 0 }, false);
+  }, [query, load]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQuery((q) => (q.q === qInput.trim() ? q : { ...q, q: qInput.trim(), offset: 0 })), 300);
+    return () => window.clearTimeout(timer);
+  }, [qInput]);
 
   // Keep the address in step with what is on screen, so a link or a refresh lands in the same place.
   useEffect(() => {
     const params = new URLSearchParams({ tab: "stock" });
-    if (view !== "low") params.set("view", view);
-    if (selected !== null) params.set("wh", warehouses[selected].id);
-    if (q.trim()) params.set("q", q.trim());
-    if (hide) params.set("hide", "1");
+    if (query.view !== "low") params.set("view", query.view);
+    if (query.wh) params.set("wh", query.wh);
+    if (query.q) params.set("q", query.q);
+    if (query.hide) params.set("hide", "1");
     window.history.replaceState(null, "", `?${params.toString()}`);
-  }, [view, selected, q, hide, warehouses]);
+  }, [query.view, query.wh, query.q, query.hide]);
 
-  const scope = useMemo(() => (selected !== null ? [selected] : warehouses.map((_, i) => i)), [selected, warehouses]);
-  const analysis = useMemo(() => analyze(data, scope, hide), [data, scope, hide]);
-  const cards = useMemo(() => warehouseCards(data, hide), [data, hide]);
+  const patch = (p: Partial<StockQuery>) => setQuery((q) => ({ ...q, ...p, offset: 0 }));
+  const choose = (view: ViewKey) => {
+    patch({ view, ...DEFAULT_STOCK_SORT[view] });
+    document.getElementById("stock-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const onSort = (key: string) => setQuery((q) => ({ ...q, offset: 0, sort: key, dir: q.sort === key ? (q.dir === "asc" ? "desc" : "asc") : TEXT_KEYS.has(key) ? "asc" : "desc" }));
+  const more = () => load({ ...query, offset: data.rows.length }, true);
 
   if (warehouses.length === 0) {
     return (
@@ -166,53 +196,37 @@ export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: S
     );
   }
 
-  const scopeName = selected !== null ? warehouses[selected].name : data.fullAccess ? null : "your warehouses";
-  const where = selected !== null ? ` at ${warehouses[selected].name}` : data.fullAccess ? " everywhere" : " at your warehouses";
-  const { tiles } = analysis;
+  const selected = query.wh ? warehouses.findIndex((w) => w.id === query.wh) : -1;
+  const scope = selected >= 0 ? [selected] : warehouses.map((_, i) => i);
+  const scopeName = selected >= 0 ? warehouses[selected].name : meta.fullAccess ? null : "your warehouses";
+  const where = selected >= 0 ? ` at ${warehouses[selected].name}` : meta.fullAccess ? " everywhere" : " at your warehouses";
+  const { tiles } = data;
   const change = tiles.unitsChange;
-  const sinceLabel = data.previousDate ? `since ${formatDate(data.previousDate, data.today)}` : "";
-
-  const sortState = sorts[view];
-  // First tap sorts text columns A to Z and number columns biggest first; a second tap reverses.
-  const onSort = (key: string) =>
-    setSorts((all) => {
-      const current = all[view];
-      const dir = current.key === key ? (current.dir === "asc" ? "desc" : "asc") : ["sku", "status", "listing"].includes(key) ? "asc" : "desc";
-      return { ...all, [view]: { key, dir } };
-    });
-
-  const visibleRows = hide ? analysis.rows.filter((r) => r.status !== "INACTIVE") : analysis.rows;
-  const counts: Record<ViewKey, number> = {
-    low: analysis.low.length,
-    location: visibleRows.length,
-    out: analysis.out.length,
-    weight: analysis.weight.length,
-    new: analysis.newInactive.length,
-    inactive: analysis.allInactive.length,
-  };
+  const sinceLabel = meta.previousDate ? `since ${formatDate(meta.previousDate, meta.today)}` : "";
+  const view = query.view;
 
   // Columns -----------------------------------------------------------------------------------------
-  const skuColumn: Column<Row>[] = [
-    { key: "sku", label: "SKU", sort: (r) => r.sku, cell: (r) => <SkuCell row={r} />, csv: (r) => r.sku },
-    { key: "title", label: "Title", csvOnly: true, cell: () => null, csv: (r) => r.title },
+  const skuColumn: Column<StockRow>[] = [
+    { key: "sku", label: "SKU", sort: sortable, cell: (r) => <SkuCell row={r} />, csv: () => null },
   ];
-  const restockColumn: Column<Row> = {
+  const restockColumn: Column<StockRow> = {
     key: "restock",
     label: "",
     screenOnly: true,
-    cell: (r) => <RestockLink href={restockHref(r.sku, restockWarehouse(r, data, scope))} />,
+    cell: (r) => <RestockLink href={restockHref(r.sku, restockWarehouse(r, meta, scope))} />,
     csv: () => null,
   };
   const wn = (i: number) => warehouses[i].name;
-  const coverColumn: Column<Row>[] = cover
+  const totalColumn: Column<StockRow> = { key: "total", label: "Total", align: "right", sort: sortable, cell: (r) => <b>{formatNumber(r.total)}</b>, csv: () => null };
+  const coverColumn: Column<StockRow>[] = cover
     ? [
         {
           key: "cover",
           label: "Days left",
           align: "right",
-          sort: (r) => cover.soonest[r.sku]?.days ?? null,
+          sort: sortable,
           cell: (r) => {
-            const c = cover.soonest[r.sku];
+            const c = r.cover;
             if (!c) return <span className="text-muted">{cover.state.state === "collecting" ? "…" : "—"}</span>;
             return (
               <span className={c.days < cover.limit ? "font-semibold text-bad" : ""} title={`${c.units} units at ${cover.warehouseNames[c.warehouseId] ?? ""}, using ${Math.round(c.rate * 10) / 10} a day, from ${c.source === "orders" ? "orders" : "stock drops"}`}>
@@ -221,65 +235,47 @@ export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: S
               </span>
             );
           },
-          csv: (r) => (cover.soonest[r.sku] ? Math.round(cover.soonest[r.sku].days * 10) / 10 : null),
+          csv: () => null,
         },
       ]
     : [];
 
-  const columns: Record<ViewKey, Column<Row>[]> = {
+  const columns: Record<ViewKey, Column<StockRow>[]> = {
     low: [
       ...skuColumn,
-      {
-        key: "empty",
-        label: "Empty at",
-        sort: (r) => r.empty.length,
-        cell: (r) => <Chips items={r.empty.map((i) => ({ label: wn(i), tone: "bad" as Tone }))} />,
-        csv: (r) => r.empty.map(wn).join("; "),
-      },
-      {
-        key: "lowAt",
-        label: "Low at",
-        sort: (r) => r.low.length,
-        cell: (r) => <Chips items={r.low.map((i) => ({ label: `${wn(i)} ${formatNumber(r.now[i] as number)}`, tone: "warn" as Tone }))} />,
-        csv: (r) => r.low.map((i) => `${wn(i)} ${r.now[i]}`).join("; "),
-      },
-      {
-        key: "ok",
-        label: "In stock at",
-        sort: (r) => r.ok.length,
-        cell: (r) => <Chips items={r.ok.map((i) => ({ label: `${wn(i)} ${formatNumber(r.now[i] as number)}`, tone: "ok" as Tone }))} />,
-        csv: (r) => r.ok.map((i) => `${wn(i)} ${r.now[i]}`).join("; "),
-      },
-      { key: "total", label: "Total", align: "right", sort: (r) => r.total, cell: (r) => <b>{formatNumber(r.total)}</b>, csv: (r) => r.total },
+      { key: "empty", label: "Empty at", sort: sortable, cell: (r) => <Chips items={r.empty.map((i) => ({ label: wn(i), tone: "bad" as Tone }))} />, csv: () => null },
+      { key: "lowAt", label: "Low at", sort: sortable, cell: (r) => <Chips items={r.low.map((i) => ({ label: `${wn(i)} ${formatNumber(r.now[i] as number)}`, tone: "warn" as Tone }))} />, csv: () => null },
+      { key: "ok", label: "In stock at", sort: sortable, cell: (r) => <Chips items={r.ok.map((i) => ({ label: `${wn(i)} ${formatNumber(r.now[i] as number)}`, tone: "ok" as Tone }))} />, csv: () => null },
+      totalColumn,
       ...coverColumn,
       restockColumn,
     ],
     location: [
       ...skuColumn,
       ...scope.map(
-        (i): Column<Row> => ({
+        (i): Column<StockRow> => ({
           key: `wh${i}`,
           label: wn(i),
           align: "right",
-          sort: (r) => r.now[i],
+          sort: sortable,
           cell: (r) => <Qty n={r.now[i]} low={settings.low} />,
-          csv: (r) => r.now[i],
+          csv: () => null,
         }),
       ),
-      { key: "total", label: "Total", align: "right", sort: (r) => r.total, cell: (r) => <b>{formatNumber(r.total)}</b>, csv: (r) => r.total },
-      ...(data.previousDate
+      totalColumn,
+      ...(meta.previousDate
         ? [
             {
               key: "change",
               label: `Change ${sinceLabel}`,
               align: "right" as const,
-              sort: (r: Row) => (r.prevTotal === null ? null : r.total - r.prevTotal),
-              cell: (r: Row) => {
+              sort: sortable,
+              cell: (r: StockRow) => {
                 const d = r.prevTotal === null ? null : r.total - r.prevTotal;
                 if (d === null || d === 0) return <span className="text-muted">{d === 0 ? "0" : "—"}</span>;
                 return <span className={d > 0 ? "font-semibold text-ok" : "font-semibold text-bad"}>{d > 0 ? `+${formatNumber(d)}` : `−${formatNumber(-d)}`}</span>;
               },
-              csv: (r: Row) => (r.prevTotal === null ? null : r.total - r.prevTotal),
+              csv: () => null,
             },
           ]
         : []),
@@ -291,111 +287,81 @@ export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: S
       {
         key: "status",
         label: "Status",
-        sort: (r) => r.status,
+        sort: sortable,
         cell: (r) => <Chip tone={r.status === "ACTIVE" ? "ok" : "neutral"}>{r.status === "ACTIVE" ? "Active" : r.status === "INACTIVE" ? "Inactive" : r.status}</Chip>,
-        csv: (r) => r.status,
+        csv: () => null,
       },
       {
         key: "listed",
         label: "Listed at",
-        sort: (r) => r.listed.length,
+        sort: sortable,
         cell: (r) => (r.listed.length ? <span className="text-xs">{r.listed.map(wn).join(", ")}</span> : <span className="text-muted">Nowhere</span>),
-        csv: (r) => r.listed.map(wn).join("; "),
+        csv: () => null,
       },
       {
         key: "yesterday",
-        label: data.previousDate ? `Units on ${formatDate(data.previousDate, data.today)}` : "Units before",
+        label: meta.previousDate ? `Units on ${formatDate(meta.previousDate, meta.today)}` : "Units before",
         align: "right",
-        sort: (r) => r.prevTotal,
+        sort: sortable,
         cell: (r) => (r.prevTotal === null ? <span className="text-muted">—</span> : formatNumber(r.prevTotal)),
-        csv: (r) => r.prevTotal,
+        csv: () => null,
       },
       {
         key: "ranout",
         label: "Ran out today",
-        sort: (r) => (r.prevTotal !== null && r.prevTotal > 0 ? 1 : 0),
+        sort: sortable,
         cell: (r) => (r.prevTotal !== null && r.prevTotal > 0 ? <Chip tone="bad">Ran out today</Chip> : <span className="text-muted">—</span>),
-        csv: (r) => (r.prevTotal !== null && r.prevTotal > 0 ? "yes" : ""),
+        csv: () => null,
       },
       restockColumn,
     ],
     weight: [
       ...skuColumn,
-      {
-        key: "size",
-        label: "L × B × H (cm)",
-        sort: (r) => (r.dims ? weightMetric(r.dims).volume : null),
-        cell: (r) => (r.dims ? <span className="whitespace-nowrap">{`${r.dims.l} × ${r.dims.b} × ${r.dims.h}`}</span> : null),
-        csv: (r) => (r.dims ? `${r.dims.l} x ${r.dims.b} x ${r.dims.h}` : null),
-      },
-      {
-        key: "grams",
-        label: "Weight (g)",
-        align: "right",
-        sort: (r) => (r.dims ? weightMetric(r.dims).grams : null),
-        cell: (r) => (r.dims ? formatNumber(Math.round(weightMetric(r.dims).grams)) : null),
-        csv: (r) => (r.dims ? Math.round(weightMetric(r.dims).grams) : null),
-      },
-      {
-        key: "total",
-        label: "Total",
-        align: "right",
-        sort: (r) => (r.dims ? weightMetric(r.dims).total : null),
-        cell: (r) => (r.dims ? <b>{formatNumber(Math.round(weightMetric(r.dims).total))}</b> : null),
-        csv: (r) => (r.dims ? Math.round(weightMetric(r.dims).total) : null),
-      },
+      { key: "size", label: "L × B × H (cm)", sort: sortable, cell: (r) => (r.dims ? <span className="whitespace-nowrap">{`${r.dims.l} × ${r.dims.b} × ${r.dims.h}`}</span> : null), csv: () => null },
+      { key: "grams", label: "Weight (g)", align: "right", sort: sortable, cell: (r) => (r.dims ? formatNumber(Math.round(weightMetric(r.dims).grams)) : null), csv: () => null },
+      { key: "total", label: "Total", align: "right", sort: sortable, cell: (r) => (r.dims ? <b>{formatNumber(Math.round(weightMetric(r.dims).total))}</b> : null), csv: () => null },
       {
         key: "over",
         label: `Over ${formatNumber(settings.weightLimit)} by`,
         align: "right",
-        sort: (r) => (r.dims ? weightMetric(r.dims).total - settings.weightLimit : null),
+        sort: sortable,
         cell: (r) => (r.dims ? <span className="font-semibold text-bad">{formatNumber(Math.round(weightMetric(r.dims).total - settings.weightLimit))}</span> : null),
-        csv: (r) => (r.dims ? Math.round(weightMetric(r.dims).total - settings.weightLimit) : null),
+        csv: () => null,
       },
     ],
-    new: inactiveColumns(skuColumn, data),
-    inactive: inactiveColumns(skuColumn, data),
-  };
-
-  const rowsByView: Record<ViewKey, Row[]> = {
-    low: analysis.low,
-    location: visibleRows,
-    out: analysis.out,
-    weight: analysis.weight,
-    new: analysis.newInactive,
-    inactive: analysis.allInactive,
+    new: inactiveColumns(skuColumn, meta),
+    inactive: inactiveColumns(skuColumn, meta),
   };
 
   const cols = columns[view];
-  const sortColumn = cols.find((c) => c.key === sortState.key && c.sort) ?? cols.find((c) => c.sort);
-  const filtered = searchRows(rowsByView[view], q);
-  const sorted = sortColumn?.sort ? sortRows(filtered, sortColumn.sort, sortState.dir) : filtered;
-
-  const exportCsv = () => {
-    const exportCols = cols.filter((c) => !c.screenOnly);
-    const csv = toCsv(
-      exportCols.map((c) => c.label),
-      sorted.map((r): CsvCell[] => exportCols.map((c) => c.csv(r))),
+  const sortKnown = cols.some((c) => c.key === query.sort);
+  const tileSub = (n: number | null) => (n === null ? "no earlier day to compare" : n === 0 ? `no change ${sinceLabel}` : `${n > 0 ? "+" : "−"}${formatNumber(Math.abs(n))} ${sinceLabel}`);
+  const body: ReactNode =
+    data.rows.length === 0 ? (
+      <EmptyState title={query.q ? "No SKU matches your search" : emptyTitle(view)} body={query.q ? "Try a shorter part of the SKU or title, or clear the search." : emptyBody(view)} />
+    ) : (
+      <>
+        <div className={loading ? "opacity-60 transition" : "transition"}>
+          <DataTable columns={cols} rows={data.rows} sortKey={sortKnown ? query.sort : ""} sortDir={query.dir} onSort={onSort} rowKey={(r) => r.sku} />
+        </div>
+        {data.rows.length < data.total ? (
+          <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2 disabled:opacity-60">
+            {loading ? "Loading…" : `Show ${formatNumber(Math.min(STOCK_PAGE_SIZE, data.total - data.rows.length))} more (${formatNumber(data.total - data.rows.length)} not shown; the CSV has all of them)`}
+          </button>
+        ) : null}
+      </>
     );
-    downloadCsv(`vrprime-stock-${view}-${data.snapshotDate}.csv`, csv);
-  };
-
-  // Tapping a tile opens its list and brings it into view.
-  const choose = (next: ViewKey) => {
-    setView(next);
-    document.getElementById("stock-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   return (
     <>
-      <SyncBar latest={latest} lastDone={lastDone} snapshotDate={data.snapshotDate} previousDate={data.previousDate} canSync={canSync} />
+      <SyncBar latest={latest} lastDone={lastDone} snapshotDate={meta.snapshotDate} previousDate={meta.previousDate} canSync={canSync} />
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <Tile
           className="col-span-2 sm:col-span-1"
           label="Units in stock (active SKUs)"
           value={formatNumber(tiles.units)}
-          sub={change === null ? "no earlier day to compare" : change === 0 ? `no change ${sinceLabel}` : `${change > 0 ? "+" : "−"}${formatNumber(Math.abs(change))} ${sinceLabel}`}
+          sub={tileSub(change)}
           subTone={change === null || change === 0 ? "text-muted" : change > 0 ? "text-ok" : "text-bad"}
           active={view === "location"}
           onClick={() => choose("location")}
@@ -407,14 +373,14 @@ export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: S
       </div>
 
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {cards.map((card) => {
+        {data.cards.map((card) => {
           const on = selected === card.index;
           return (
             <button
               key={card.id}
               type="button"
               aria-pressed={on}
-              onClick={() => setSelected(on ? null : card.index)}
+              onClick={() => patch({ wh: on ? "" : card.id })}
               className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-accent"}`}
             >
               <span className="flex items-baseline justify-between gap-2">
@@ -439,13 +405,13 @@ export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: S
               type="button"
               role="tab"
               aria-selected={view === key}
-              onClick={() => setView(key)}
+              onClick={() => patch({ view: key, ...DEFAULT_STOCK_SORT[key] })}
               className={`focus-ring flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-bold ${
                 view === key ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface text-muted hover:text-ink"
               }`}
             >
               {VIEW_LABEL[key]}
-              <span className={`text-xs ${view === key ? "text-accent-ink/80" : "text-muted"}`}>{formatNumber(counts[key])}</span>
+              <span className={`text-xs ${view === key ? "text-accent-ink/80" : "text-muted"}`}>{formatNumber(data.counts[key])}</span>
             </button>
           ))}
         </div>
@@ -456,67 +422,62 @@ export function StockDesk({ data, latest, lastDone, canSync, initial, cover }: S
             <label htmlFor="stock-search" className="sr-only">
               Search SKU or title
             </label>
-            <input id="stock-search" type="search" className="input pl-10" placeholder="Search SKU or title" value={q} onChange={(e) => setQ(e.target.value)} autoComplete="off" />
+            <input id="stock-search" type="search" className="input pl-10" placeholder="Search SKU or title" value={qInput} onChange={(e) => setQInput(e.target.value)} autoComplete="off" />
           </div>
           <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-            <input type="checkbox" className="h-5 w-5 accent-(--accent)" checked={hide} onChange={(e) => setHide(e.target.checked)} />
+            <input type="checkbox" className="h-5 w-5 accent-(--accent)" checked={query.hide} onChange={(e) => patch({ hide: e.target.checked })} />
             Hide inactive listings
           </label>
-          <button type="button" onClick={exportCsv} disabled={sorted.length === 0} className="focus-ring min-h-11 rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2 disabled:opacity-50">
+          <a href={exportHref(query)} download className="focus-ring inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2">
             Download CSV
-          </button>
+          </a>
         </div>
 
         <p className="text-xs text-muted">
-          {formatNumber(sorted.length)} {sorted.length === 1 ? "SKU" : "SKUs"}
+          {formatNumber(data.total)} {data.total === 1 ? "SKU" : "SKUs"}
           {scopeName ? ` · ${scopeName} only` : ""}
-          {selected !== null ? " (tap the warehouse again to see all)" : ""}
+          {selected >= 0 ? " (tap the warehouse again to see all)" : ""}
           {view === "weight" ? ` · size in cm multiplied, plus weight in grams, over ${formatNumber(settings.weightLimit)}` : ""}
           {view === "low" ? ` · under ${formatNumber(settings.low)} units at a warehouse, still in stock somewhere` : ""}
         </p>
         {cover && (view === "low" || view === "location") ? (
           <p className="text-xs text-muted">
             {cover.state.state === "collecting"
-              ? `Days left: collecting data${cover.state.readyOn ? `, ready on ${formatDate(cover.state.readyOn, data.today)}` : ""}. It needs 7 days of stock history or of shipped orders.`
+              ? `Days left: collecting data${cover.state.readyOn ? `, ready on ${formatDate(cover.state.readyOn, meta.today)}` : ""}. It needs 7 days of stock history or of shipped orders.`
               : `Days left = units ÷ units used per day at the warehouse that runs out first (red under ${cover.limit} days). It uses real orders where there are some, stock drops otherwise.`}
+          </p>
+        ) : null}
+        {failed ? (
+          <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+            Could not load this list. Check your connection and try again.
           </p>
         ) : null}
       </div>
 
-      {sorted.length ? (
-        <DataTable columns={cols} rows={sorted} sortKey={sortColumn?.key ?? ""} sortDir={sortState.dir} onSort={onSort} rowKey={(r) => r.sku} />
-      ) : (
-        <EmptyState title={q ? "No SKU matches your search" : emptyTitle(view)} body={q ? "Try a shorter part of the SKU or title, or clear the search." : emptyBody(view)} />
-      )}
+      {body}
     </>
   );
 }
 
-function inactiveColumns(skuColumn: Column<Row>[], data: DeskData): Column<Row>[] {
+function inactiveColumns(skuColumn: Column<StockRow>[], meta: StockMeta): Column<StockRow>[] {
   return [
     ...skuColumn,
-    {
-      key: "listing",
-      label: "Listing ID",
-      sort: (r) => r.listingId,
-      cell: (r) => <span className="break-all font-mono text-xs">{r.listingId ?? "—"}</span>,
-      csv: (r) => r.listingId,
-    },
+    { key: "listing", label: "Listing ID", sort: sortable, cell: (r) => <span className="break-all font-mono text-xs">{r.listingId ?? "—"}</span>, csv: () => null },
     {
       key: "since",
       label: "Inactive since",
-      sort: (r) => r.inactiveSince,
+      sort: sortable,
       cell: (r): ReactNode =>
         r.beforeTracking ? (
           <Chip>Before tracking</Chip>
         ) : r.inactiveSince ? (
-          <span className="whitespace-nowrap">{formatDate(r.inactiveSince, data.today)}</span>
+          <span className="whitespace-nowrap">{formatDate(r.inactiveSince, meta.today)}</span>
         ) : (
           <span className="text-muted">—</span>
         ),
-      csv: (r) => (r.beforeTracking ? "before tracking" : r.inactiveSince),
+      csv: () => null,
     },
-    { key: "total", label: "Units", align: "right", sort: (r) => r.total, cell: (r) => formatNumber(r.total), csv: (r) => r.total },
+    { key: "total", label: "Units", align: "right", sort: sortable, cell: (r) => formatNumber(r.total), csv: () => null },
   ];
 }
 

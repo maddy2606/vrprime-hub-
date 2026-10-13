@@ -32,25 +32,23 @@ import {
   FAKE_PEOPLE,
   FAKE_POSTS,
   FAKE_SYNC,
-  fakeDesk,
   FAKE_TICKETS,
   FAKE_WAREHOUSES,
 } from "@/lib/dev-fixtures";
 import {
-  fakeCancellations,
+  fakeCards,
   fakeHealthRows,
-  fakeInTransit,
   fakeNeedsAction,
-  fakeOrders,
+  fakeOrdersView,
   fakeOrderSync,
   fakePriceRows,
   fakeReturnRates,
   fakeReturns,
-  fakeStockBySku,
 } from "@/lib/dev-fixtures-flipkart";
-import type { OrderView, StatusFilter } from "@/lib/flipkart-analysis";
 import { todayIST } from "@/lib/format";
+import { defaultQuery, type OrderView, type StatusFilter } from "@/lib/orders-view";
 import { EMPTY_POST } from "@/lib/post-options";
+import { buildStockView, defaultStockQuery, stockMeta } from "@/lib/stock-view";
 import { isViewKey } from "@/lib/stock-views";
 import { emptyTicket } from "@/lib/ticket-options";
 import { POST_TYPES, type PostType } from "@/lib/types";
@@ -216,22 +214,21 @@ export default async function PreviewPage({
       {view === "stock" ? (
         <>
           <PageTitle title="Stock" sub="Flipkart stock across the warehouses" />
-          <StockDesk
-            data={fakeDesk()}
-            latest={FAKE_SYNC}
-            lastDone={FAKE_SYNC}
-            canSync
-            initial={{
-              view: isViewKey(sp.sv) ? sp.sv : "low",
-              warehouseId: typeof sp.wh === "string" ? sp.wh : "",
-              q: "",
-              hide: false,
-            }}
-            cover={(() => {
-              const n = fakeNeedsAction();
-              return { soonest: n.soonest, state: n.state, limit: 7, warehouseNames: Object.fromEntries(n.desk.warehouses.map((w) => [w.id, w.name])) };
-            })()}
-          />
+          {(() => {
+            const n = fakeNeedsAction();
+            const query = defaultStockQuery(isViewKey(sp.sv) ? sp.sv : "low", { wh: typeof sp.wh === "string" ? sp.wh : "" });
+            return (
+              <StockDesk
+                meta={stockMeta(n.desk)}
+                initialQuery={query}
+                initialData={buildStockView(n.desk, query, n.soonest)}
+                latest={FAKE_SYNC}
+                lastDone={FAKE_SYNC}
+                canSync
+                cover={{ state: n.state, limit: 7, warehouseNames: Object.fromEntries(n.desk.warehouses.map((w) => [w.id, w.name])) }}
+              />
+            );
+          })()}
         </>
       ) : null}
       {view === "stockempty" ? (
@@ -269,6 +266,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
   const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : "health";
+  const ordersView = FAKE_ORDER_VIEW[view]?.view ?? "sku";
   const needs = view === "fneeds" ? fakeNeedsAction() : null;
   const health = view === "fhealth" ? fakeHealthRows() : null;
   return (
@@ -284,16 +282,14 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
       ) : null}
       {FAKE_ORDER_VIEW[view] ? (
         <OrdersTab
-          orders={fakeOrders()}
-          cancellations={fakeCancellations()}
+          cards={fakeCards()}
           warehouses={wh}
           state={fakeOrderSync(stage)}
           canSync
           today={today}
           nowIso={new Date().toISOString()}
-          stock={fakeStockBySku()}
-          inTransit={fakeInTransit()}
-          initial={{ warehouseId: "", ...FAKE_ORDER_VIEW[view] }}
+          initialQuery={defaultQuery(ordersView, {})}
+          initialData={fakeOrdersView(ordersView)}
         />
       ) : null}
       {view === "freturns" || view === "frates" ? (

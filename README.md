@@ -296,6 +296,25 @@ four, for their own warehouses only (enforced in the database); owner, manager a
 | Prices | Selling price, MRP, discount, last change and the history of changes, with flags for selling price at or above MRP, a big overnight drop, and a missing price |
 | Listing health | One row per SKU with its problems: missing package size or weight, slow dispatch SLA, a space at the start or end of the SKU, missing HSN or tax code |
 
+### Why the Flipkart page is fast
+
+- **Region.** `vercel.json` runs the app's functions in Mumbai (`bom1`), next to Supabase (ap-south-1). Every database
+  call used to cross the world twice (Washington to Mumbai). After a deploy, the response header `x-vercel-id` should
+  contain `::bom1::`.
+- **The database does the counting.** Orders are put into Seller Hub's tabs, grouped by SKU, summed into the pick list and
+  set against stock by SQL functions (`flipkart_order_counts`, `flipkart_order_skus`, `flipkart_order_lines`,
+  `flipkart_pick_list`, `flipkart_upcoming_vs_stock`, `flipkart_cancel_*`, `flipkart_empty_with_orders`,
+  `flipkart_stock_units`), each answering in under 100 ms. They run as the signed-in person, so a warehouse user only
+  ever gets their own warehouses. The one rule for "which tab is an order in" is the view `fk_pending_orders`.
+- **The page never receives every row.** The Orders and Stock tabs send the counts and one page (50 rows) of the list on
+  screen. Next page, search, sort and another list are server actions (`src/server/actions/orders-view.ts`,
+  `stock-view.ts`). A SKU's orders and stock are loaded only when its row is opened. Download CSV is a server route
+  (`/flipkart/export`, `/flipkart/stock-export`) that builds the whole list, so the page does not carry it.
+- **The frame comes first.** The title and tabs are sent at once and each tab streams in behind a skeleton.
+- **Needs action** asks the database for small answers (counts, a short list, a few SKUs) instead of reading every order
+  and the whole stock snapshot. Measured in SQL: return rates 50 ms, sales rates 55 ms, stock drops 85 ms, so they are
+  asked fresh each time rather than stored; if they ever get slow, store them at the end of each run.
+
 ### Where the data comes from (all read-only)
 
 | Data | How often | Edge Function |
@@ -414,7 +433,7 @@ src/server/actions    server actions; every input is validated again here
 src/proxy.ts          keeps the session fresh, redirects signed-out visitors to /login
 supabase/migrations   schema, RLS, storage rules
 supabase/functions    Edge Functions (notify: push and the daily digests; stock-sync: the Flipkart stock sync; orders-sync: orders, returns, cancellations)
-supabase/tests        rls_check.sql, phase2_check.sql, phase3_check.sql, phase4_check.sql
+supabase/tests        rls_check.sql, phase2_check.sql, phase3_check.sql, phase4_check.sql, phase4_orders_rpcs_check.sql
 supabase/seed.sql     fake data for local development only
 public/sw.js          service worker (installable app; shows push messages)
 ```

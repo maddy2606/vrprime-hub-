@@ -8,7 +8,7 @@ import { downloadCsv, toCsv, type CsvCell } from "@/lib/csv";
 import { formatNumber } from "@/lib/format";
 
 /** Rows drawn at a time: a phone should not have to draw thousands. */
-const PAGE_ROWS = 200;
+const PAGE_ROWS = 50;
 
 type Props<T> = {
   rows: T[];

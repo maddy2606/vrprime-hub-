@@ -14,17 +14,14 @@ import {
   type CoverState,
   type FlipkartSettings,
   type HealthRow,
-  type PendingOrder,
   type PriceChange,
   type PriceInput,
   type PriceRow,
   type ReturnRate,
-  type StockBySku,
 } from "@/lib/flipkart-analysis";
 import { addDays, todayIST } from "@/lib/format";
 import { logError } from "@/lib/redact";
 import { SETTING_KEYS } from "@/lib/settings-keys";
-import type { DeskData } from "@/lib/stock-analysis";
 import { createClient } from "@/lib/supabase/server";
 import { RUN_COLUMNS, toRun, type OrderSyncState, type RunRowRaw } from "@/lib/orders-sync";
 import type { SessionUser } from "@/lib/types";
@@ -63,53 +60,13 @@ export async function loadFlipkartSettings(supabase: Supabase): Promise<Flipkart
     if (row.key === "price_drop_percent") out.priceDropPercent = whole(row.value, d.priceDropPercent, 1);
     if (row.key === "dispatch_sla_days") out.dispatchSlaDays = whole(row.value, d.dispatchSlaDays, 1);
     if (row.key === "running_out_days") out.runningOutDays = whole(row.value, d.runningOutDays, 1);
+    if (row.key === "new_inactive_days") out.newInactiveDays = whole(row.value, d.newInactiveDays, 1);
     if (row.key === "return_rate_percent") out.returnRatePercent = whole(row.value, d.returnRatePercent, 1);
   }
   return out;
 }
 
 // --- Pending orders ------------------------------------------------------------------------------------------
-
-type PendingRow = {
-  order_item_id: string;
-  order_id: string;
-  shipment_id: string | null;
-  sku: string | null;
-  quantity: number;
-  warehouse_id: string | null;
-  item_status: string | null;
-  hold: boolean;
-  dispatch_by: string | null;
-  dispatch_after: string | null;
-};
-
-export async function loadPendingOrders(supabase: Supabase): Promise<PendingOrder[]> {
-  try {
-    const rows = await fetchAll<PendingRow>((from, to) =>
-      supabase
-        .from("fk_order_items")
-        .select("order_item_id, order_id, shipment_id, sku, quantity, warehouse_id, item_status, hold, dispatch_by, dispatch_after")
-        .eq("platform", "flipkart")
-        .eq("stage", "pending")
-        .order("order_item_id")
-        .range(from, to),
-    );
-    return rows.map((r) => ({
-      orderItemId: r.order_item_id,
-      orderId: r.order_id,
-      shipmentId: r.shipment_id,
-      sku: r.sku,
-      quantity: r.quantity,
-      warehouseId: r.warehouse_id,
-      status: r.item_status,
-      hold: r.hold,
-      dispatchBy: r.dispatch_by,
-      dispatchAfter: r.dispatch_after,
-    }));
-  } catch (error) {
-    return fail("pending orders", error);
-  }
-}
 
 /** Shipped and not yet delivered, per warehouse ID (Seller Hub's In Transit, as a count). */
 export async function loadInTransit(supabase: Supabase): Promise<Record<string, number>> {
@@ -118,18 +75,6 @@ export async function loadInTransit(supabase: Supabase): Promise<Record<string, 
   const out: Record<string, number> = {};
   for (const r of (data ?? []) as { warehouse_id: string | null; shipments: number }[]) {
     if (r.warehouse_id) out[r.warehouse_id] = Number(r.shipments) || 0;
-  }
-  return out;
-}
-
-/** Title and units per warehouse for every SKU in the latest stock snapshot. */
-export function stockBySku(data: DeskData | null): StockBySku {
-  const out: StockBySku = {};
-  if (!data) return out;
-  for (const l of data.listings) {
-    const units: Record<string, number | null> = {};
-    data.warehouses.forEach((w, i) => (units[w.id] = l.now[i] ?? null));
-    out[l.sku] = { title: l.title, units };
   }
   return out;
 }
@@ -158,62 +103,6 @@ export async function loadOrderSyncState(supabase: Supabase, canSeeError: boolea
     return await readOrderSyncState(supabase, canSeeError);
   } catch (error) {
     return fail("order sync state", error);
-  }
-}
-
-// --- Cancellations -----------------------------------------------------------------------------------------------------
-
-export type CancelRow = {
-  orderItemId: string;
-  orderId: string;
-  sku: string | null;
-  quantity: number;
-  warehouseId: string | null;
-  type: "seller" | "buyer";
-  cancelledAt: string | null;
-  reason: string | null;
-  subReason: string | null;
-};
-
-export async function loadCancellations(supabase: Supabase, today: string): Promise<CancelRow[]> {
-  const since = `${addDays(today, -29)}T00:00:00+05:30`;
-  try {
-    const rows = await fetchAll<{
-      order_item_id: string;
-      order_id: string;
-      sku: string | null;
-      quantity: number;
-      warehouse_id: string | null;
-      cancel_type: "seller" | "buyer" | null;
-      cancelled_at: string | null;
-      cancel_reason: string | null;
-      cancel_sub_reason: string | null;
-    }>((from, to) =>
-      supabase
-        .from("fk_order_items")
-        .select("order_item_id, order_id, sku, quantity, warehouse_id, cancel_type, cancelled_at, cancel_reason, cancel_sub_reason")
-        .eq("platform", "flipkart")
-        .eq("stage", "cancelled")
-        .gte("cancelled_at", since)
-        .order("order_item_id")
-        .range(from, to),
-    );
-    return rows
-      .filter((r): r is typeof r & { cancel_type: "seller" | "buyer" } => r.cancel_type !== null)
-      .map((r) => ({
-        orderItemId: r.order_item_id,
-        orderId: r.order_id,
-        sku: r.sku,
-        quantity: r.quantity,
-        warehouseId: r.warehouse_id,
-        type: r.cancel_type,
-        cancelledAt: r.cancelled_at,
-        reason: r.cancel_reason,
-        subReason: r.cancel_sub_reason,
-      }))
-      .sort((a, b) => (b.cancelledAt ?? "").localeCompare(a.cancelledAt ?? ""));
-  } catch (error) {
-    return fail("cancellations", error);
   }
 }
 
@@ -278,29 +167,67 @@ export async function loadReturns(supabase: Supabase, today: string): Promise<Re
   }
 }
 
-export async function loadReturnRates(supabase: Supabase, settings: FlipkartSettings, today: string): Promise<{ rates: ReturnRate[]; historyReady: boolean; coverageFrom: string | null }> {
-  const [rates, sales] = await Promise.all([supabase.rpc("flipkart_return_rates", { p_days: 30 }), supabase.rpc("flipkart_sales_rates")]);
-  if (rates.error || sales.error) fail("return rates", rates.error ?? sales.error);
-  const coverageFrom = readSalesRates(sales.data).coverageFrom;
-  const historyReady = returnHistoryReady(coverageFrom, today);
-  return { rates: buildReturnRates(rates.data, settings, historyReady), historyReady, coverageFrom };
+export async function loadReturnRates(
+  supabase: Supabase,
+  settings: FlipkartSettings,
+  today: string,
+  coverageFrom?: string | null,
+): Promise<{ rates: ReturnRate[]; historyReady: boolean; coverageFrom: string | null }> {
+  const [rates, coverage] = await Promise.all([
+    supabase.rpc("flipkart_return_rates", { p_days: 30 }),
+    coverageFrom !== undefined
+      ? Promise.resolve({ data: coverageFrom, error: null })
+      : supabase.from("order_runs").select("coverage_from").eq("kind", "backfill").not("coverage_from", "is", null).order("created_at", { ascending: false }).limit(1).then((r) => ({ data: r.data?.[0]?.coverage_from ?? null, error: r.error })),
+  ]);
+  if (rates.error || coverage.error) fail("return rates", rates.error ?? coverage.error);
+  const from = (coverage.data as string | null) ?? null;
+  const historyReady = returnHistoryReady(from, today);
+  return { rates: buildReturnRates(rates.data, settings, historyReady), historyReady, coverageFrom: from };
 }
 
 // --- Days of cover ---------------------------------------------------------------------------------------------------------------
 
-export type CoverData = { covers: Cover[]; state: CoverState; soonest: Record<string, Cover> };
+export type CoverData = { covers: Cover[]; state: CoverState; soonest: Record<string, Cover>; coverageFrom: string | null };
 
-export async function loadCover(supabase: Supabase, data: DeskData): Promise<CoverData> {
-  const [sales, drops] = await Promise.all([supabase.rpc("flipkart_sales_rates"), supabase.rpc("flipkart_stock_drops")]);
-  if (sales.error || drops.error) fail("days of cover", sales.error ?? drops.error);
-  const { covers, state } = computeCover({
-    listings: data.listings,
-    warehouses: data.warehouses,
-    sales: readSalesRates(sales.data),
-    drops: readStockDrops(drops.data),
-    today: data.today,
+/** Days of cover, from the sales, the stock drops and the stock itself: three small answers from the database, asked together. */
+export async function loadCover(supabase: Supabase, today: string): Promise<CoverData> {
+  const [sales, drops, units] = await Promise.all([
+    supabase.rpc("flipkart_sales_rates"),
+    supabase.rpc("flipkart_stock_drops"),
+    supabase.rpc("flipkart_stock_units"),
+  ]);
+  if (sales.error || drops.error || units.error) fail("days of cover", sales.error ?? drops.error ?? units.error);
+  const salesRates = readSalesRates(sales.data);
+  const stockUnits = (Array.isArray(units.data) ? units.data : []).flatMap((u) => {
+    const r = u as { sku?: unknown; wid?: unknown; units?: unknown };
+    return typeof r.sku === "string" && typeof r.wid === "string" && typeof r.units === "number" ? [{ sku: r.sku, warehouseId: r.wid, units: r.units }] : [];
   });
-  return { covers, state, soonest: soonestBySku(covers) };
+  const { covers, state } = computeCover({ units: stockUnits, sales: salesRates, drops: readStockDrops(drops.data), today });
+  return { covers, state, soonest: soonestBySku(covers), coverageFrom: salesRates.coverageFrom };
+}
+
+/** SKUs with no stock at a warehouse that has orders waiting to be packed there. */
+export async function loadEmpties(supabase: Supabase): Promise<{ sku: string; warehouseId: string; orders: number; units: number }[]> {
+  const { data, error } = await supabase.rpc("flipkart_empty_with_orders");
+  if (error) fail("empty with orders", error);
+  return (Array.isArray(data) ? data : []).flatMap((r) => {
+    const x = r as { sku?: unknown; warehouse_id?: unknown; orders?: unknown; units?: unknown };
+    return typeof x.sku === "string" && typeof x.warehouse_id === "string" ? [{ sku: x.sku, warehouseId: x.warehouse_id, orders: Number(x.orders) || 0, units: Number(x.units) || 0 }] : [];
+  });
+}
+
+/** Listings that went inactive within the last N days (and were not already inactive when tracking began). */
+export async function loadNewInactive(supabase: Supabase, today: string, days: number): Promise<{ sku: string; inactiveSince: string | null }[]> {
+  const { data, error } = await supabase
+    .from("stock_listings")
+    .select("sku, inactive_since")
+    .eq("platform", "flipkart")
+    .eq("status", "INACTIVE")
+    .eq("inactive_before_tracking", false)
+    .gte("inactive_since", addDays(today, -days))
+    .order("inactive_since", { ascending: false });
+  if (error) fail("new inactive", error);
+  return (data ?? []).map((r) => ({ sku: r.sku, inactiveSince: r.inactive_since }));
 }
 
 // --- Prices and listing health (owner, manager, listing only: the database enforces it for prices) ---------------------------

@@ -70,7 +70,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
             onClick={() => {
               setValues((v) => ({ ...v, type: t, platform: t === "new_listing" && !v.platform ? "flipkart" : v.platform }));
             }}
-            className="focus-ring rounded-xl border border-line bg-surface p-4 text-left transition hover:border-accent"
+            className="focus-ring sp-card p-4 text-left transition hover:border-accent"
           >
             <span className="block text-base font-extrabold">{TYPE_LABEL[t]}</span>
             <span className="mt-0.5 block text-sm text-muted">{TYPE_HINT[t]}</span>
@@ -124,7 +124,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
       }}
       className="flex flex-col gap-4"
     >
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+      <div className="flex items-center justify-between gap-3 sp-card px-4 py-3">
         <div>
           <p className="text-xs font-semibold text-muted">Type</p>
           <p className="text-base font-extrabold">{TYPE_LABEL[type]}</p>
@@ -307,7 +307,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
         <details
           open={more}
           onToggle={(e) => setMore(e.currentTarget.open)}
-          className="rounded-xl border border-line bg-surface"
+          className="sp-card"
         >
           <summary className="focus-ring flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-extrabold">
             More details <span className="text-xs font-semibold text-muted">optional</span>

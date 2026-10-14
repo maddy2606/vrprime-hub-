@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
-import { TicketTabs } from "@/components/tickets/ticket-tabs";
 import { buttonClass, EmptyState, PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
@@ -116,8 +115,7 @@ export default async function TicketsPage({
           </Link>
         }
       />
-      <TicketFilters values={filters} />
-      <TicketTabs filters={filters} counts={counts} />
+      <TicketFilters values={filters} counts={counts} />
 
       {tickets.length ? (
         <>

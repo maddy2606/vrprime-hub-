@@ -85,7 +85,7 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
             const stock = detail?.state === "ready" ? detail.detail.stock : null;
             const anyShort = stock !== null && whIds.some((id) => shortBy(g.by_wh[id], id in stock ? stock[id] : null) > 0);
             return (
-              <li key={g.sku} className="rounded-xl border border-line bg-surface">
+              <li key={g.sku} className="sp-card">
                 <button type="button" aria-expanded={expanded} onClick={() => toggle(g.sku)} className="focus-ring flex w-full min-w-0 flex-col gap-1.5 rounded-xl p-3 text-left">
                   <span className="flex w-full items-start justify-between gap-2">
                     <span className="min-w-0">

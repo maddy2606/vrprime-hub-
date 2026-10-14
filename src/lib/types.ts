@@ -342,6 +342,8 @@ export type Database = {
       flipkart_return_rates: { Args: { p_days?: number }; Returns: Json };
       flipkart_snapshot_date: { Args: Record<string, never>; Returns: string | null };
       flipkart_forecast: { Args: { p_days?: number }; Returns: Json };
+      deck_series: { Args: { p_low?: number }; Returns: Json };
+      dispatch_series: { Args: { p_days?: number }; Returns: Json };
       flipkart_order_counts: { Args: Record<string, never>; Returns: Json };
       flipkart_order_skus: {
         Args: { p_wh?: string | null; p_status?: string; p_q?: string | null; p_sort?: string; p_dir?: string; p_limit?: number; p_offset?: number };

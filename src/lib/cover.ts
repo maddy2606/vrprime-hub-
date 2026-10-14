@@ -1,7 +1,7 @@
 // ONE definition of "days of cover" for the whole app: the Stock tab, Forecasting and Needs action all call this.
 //
 //   rate  = units dispatched in the window / complete days in the window   (dispatched by DISPATCH day; see
-//           flipkart_forecast in the database: the same rate the Forecasting tab uses)
+//           flipkart_forecast in the database, which reads the dispatch_daily totals the order sync keeps)
 //   cover = units in stock / rate, or none when nothing was dispatched
 //
 // Pure functions; relative imports so the tests can load them.

@@ -88,7 +88,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
           </label>
         ) : null}
         {rows.map((row) => (
-          <article key={rowKey(row)} className="rounded-xl border border-line bg-surface p-3">
+          <article key={rowKey(row)} className="sp-card p-3">
             <div className="min-w-0">{first.cell(row)}</div>
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
               {fields.map((c) => (
@@ -104,10 +104,10 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
       </div>
 
       {/* Wider screens: table */}
-      <div className="hidden max-h-[75vh] overflow-auto rounded-xl border border-line bg-surface min-[481px]:block">
+      <div className="hidden max-h-[75vh] overflow-auto sp-card min-[481px]:block">
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-20">
-            <tr className="border-b border-line bg-surface2">
+            <tr className="border-b border-line bg-panel2">
               {main.map((c, i) => {
                 const active = c.sort && c.key === sortKey;
                 return (
@@ -115,7 +115,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                     key={c.key}
                     scope="col"
                     aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
-                    className={`bg-surface2 p-0 font-bold ${i === 0 ? "sticky left-0 z-10" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}
+                    className={`bg-panel2 p-0 font-bold ${i === 0 ? "sticky left-0 z-10" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}
                   >
                     {c.sort ? (
                       <button
@@ -136,7 +136,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                   </th>
                 );
               })}
-              {minor.length ? <th scope="col" className="w-10 bg-surface2"><span className="sr-only">More</span></th> : null}
+              {minor.length ? <th scope="col" className="w-10 bg-panel2"><span className="sr-only">More</span></th> : null}
             </tr>
           </thead>
           <tbody>

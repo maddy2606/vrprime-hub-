@@ -51,6 +51,9 @@ begin
     on conflict do nothing;
   end if;
 
+  -- The forecast reads the daily totals, which the order sync rebuilds when it finishes: do the same here.
+  perform private.dispatch_daily_refresh();
+
   -- ---- Owner: everything ----------------------------------------------------------------------------------------------
   perform set_config('request.jwt.claims', json_build_object('sub', u_own, 'role', 'authenticated')::text, true);
   set local role authenticated;

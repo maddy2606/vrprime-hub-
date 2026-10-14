@@ -1,49 +1,35 @@
 @import "tailwindcss";
 
+/* SIGNAL PRO: the one source of truth for colour. Dark only. src/lib/theme.ts mirrors these for the canvas charts. */
 :root {
-  --canvas: #f2f4f1;
-  --surface: #ffffff;
-  --surface2: #e8ece7;
-  --line: #d6dcd5;
-  --ink: #1a211e;
-  --muted: #5b6862;
-  --accent: #17695a;
+  --canvas: #07070c;
+  --surface: #0f0f18;
+  --panel2: #0c0c14;
+  --surface2: #14141f;
+  --line: #23222f;
+  --line-soft: #191824;
+  --ink: #f3f2f9;
+  --muted: #9b99b2;
+  --faint: #615f78;
+  --accent: #8b5cf6;
   --accent-ink: #ffffff;
-  --accent-soft: #d9ebe5;
-  --accent-text: #125548;
-  --bad: #a8261d;
-  --bad-soft: #fae6e3;
-  --warn: #7d5200;
-  --warn-soft: #fbedcc;
-  --ok: #1c6b36;
-  --ok-soft: #dff1e3;
-  --info: #22529c;
-  --info-soft: #e1ebfa;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #0e1312;
-    --surface: #161c1a;
-    --surface2: #202826;
-    --line: #2c3633;
-    --ink: #e5ebe8;
-    --muted: #96a39e;
-    --accent: #2f9c85;
-    --accent-ink: #04201a;
-    --accent-soft: #15332c;
-    --accent-text: #6fd0ba;
-    --bad: #ff9389;
-    --bad-soft: #3b1b18;
-    --warn: #f0be5e;
-    --warn-soft: #3a2b0e;
-    --ok: #7fd699;
-    --ok-soft: #14301e;
-    --info: #92b8f6;
-    --info-soft: #172743;
-    color-scheme: dark;
-  }
+  --accent-soft: #191233;
+  --accent-text: #b8a1ff;
+  --cyan: #3fe0e0;
+  --cyan-soft: #0a2a2d;
+  --bad: #ff4d67;
+  --bad-soft: #2a0e18;
+  --warn: #ffb020;
+  --warn-soft: #2a1d08;
+  --ok: #35e0a0;
+  --ok-soft: #0c2619;
+  --info: #3fe0e0;
+  --info-soft: #0a2a2d;
+  --radius: 16px;
+  --radius-lg: 22px;
+  --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 0 0 1px var(--line), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  --glow: 0 0 0 1px rgba(139, 92, 246, 0.6), 0 8px 26px -6px rgba(139, 92, 246, 0.55);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -65,7 +51,12 @@
   --color-ok-soft: var(--ok-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
-  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --color-cyan: var(--cyan);
+  --color-cyan-soft: var(--cyan-soft);
+  --color-panel2: var(--panel2);
+  --color-faint: var(--faint);
+  --color-line-soft: var(--line-soft);
+  --font-sans: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
 }
 
@@ -75,6 +66,9 @@ html {
 
 body {
   background: var(--canvas);
+  background-image: radial-gradient(1100px 560px at 78% -12%, #1a1430 0%, #0b0b15 46%, #07070c 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--ink);
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
@@ -101,7 +95,7 @@ body {
   }
   .input:focus-visible,
   .focus-ring:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-text);
     outline-offset: 1px;
   }
   .input[aria-invalid="true"] {
@@ -131,6 +125,46 @@ body {
   animation: toast-in 160ms ease-out;
 }
 
+
+/* ---- Signal Pro: cards, buttons, motion ---- */
+.sp-card {
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.sp-card-lg { border-radius: var(--radius-lg); }
+.sp-lift { transition: transform 160ms ease, box-shadow 160ms ease; }
+.sp-lift:hover { transform: translateY(-2px); }
+.sp-glow { box-shadow: var(--glow); }
+.sp-glow:hover { box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.8), 0 10px 30px -6px rgba(139, 92, 246, 0.7); }
+
+@keyframes sp-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+/* One staggered fade-up on load. The delay comes from --i on each element. */
+.sp-reveal { animation: sp-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
+
+@keyframes sp-pulse {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70% { box-shadow: 0 0 0 7px transparent; opacity: 0.8; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+.sp-dot { animation: sp-pulse 2s ease-out infinite; }
+
+@keyframes sp-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.sp-bar { transform-origin: left; animation: sp-grow 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 60ms + 200ms); }
+
+@keyframes sp-wipe { from { clip-path: inset(-4px 100% -4px 0); } to { clip-path: inset(-4px -4px -4px 0); } }
+.sp-wipe { animation: sp-wipe 1100ms cubic-bezier(0.3, 0.6, 0.2, 1) both; animation-delay: 250ms; }
+@keyframes sp-fadein { from { opacity: 0; } to { opacity: 1; } }
+.sp-fade { animation: sp-fadein 500ms ease both; animation-delay: 1100ms; }
+@keyframes sp-gaugein { from { stroke-dasharray: 0 100; } }
+.sp-gauge-arc { animation: sp-gaugein 1000ms cubic-bezier(0.3, 0.6, 0.2, 1) both; animation-delay: 300ms; }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
 @media (prefers-reduced-motion: reduce) {
-  .skeleton, .toast { animation: none; }
+  .skeleton, .toast, .sp-reveal, .sp-dot, .sp-bar, .sp-wipe, .sp-fade, .sp-gauge-arc { animation: none !important; }
+  .sp-lift, .sp-lift:hover { transition: none; transform: none; }
 }

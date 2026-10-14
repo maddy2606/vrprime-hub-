@@ -17,6 +17,8 @@ import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { PricesTab } from "@/components/flipkart/prices-tab";
 import { ReturnsTab } from "@/components/flipkart/returns-tab";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
+import { DispatchChart, Hero, Movers, PriorityQueue, Pulses, StockHealth, Warehouses } from "@/components/deck/sections";
+import { fakeDeck } from "@/lib/dev-fixtures-deck";
 import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { MarkAllReadButton, NotificationList } from "@/components/notifications/notification-list";
@@ -24,7 +26,6 @@ import { PushSettings } from "@/components/notifications/push-settings";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
 import { TicketForm } from "@/components/tickets/ticket-form";
-import { TicketTabs } from "@/components/tickets/ticket-tabs";
 import { PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
 import {
@@ -55,9 +56,13 @@ import { isViewKey } from "@/lib/stock-views";
 import { emptyTicket } from "@/lib/ticket-options";
 import { POST_TYPES, type PostType } from "@/lib/types";
 
+const PREVIEW_SYNCED = new Date(Date.now() - 42_000).toISOString();
+
 // Local-only screen for checking layout (360px, dark mode) with fake data,
 // without touching the real database. It does not exist in production.
 const VIEWS = [
+  "deck",
+  "deckclear",
   "mywork",
   "listings",
   "empty",
@@ -123,7 +128,7 @@ export default async function PreviewPage({
   }));
 
   return (
-    <AppShell user={{ name: me.name, role: "owner", email: "fake.owner@example.test" }} unread={3}>
+    <AppShell user={{ name: me.name, role: "owner", email: "fake.owner@example.test" }} unread={3} scope="All warehouses" syncedAt={PREVIEW_SYNCED}>
       <nav className="mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">
         <span>Preview (fake data):</span>
         {VIEWS.map((v) => (
@@ -133,6 +138,21 @@ export default async function PreviewPage({
         ))}
       </nav>
 
+      {view === "deck" || view === "deckclear" ? (
+        <div className="flex flex-col gap-5">
+          <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
+            <Hero d={fakeDeck(view === "deckclear")} />
+            <Pulses d={fakeDeck(view === "deckclear")} />
+          </div>
+          <div className="grid items-start gap-5 lg:grid-cols-[1.5fr_1fr]">
+            <PriorityQueue d={fakeDeck(view === "deckclear")} />
+            <Warehouses d={fakeDeck(view === "deckclear")} />
+          </div>
+          <DispatchChart d={fakeDeck(view === "deckclear")} />
+          <StockHealth d={fakeDeck(view === "deckclear")} />
+          <Movers d={fakeDeck(view === "deckclear")} />
+        </div>
+      ) : null}
       {view === "mywork" ? <MyWork posts={open} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "empty" ? <MyWork posts={[]} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "all" ? (
@@ -177,11 +197,7 @@ export default async function PreviewPage({
       {view === "tickets" ? (
         <>
           <PageTitle title="Tickets" sub="2 open · 1 waiting · 2 follow-up due" />
-          <TicketFilters values={{ q: "", platform: "", issue: "", tab: "open" }} />
-          <TicketTabs
-            filters={{ q: "", platform: "", issue: "", tab: "open" }}
-            counts={{ open_count: 2, waiting_count: 1, follow_up_due: 2, closed_count: 1 }}
-          />
+          <TicketFilters values={{ q: "", platform: "", issue: "", tab: "open" }} counts={{ open_count: 2, waiting_count: 1, follow_up_due: 2, closed_count: 1 }} />
           <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
             {FAKE_TICKETS.map((t) => {
               const post: TicketPost | null = FAKE_POSTS.find((p) => p.id === t.post_id) ?? null;
@@ -267,7 +283,7 @@ export default async function PreviewPage({
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}
       {view === "password" ? (
-        <div className="mx-auto max-w-sm rounded-xl border border-line bg-surface p-5">
+        <div className="mx-auto max-w-sm sp-card p-5">
           <ChangePasswordForm />
         </div>
       ) : null}

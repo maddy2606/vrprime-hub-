@@ -84,7 +84,7 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
   const daysLoaded = backfill?.coverageFrom ? Math.min(30, daysBetween(backfill.coverageFrom, today) + 1) : 0;
 
   return (
-    <div className="mb-4 rounded-xl border border-line bg-surface px-3 py-2">
+    <div className="mb-4 sp-card px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-40">
           {running ? (

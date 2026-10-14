@@ -28,7 +28,7 @@ export function isTabKey(value: unknown): value is TabKey {
 /** The page's tabs: one row that scrolls sideways on a phone. Plain links: each tab loads only its own data. */
 export function TabBar({ tabs, active }: { tabs: TabKey[]; active: TabKey }) {
   return (
-    <nav aria-label="Flipkart sections" className="-mx-4 mb-4 flex overflow-x-auto border-b border-line px-4 lg:mx-0 lg:px-0">
+    <nav aria-label="Flipkart sections" className="-mx-4 mb-4 flex overflow-x-auto overflow-y-hidden border-b border-line px-4 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
       {tabs.map((key) => (
         <Link
           key={key}

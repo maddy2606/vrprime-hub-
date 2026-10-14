@@ -95,11 +95,11 @@ export default async function AllPostsPage({
 
   return (
     <>
-      <div className="mb-4 flex gap-1 rounded-lg border border-line bg-surface p-1 lg:hidden">
-        <Link prefetch={false} href="/" className="focus-ring flex min-h-10 flex-1 items-center justify-center rounded-md text-sm font-bold text-muted">
+      <div className="mb-4 flex max-w-sm gap-1 rounded-xl border border-line bg-panel2 p-1">
+        <Link prefetch={false} href="/work" className="focus-ring flex min-h-11 flex-1 items-center justify-center rounded-[10px] text-sm font-bold text-muted">
           My work
         </Link>
-        <span className="flex min-h-10 flex-1 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-ink">
+        <span className="flex min-h-11 flex-1 items-center justify-center rounded-[10px] bg-accent text-sm font-bold text-accent-ink sp-glow">
           Everything
         </span>
       </div>

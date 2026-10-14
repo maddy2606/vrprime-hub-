@@ -16,7 +16,7 @@ import {
   type ReturnRate,
 } from "@/lib/flipkart-analysis";
 import { COVER_HISTORY_DAYS, coverBySku, coversPerWarehouse, type DispatchRow } from "@/lib/cover";
-import { readForecast } from "@/lib/forecast";
+import { readForecast, type ForecastRaw } from "@/lib/forecast";
 import { addDays, todayIST } from "@/lib/format";
 import { NOT_FOUND_DAYS } from "@/lib/new-listing";
 import { logError } from "@/lib/redact";
@@ -136,6 +136,8 @@ export type CoverData = {
   coverageFrom: string | null;
   /** The dispatch rows the covers come from (units dispatched and stock per SKU and warehouse). */
   raw: DispatchRow[];
+  /** The same rows with the product title, for lists that show it. */
+  forecast: ForecastRaw[];
   days: number;
 };
 
@@ -159,7 +161,7 @@ export async function loadCover(supabase: Supabase): Promise<CoverData> {
     ordersReady: ready,
     stockReady: ready,
   };
-  return { covers, state, soonest: ready ? coverBySku(rows, meta.days, null) : {}, coverageFrom: meta.historyFrom, raw: rows, days: meta.days };
+  return { covers, state, soonest: ready ? coverBySku(rows, meta.days, null) : {}, coverageFrom: meta.historyFrom, raw: rows, forecast: raw, days: meta.days };
 }
 
 /** SKUs with no stock at a warehouse that has orders waiting to be packed there. */

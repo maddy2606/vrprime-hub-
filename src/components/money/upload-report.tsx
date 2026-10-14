@@ -87,7 +87,7 @@ export function UploadReport() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-line bg-surface p-4">
+      <div className="sp-card p-4">
         <p className="text-base font-extrabold">Upload report</p>
         <p className="mt-1 text-sm text-muted">
           In Seller Hub go to Payments, then Reports, and download <b>Settled Transactions</b> and the <b>Profit and Loss Report</b> (up to 30 days each).

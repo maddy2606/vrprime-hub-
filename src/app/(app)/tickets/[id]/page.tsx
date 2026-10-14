@@ -46,7 +46,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
         </Link>
       </div>
 
-      <div className="mb-4 rounded-xl border border-line bg-surface p-4">
+      <div className="mb-4 sp-card p-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-mono text-sm font-medium text-muted">{ticketNumber(ticket.number)}</span>
           <Chip tone="accent">{PLATFORM_LABEL[ticket.platform]}</Chip>

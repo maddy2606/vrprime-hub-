@@ -2,13 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { SearchIcon } from "@/components/icons";
+import { Dropdown, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
 import { ISSUE_LABEL, PLATFORM_LABEL } from "@/lib/labels";
-import { ticketsUrl, type TicketFilterValues } from "@/lib/ticket-options";
+import { ticketsUrl, type TicketFilterValues, type TicketTab } from "@/lib/ticket-options";
+import type { TicketCounts } from "@/components/tickets/ticket-tabs";
+
+const TABS: { key: TicketTab; label: string; count: (c: TicketCounts) => number }[] = [
+  { key: "open", label: "Open", count: (c) => c.open_count },
+  { key: "waiting", label: "Waiting", count: (c) => c.waiting_count },
+  { key: "due", label: "Follow-up due", count: (c) => c.follow_up_due },
+  { key: "closed", label: "Closed", count: (c) => c.closed_count },
+];
 import { ISSUE_TYPES, PLATFORMS } from "@/lib/types";
 
-/** Search, platform and issue type. The tab (open, waiting, ...) is kept while these change. */
-export function TicketFilters({ values }: { values: TicketFilterValues }) {
+/** One toolbar: the ticket groups with their counts, platform, issue type and search. Changing any keeps the others. */
+export function TicketFilters({ values, counts }: { values: TicketFilterValues; counts: TicketCounts }) {
   const router = useRouter();
   const [q, setQ] = useState(values.q);
   const [pending, startTransition] = useTransition();
@@ -30,48 +38,32 @@ export function TicketFilters({ values }: { values: TicketFilterValues }) {
 
   const set = (patch: Partial<TicketFilterValues>) => go({ ...values, q, ...patch });
   const filtered = Boolean(values.q || values.platform || values.issue);
-  const select = "input min-h-10 py-1.5";
 
   return (
-    <div className="mb-4 flex flex-col gap-2">
-      <div className="relative">
-        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-        <label htmlFor="ticket-search" className="sr-only">
-          Search tickets
-        </label>
-        <input
-          id="ticket-search"
-          type="search"
-          className="input pl-10"
-          placeholder="Search ticket ID, SKU or problem"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          autoComplete="off"
-          enterKeyHint="search"
+    <div className="mb-4">
+      <Toolbar>
+        <Segmented<TicketTab>
+          label="Ticket groups"
+          value={values.tab}
+          onChange={(tab) => set({ tab })}
+          options={TABS.map((t) => ({ key: t.key, label: t.label, count: t.count(counts) }))}
         />
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <select aria-label="Platform" className={select} value={values.platform} onChange={(e) => set({ platform: e.target.value })}>
-          <option value="">All platforms</option>
-          {PLATFORMS.map((p) => (
-            <option key={p} value={p}>
-              {PLATFORM_LABEL[p]}
-            </option>
-          ))}
-        </select>
-        <select aria-label="Issue type" className={select} value={values.issue} onChange={(e) => set({ issue: e.target.value })}>
-          <option value="">All issue types</option>
-          {ISSUE_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {ISSUE_LABEL[t]}
-            </option>
-          ))}
-        </select>
-      </div>
-
+        <Dropdown
+          label="Platform"
+          value={values.platform}
+          onChange={(platform) => set({ platform })}
+          options={[{ value: "", label: "All" }, ...PLATFORMS.map((p) => ({ value: p, label: PLATFORM_LABEL[p] }))]}
+        />
+        <Dropdown
+          label="Issue"
+          value={values.issue}
+          onChange={(issue) => set({ issue })}
+          options={[{ value: "", label: "All" }, ...ISSUE_TYPES.map((t) => ({ value: t, label: ISSUE_LABEL[t] }))]}
+        />
+        <SearchField value={q} onChange={setQ} placeholder="Search ticket ID, SKU or problem" label="Search tickets" />
+      </Toolbar>
       {filtered || pending ? (
-        <div className="flex min-h-9 items-center gap-2">
+        <div className="-mt-2 flex min-h-9 items-center gap-2">
           {filtered ? (
             <button
               type="button"

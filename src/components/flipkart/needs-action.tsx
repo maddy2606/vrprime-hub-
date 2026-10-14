@@ -60,7 +60,7 @@ function Section({ section }: { section: ActionSection }) {
         {section.title}
         <span className="text-sm font-semibold text-muted">{formatNumber(section.rows.length)}</span>
       </h2>
-      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
+      <ul className="divide-y divide-line overflow-hidden sp-card">
         {rows.map((r) => (
           <Row key={r.key} row={r} plain={section.key === "orders"} />
         ))}

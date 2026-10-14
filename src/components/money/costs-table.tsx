@@ -37,7 +37,7 @@ function Row({ initial, isNew, today, onDone }: { initial: Draft; isNew: boolean
 
   const field = "input min-h-10 w-full py-1.5";
   return (
-    <li className="rounded-xl border border-line bg-surface p-3">
+    <li className="sp-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         {isNew ? (
           <input aria-label="SKU" className={`${field} min-w-40 flex-1 font-mono`} placeholder="SKU" value={d.sku} onChange={(e) => set("sku", e.target.value)} maxLength={120} autoCapitalize="characters" autoCorrect="off" spellCheck={false} />
@@ -184,7 +184,7 @@ export function CostsTable({ costs, missing, today }: { costs: CostRow[]; missin
             ))}
           </ul>
         ) : (
-          <p className="rounded-xl border border-line bg-surface p-4 text-sm text-muted">{costs.length ? "No SKU matches." : "No costs yet. Add one, or import a CSV."}</p>
+          <p className="sp-card p-4 text-sm text-muted">{costs.length ? "No SKU matches." : "No costs yet. Add one, or import a CSV."}</p>
         )}
         {shown.length > 100 ? <p className="mt-2 text-xs text-muted">Showing 100 of {shown.length}. Search to narrow the list.</p> : null}
       </div>

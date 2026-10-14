@@ -246,7 +246,7 @@ export function UsersAdmin({ users, warehouses, meId }: { users: AdminUser[]; wa
                   setEditing({ id: u.id, name: u.name, email: u.email, role: u.role, phone: u.phone ?? "", active: u.active, password: "", warehouseIds: u.warehouseIds });
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                className={`focus-ring w-full rounded-xl border border-line bg-surface p-3 text-left transition hover:border-accent ${u.active ? "" : "opacity-60"}`}
+                className={`focus-ring w-full sp-card p-3 text-left transition hover:border-accent ${u.active ? "" : "opacity-60"}`}
               >
                 <span className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[15px] font-bold">{u.name}</span>

@@ -374,7 +374,7 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
       ) : null}
 
       {summary ? (
-        <div className="mb-4 overflow-x-auto rounded-xl border border-line bg-surface">
+        <div className="mb-4 overflow-x-auto sp-card">
           <table className="w-full border-collapse text-sm">
             <caption className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-muted">Cancellations per day</caption>
             <thead>

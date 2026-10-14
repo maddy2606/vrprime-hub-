@@ -2,7 +2,7 @@
 
 // The small shared pieces of the Flipkart page, so every tab looks and behaves the same:
 //   Toolbar    one row: segmented control for the sub-view, compact dropdown filters, search, CSV. Wraps on a phone.
-//   Segmented  the sub-view switch. Teal marks the one that is on.
+//   Segmented  the sub-view switch. Violet marks the one that is on.
 //   Dropdown   a labelled compact filter.
 //   SearchField, CsvButton, InfoTip (the "i" that holds long explanations), Caption (one line of small text).
 //   PageSection, StatTile, MiniStat for headings and numbers.
@@ -29,7 +29,7 @@ export function Segmented<K extends string>({
   onChange: (key: K) => void;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-lg border border-line bg-surface2 p-0.5">
+    <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-panel2 p-0.5">
       {options.map((o) => {
         const on = value === o.key;
         return (
@@ -38,12 +38,12 @@ export function Segmented<K extends string>({
             type="button"
             aria-pressed={on}
             onClick={() => onChange(o.key)}
-            className={`focus-ring flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-semibold transition sm:min-h-9 ${
-              on ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
+            className={`focus-ring flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-sm font-semibold transition sm:min-h-9 ${
+              on ? "bg-accent text-accent-ink sp-glow" : "text-muted hover:text-ink"
             }`}
           >
             {o.label}
-            {o.count !== undefined ? <span className={`text-xs font-medium tabular-nums ${on ? "text-accent-ink/80" : "text-muted"}`}>{formatNumber(o.count)}</span> : null}
+            {o.count !== undefined ? <span className={`font-mono text-xs font-medium tabular-nums ${on ? "text-accent-ink/80" : "text-faint"}`}>{formatNumber(o.count)}</span> : null}
           </button>
         );
       })}
@@ -64,7 +64,7 @@ export function Dropdown({
 }) {
   const id = useId();
   return (
-    <div className="flex min-h-11 min-w-[9.5rem] flex-1 items-center gap-1.5 rounded-lg border border-line bg-surface pl-2.5 sm:min-h-9 sm:flex-none">
+    <div className="flex min-h-11 min-w-[9.5rem] flex-1 items-center gap-1.5 sp-card pl-2.5 sm:min-h-9 sm:flex-none">
       <label htmlFor={id} className="shrink-0 text-xs font-semibold text-muted">
         {label}
       </label>
@@ -106,7 +106,7 @@ export function SearchField({ value, onChange, placeholder, label }: { value: st
 }
 
 const OUTLINE_BUTTON =
-  "focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-surface2 disabled:opacity-50 sm:min-h-9";
+  "focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 sp-card px-3 text-sm font-semibold transition hover:-translate-y-px hover:bg-surface2 disabled:opacity-50 sm:min-h-9";
 
 export function CsvButton({ href, onClick, disabled }: { href?: string; onClick?: () => void; disabled?: boolean }) {
   if (href) {
@@ -133,7 +133,7 @@ export function InfoTip({ children, label = "More about this" }: { children: Rea
       >
         <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-xs font-bold leading-none">i</span>
       </summary>
-      <div className="absolute right-0 z-30 mt-1 w-72 max-w-[85vw] rounded-lg border border-line bg-surface p-3 text-xs leading-relaxed shadow-xl sm:left-0 sm:right-auto">{children}</div>
+      <div className="absolute right-0 z-30 mt-1 w-72 max-w-[85vw] rounded-xl border border-line bg-surface2 p-3 text-xs leading-relaxed shadow-xl sm:left-0 sm:right-auto">{children}</div>
     </details>
   );
 }
@@ -159,7 +159,7 @@ export function PageSection({ title, count, children }: { title: string; count?:
 export function StatTile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "bad" | "warn" | "ok" }) {
   const color = tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : tone === "ok" ? "text-ok" : "";
   return (
-    <div className="min-w-0 rounded-xl border border-line bg-surface p-3">
+    <div className="min-w-0 sp-card p-3">
       <span className="block text-xs font-semibold leading-tight text-muted">{label}</span>
       <span className={`mt-1 block font-mono text-xl font-bold leading-none tabular-nums ${color}`}>{value}</span>
       {sub ? <span className="mt-1 block text-xs text-muted">{sub}</span> : null}

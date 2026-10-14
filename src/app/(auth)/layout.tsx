@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           <p className="text-sm text-muted">Tasks, problems and stock</p>
         </div>
       </div>
-      <div className="rounded-xl border border-line bg-surface p-5">{children}</div>
+      <div className="sp-card p-5">{children}</div>
     </main>
   );
 }

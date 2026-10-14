@@ -76,7 +76,7 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
       className="flex flex-col gap-4"
     >
       {linkedPost ? (
-        <div className="rounded-xl border border-line bg-surface px-4 py-3">
+        <div className="sp-card px-4 py-3">
           <p className="text-xs font-semibold text-muted">Linked post</p>
           <Link prefetch={false} href={`/posts/${linkedPost.id}`} className="focus-ring mt-0.5 block break-words text-sm font-bold">
             <span className="font-mono">{postNumber(linkedPost.number)}</span> · {linkedPost.title}

@@ -114,3 +114,32 @@ export const ChevronDownIcon = (p: IconProps) => (
     <path d="m6 9 6 6 6-6" />
   </Icon>
 );
+
+export const DeckIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4" y="4" width="7" height="9" rx="2" />
+    <rect x="13" y="4" width="7" height="5" rx="2" />
+    <rect x="13" y="11" width="7" height="9" rx="2" />
+    <rect x="4" y="15" width="7" height="5" rx="2" />
+  </Icon>
+);
+
+export const BoardIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4" y="4" width="16" height="16" rx="3" />
+    <path d="M9.5 4v16M14.5 4v16M4 10h5.5M14.5 14H20" />
+  </Icon>
+);
+
+export const TrendIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 17l5-5 4 3 7-8" />
+    <path d="M15 7h5v5" />
+  </Icon>
+);
+
+export const CommandIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 9V6.5A2.5 2.5 0 1 0 6.5 9H9zm0 0h6m-6 0v6m6-6V6.5A2.5 2.5 0 1 1 17.5 9H15zm0 0v6m0 0h2.5a2.5 2.5 0 1 1-2.5 2.5V15zm0 0H9m0 0v2.5A2.5 2.5 0 1 1 6.5 15H9z" />
+  </Icon>
+);

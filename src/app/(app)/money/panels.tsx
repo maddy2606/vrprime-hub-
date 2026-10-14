@@ -91,7 +91,7 @@ function PeriodPicker({ tab, period }: { tab: string; period: Period }) {
 
 function Tile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "bad" | "ok" }) {
   return (
-    <div className="rounded-xl border border-line bg-surface p-3">
+    <div className="sp-card p-3">
       <p className="text-xs font-semibold text-muted">{label}</p>
       <p className={`mt-0.5 text-lg font-extrabold tabular-nums ${tone === "bad" ? "text-bad" : tone === "ok" ? "text-ok" : ""}`}>{value}</p>
       {sub ? <p className="mt-0.5 text-xs text-muted">{sub}</p> : null}
@@ -269,7 +269,7 @@ export async function UploadsPanel({ db }: { db: MoneyDb }) {
       {uploads.length ? (
         <ul className="flex flex-col gap-2">
           {uploads.map((u) => (
-            <li key={u.id} className="rounded-xl border border-line bg-surface p-3 text-sm">
+            <li key={u.id} className="sp-card p-3 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <Chip tone={u.status === "done" ? "ok" : u.status === "failed" ? "bad" : "warn"}>{u.status === "done" ? "Done" : u.status === "failed" ? "Failed" : "Running"}</Chip>
                 <span className="font-bold">{u.kind === "settled" ? "Settled Transactions" : "Profit and Loss"}</span>

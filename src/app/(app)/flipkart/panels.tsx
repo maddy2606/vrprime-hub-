@@ -107,7 +107,7 @@ export async function OrdersPanel({ user, sp }: { user: SessionUser; sp: Search 
   const view = one(sp.view);
   const status = one(sp.status);
   const asked = ordersQuerySchema.safeParse({ ...defaultQuery("sku"), view: view === "list" || view === "cancelled" ? view : "sku", status: status || "active", wh: UUID.test(wh) ? wh : "" });
-  const query: OrdersQuery = asked.success ? defaultQuery(asked.data.view, { status: asked.data.status, wh: asked.data.wh }) : defaultQuery("sku");
+  const query: OrdersQuery = asked.success ? defaultQuery(asked.data.view, { status: asked.data.status, wh: asked.data.wh, q: one(sp.q).slice(0, 100) }) : defaultQuery("sku");
 
   // The cards and the first page of the list the address asks for are read together; only the pick list has to
   // wait for the cards (it opens on the first warehouse that has something to pack).

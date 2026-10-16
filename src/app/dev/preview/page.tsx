@@ -354,6 +354,9 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
             { sku: "FAKE-RACK-BLK", wid: FAKE_WAREHOUSES[3].id, title: "Fake black rack, two piece", disp: 30, stock: 200 },
             { sku: "FAKE-RACK-BLK2", wid: FAKE_WAREHOUSES[4].id, title: null, disp: 6, stock: 3 },
             { sku: "FAKE-REMOVED", wid: FAKE_WAREHOUSES[4].id, title: "Removed on the Master SKUs tab: never shown", disp: 600, stock: 3 },
+            { sku: "FAKE-BERRY1", wid: FAKE_WAREHOUSES[0].id, title: "Fake berry perfume", disp: 0, stock: 500 },
+            { sku: "FAKE-MUSK1", wid: FAKE_WAREHOUSES[0].id, title: "Fake musk perfume", disp: 0, stock: 500 },
+            { sku: "FAKE-COMBO", wid: FAKE_WAREHOUSES[0].id, title: "Fake berry + musk combo", disp: 240, stock: 20 },
           ]}
           warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))}
           window={30}
@@ -365,18 +368,36 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
             { master: "Black Rack 2pc", sku: "FAKE-RACK-BLK2", units: 2 },
             { master: "Red Cleaner", sku: "FAKE-SKU-RED-XL" },
             { master: "Product with no Flipkart SKU", sku: "FAKE-GHOST" },
+            { master: "Berry Car Perfume", sku: "FAKE-BERRY1" },
+            { master: "Musk Car Perfume", sku: "FAKE-MUSK1" },
+            { master: "Car Perfume", sku: "FAKE-COMBO" },
           ]}
           removed={["FAKE-REMOVED"]}
+          kits={[
+            { name: "Car Perfume", parts: [{ name: "Berry Car Perfume", qty: 1 }, { name: "Musk Car Perfume", qty: 1 }] },
+            { name: "Shoe Cleaning Kit", parts: [{ name: "Shoe Bottle", qty: 1 }, { name: "Shoe Brush", qty: 1 }] },
+          ]}
           allLabel="All warehouses"
         />
       ) : null}
       {view === "fmasters" ? (
         <MastersTab
           products={[
-            { id: "00000000-0000-4000-8000-000000000101", code: "180-LINT", name: "Lint Roller 180" },
-            { id: "00000000-0000-4000-8000-000000000102", code: "ALLIN_ONE", name: "All In One Repellent" },
-            { id: "00000000-0000-4000-8000-000000000103", code: "8PC-AROMA", name: "Aroma Oil" },
-            { id: "00000000-0000-4000-8000-000000000104", code: null, name: "Black Rack 2pc" },
+            { id: "00000000-0000-4000-8000-000000000101", code: "180-LINT", name: "Lint Roller 180", kit: [] },
+            { id: "00000000-0000-4000-8000-000000000102", code: "ALLIN_ONE", name: "All In One Repellent", kit: [] },
+            { id: "00000000-0000-4000-8000-000000000103", code: "8PC-AROMA", name: "Aroma Oil", kit: [] },
+            { id: "00000000-0000-4000-8000-000000000104", code: null, name: "Black Rack 2pc", kit: [] },
+            { id: "00000000-0000-4000-8000-000000000105", code: null, name: "Berry Car Perfume", kit: [] },
+            { id: "00000000-0000-4000-8000-000000000106", code: null, name: "Musk Car Perfume", kit: [] },
+            {
+              id: "00000000-0000-4000-8000-000000000107",
+              code: null,
+              name: "Car Perfume",
+              kit: [
+                { partId: "00000000-0000-4000-8000-000000000105", qty: 1 },
+                { partId: "00000000-0000-4000-8000-000000000106", qty: 1 },
+              ],
+            },
           ]}
           links={[
             { sku: "FAKE-LINT3", masterId: "00000000-0000-4000-8000-000000000101", units: 1 },

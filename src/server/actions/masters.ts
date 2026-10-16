@@ -128,3 +128,24 @@ export async function createMaster(code: unknown, name: unknown): Promise<Action
   }
   return done(`Master SKU ${c || n} saved`);
 }
+
+/** Makes a master SKU a kit (combo) of other master SKUs, or changes its parts; no parts turns the kit off. */
+export async function setKit(masterId: unknown, parts: unknown): Promise<ActionResult> {
+  const denied = await editor();
+  if (denied) return denied;
+  if (typeof masterId !== "string" || !UUID.test(masterId)) return { ok: false, message: "That master SKU was not understood." };
+  if (!Array.isArray(parts) || parts.length > 20) return { ok: false, message: "A kit has at most 20 parts." };
+  const clean: { part: string; qty: number }[] = [];
+  for (const p of parts as { partId?: unknown; qty?: unknown }[]) {
+    if (typeof p?.partId !== "string" || !UUID.test(p.partId)) return { ok: false, message: "Pick each part from the list of master SKUs." };
+    if (!unitsOk(p.qty)) return { ok: false, message: "Each part's quantity must be a whole number from 1 to 1000." };
+    clean.push({ part: p.partId, qty: p.qty });
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("master_set_kit", { p_master: masterId, p_parts: clean });
+  if (error) {
+    if (error.code === "22023") return { ok: false, message: `Not saved: ${error.message}.` };
+    return failed(error, "save the kit");
+  }
+  return done(clean.length ? "Kit saved" : "No longer a kit");
+}

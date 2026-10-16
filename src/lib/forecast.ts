@@ -141,7 +141,26 @@ export type MasterGroup = {
    * order, summed. So the rate is the sum of the children's rates (times units per order).
    */
   total: ForecastRow;
+  /** Set when the product is a kit (combo) made of other products. */
+  kit?: KitInfo;
 };
+
+/** A kit (combo): a product made of other products, e.g. Car Perfume = 1 Berry + 1 Musk. */
+export type KitDef = { name: string; parts: { name: string; qty: number }[] };
+
+export type KitInfo = {
+  /** The kit's own stock: its Flipkart SKUs, in product units. */
+  own: number;
+  /** How many kits the parts' stock makes: the smallest of (part stock / quantity), rounded down. */
+  canMake: number;
+  parts: { name: string; qty: number; stock: number }[];
+};
+
+/** How many kits the parts make: the part that runs out first decides. No parts, none. */
+export function kitsFromParts(parts: { qty: number; stock: number }[]): number {
+  if (!parts.length) return 0;
+  return Math.max(0, Math.min(...parts.map((p) => Math.floor(p.stock / p.qty))));
+}
 
 /** Children combined into one row in product units; forecasts and cover from those sums. */
 export function combineRows(key: string, label: string, children: MasterChild[], days: number): ForecastRow {
@@ -162,6 +181,7 @@ export function buildMasterGroups(
   masterOf: (sku: string) => { master: string; units: number } | null,
   onlyWarehouse: string | null = null,
   removed: ReadonlySet<string> = new Set(),
+  kits: KitDef[] = [],
 ): { groups: MasterGroup[]; unmapped: ForecastRow[] } {
   const perSku = buildRows(raw.filter((r) => !removed.has(r.sku)), days, false, onlyWarehouse);
   const byMaster = new Map<string, MasterChild[]>();
@@ -176,6 +196,22 @@ export function buildMasterGroups(
     name,
     children: children.sort((a, b) => b.f30 * b.units - a.f30 * a.units || a.sku.localeCompare(b.sku)),
     total: combineRows(`m:${name}`, name, children, days),
-  }));
+  })) as MasterGroup[];
+  if (!kits.length) return { groups, unmapped };
+
+  // Kits: stock = own stock + what the parts make. Parts are read before any kit changes (kits are never parts).
+  const stockOf = new Map(groups.map((g) => [g.name, g.total.stock]));
+  for (const kit of kits) {
+    const parts = kit.parts.map((p) => ({ name: p.name, qty: p.qty, stock: stockOf.get(p.name) ?? 0 }));
+    const canMake = kitsFromParts(parts);
+    let g = groups.find((x) => x.name === kit.name);
+    if (!g) {
+      g = { key: `m:${kit.name}`, name: kit.name, children: [], total: combineRows(`m:${kit.name}`, kit.name, [], days) };
+      groups.push(g);
+    }
+    const own = g.total.stock;
+    g.kit = { own, canMake, parts };
+    g.total = { ...forecastRow({ sku: kit.name, wid: null, title: null, disp: g.total.dispatched, stock: own + canMake }, days), key: g.key };
+  }
   return { groups, unmapped };
 }

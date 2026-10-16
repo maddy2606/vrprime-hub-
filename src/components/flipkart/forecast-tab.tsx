@@ -17,6 +17,7 @@ import {
   type ForecastMeta,
   type ForecastRaw,
   type ForecastRow,
+  type KitDef,
   type MasterGroup,
 } from "@/lib/forecast";
 import { masterLookup, type MasterRow } from "@/lib/master-csv";
@@ -31,6 +32,8 @@ type Props = {
   masters: MasterRow[];
   /** SKUs taken out of the checks on the Master SKUs tab: left out here too. */
   removed: string[];
+  /** Products made of other products (combos): stock includes what the parts make. */
+  kits: KitDef[];
   /** "All warehouses" for owner and admin, "All my warehouses" for a warehouse user. */
   allLabel: string;
 };
@@ -39,7 +42,7 @@ type View = "master" | "sku";
 
 const n0 = (v: number) => formatNumber(Math.round(v));
 
-export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, removed, allLabel }: Props) {
+export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, removed, kits, allLabel }: Props) {
   const router = useRouter();
   const [view, setView] = useState<View>("master");
   const [split, setSplit] = useState(false);
@@ -55,7 +58,7 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   }, [allRaw, removed]);
 
   const rows = useMemo(() => buildRows(raw, meta.days, split, wh || null), [raw, meta.days, split, wh]);
-  const grouped = useMemo(() => buildMasterGroups(raw, meta.days, masterOf, wh || null), [raw, meta.days, masterOf, wh]);
+  const grouped = useMemo(() => buildMasterGroups(raw, meta.days, masterOf, wh || null, new Set(), kits), [raw, meta.days, masterOf, wh, kits]);
   const note = historyNote(meta);
 
   // Top movers follow the view: products (combined) in the product view, SKUs in the flat list.
@@ -162,7 +165,8 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
           {" "}
           <b>A product row combines its Flipkart SKUs</b> in units of the product: each SKU&apos;s stock and units dispatched times its units per order (a 2pc
           listing counts 2, shown as ×2), summed; the forecasts and days of cover come from those sums. SKUs are matched by exact spelling, then in any
-          case. SKUs removed on the Master SKUs tab are left out.
+          case. SKUs removed on the Master SKUs tab are left out. <b>A kit</b> (combo) also counts what its parts make: the smallest of each part&apos;s
+          stock ÷ its quantity, added to the kit&apos;s own stock.
         </>
       ) : null}
     </>

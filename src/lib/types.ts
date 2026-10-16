@@ -302,7 +302,8 @@ export type FkReturn = {
 };
 
 /** A master product: one product that several channel SKUs belong to. */
-export type MasterProduct = { id: string; code: string | null; name: string; created_at: string };
+/** kit_parts: the parts when the product is a kit (combo), [{ part: master id, qty }]; empty otherwise. */
+export type MasterProduct = { id: string; code: string | null; name: string; created_at: string; kit_parts: Json };
 
 /** Which master product a channel SKU belongs to (the SKU exactly as written). */
 export type SkuMaster = { channel_sku: string; master_id: string; units_per_order: number; updated_at: string };
@@ -357,6 +358,7 @@ export type Database = {
       replace_master_skus: { Args: { p_rows: { master: string; sku: string; units?: number; code?: string }[] }; Returns: Json };
       master_import: { Args: { p_rows: { code?: string; name?: string; sku?: string; units?: number }[] }; Returns: Json };
       master_link_sku: { Args: { p_sku: string; p_master: string; p_units: number }; Returns: undefined };
+      master_set_kit: { Args: { p_master: string; p_parts: { part: string; qty: number }[] }; Returns: undefined };
       master_unlink_sku: { Args: { p_sku: string }; Returns: undefined };
       master_exclude_sku: { Args: { p_sku: string }; Returns: undefined };
       master_restore_sku: { Args: { p_sku: string }; Returns: undefined };

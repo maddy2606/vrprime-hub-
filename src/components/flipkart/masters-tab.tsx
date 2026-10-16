@@ -10,10 +10,10 @@ import { downloadCsv, toCsv } from "@/lib/csv";
 import { formatNumber } from "@/lib/format";
 import { masterLookup, parseMasterTable, splitCsv, suggestMaster, type MasterRow } from "@/lib/master-csv";
 import type { ActionResult } from "@/lib/types";
-import { createMaster, excludeSku, importMasters, linkSku, restoreSku, unlinkSku } from "@/server/actions/masters";
+import { createMaster, excludeSku, importMasters, linkSku, restoreSku, setKit, unlinkSku } from "@/server/actions/masters";
 import { uploadMasterSkus } from "@/server/actions/settings";
 
-type Product = { id: string; code: string | null; name: string };
+type Product = { id: string; code: string | null; name: string; kit: { partId: string; qty: number }[] };
 type Link = { sku: string; masterId: string; units: number };
 
 type Props = {
@@ -85,6 +85,12 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
   );
   const byLabel = useMemo(() => new Map(products.flatMap((p) => [[label(p).toLowerCase(), p.id], [p.name.toLowerCase(), p.id], ...(p.code ? [[p.code.toLowerCase(), p.id]] : [])] as [string, string][])), [products]);
   const masterIdOf = (text: string) => byLabel.get(text.trim().toLowerCase()) ?? null;
+  /** Which kits each product is a part of. */
+  const kitsUsing = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const p of products) for (const k of p.kit) m.set(k.partId, [...(m.get(k.partId) ?? []), p.name]);
+    return m;
+  }, [products]);
 
   const needle = q.trim().toLowerCase();
   const shownProducts = products
@@ -173,6 +179,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
       </Toolbar>
       <Caption>
         Forecasting combines each master SKU&apos;s Flipkart SKUs. Units per order: a 2pc listing counts 2 (shown ×2). Removed SKUs are left out of the checks.
+        A kit (combo) is made of other master SKUs: its stock also counts how many its parts make (500 Berry + 500 Musk = 500 Car Perfume combos).
       </Caption>
 
       <datalist id={listId}>
@@ -195,7 +202,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
         ) : (
           <ul className="divide-y divide-line">
             {shownProducts.map((p) => (
-              <li key={p.id} className="flex flex-col gap-2 py-3 lg:flex-row lg:items-start">
+              <li key={p.id} className="flex flex-col gap-2 py-3 lg:flex-row lg:flex-wrap lg:items-start">
                 <div className="min-w-0 lg:w-48 lg:shrink-0">
                   {p.code ? <p className="break-all font-mono text-[13px] font-bold">{p.code}</p> : null}
                   <p className={p.code ? "text-xs text-muted" : "text-sm font-bold"}>{p.name}</p>
@@ -219,6 +226,16 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
                   ))}
                 </div>
                 <AddSku listId={listId} pending={pending} onAdd={(sku, units, clear) => run(() => linkSku(sku, p.id, units), clear)} />
+                <KitEditor
+                  product={p}
+                  nameOf={(id) => (byId.get(id) ? label(byId.get(id)!) : "")}
+                  partOf={kitsUsing.get(p.id) ?? []}
+                  listId={masterListId}
+                  pending={pending}
+                  resolve={masterIdOf}
+                  onError={(m) => toast.show(m, "bad")}
+                  onSave={(parts, close) => run(() => setKit(p.id, parts), close)}
+                />
               </li>
             ))}
           </ul>
@@ -319,6 +336,137 @@ function AddSku({ listId, pending, onAdd }: { listId: string; pending: boolean; 
       <button type="submit" disabled={pending || !sku.trim()} className={buttonClass("secondary")}>
         Add
       </button>
+    </form>
+  );
+}
+
+type Part = { text: string; qty: string };
+
+/** A product's kit parts: shown as chips, edited inline (pick a master SKU and a quantity per part). */
+function KitEditor({
+  product,
+  nameOf,
+  partOf,
+  listId,
+  pending,
+  resolve,
+  onError,
+  onSave,
+}: {
+  product: Product;
+  nameOf: (id: string) => string;
+  partOf: string[];
+  listId: string;
+  pending: boolean;
+  resolve: (text: string) => string | null;
+  onError: (message: string) => void;
+  onSave: (parts: { partId: string; qty: number }[], close: () => void) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [parts, setParts] = useState<Part[]>([]);
+  const id = useId();
+  const start = () => {
+    setParts(product.kit.length ? product.kit.map((k) => ({ text: nameOf(k.partId), qty: String(k.qty) })) : [{ text: "", qty: "1" }]);
+    setEditing(true);
+  };
+  const save = (list: Part[]) => {
+    const out: { partId: string; qty: number }[] = [];
+    for (const p of list.filter((x) => x.text.trim())) {
+      const partId = resolve(p.text);
+      if (!partId) return onError(`"${p.text}" is not a master SKU: pick it from the list.`);
+      out.push({ partId, qty: Number(p.qty) });
+    }
+    onSave(out, () => setEditing(false));
+  };
+
+  if (!editing) {
+    return (
+      <div className="flex w-full flex-wrap items-center gap-1.5 text-xs lg:pl-50">
+        {product.kit.length ? (
+          <>
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 font-bold text-accent-text">Kit</span>
+            {product.kit.map((k) => (
+              <span key={k.partId} className="rounded-full bg-surface2 px-2 py-0.5 font-semibold">
+                {k.qty} × {nameOf(k.partId) || "a removed master SKU"}
+              </span>
+            ))}
+          </>
+        ) : null}
+        {partOf.length ? <span className="text-muted">Part of {partOf.join(", ")}</span> : null}
+        {partOf.length ? null : (
+          <button type="button" disabled={pending} onClick={start} className="focus-ring min-h-8 rounded-lg px-1.5 font-semibold text-accent-text hover:underline">
+            {product.kit.length ? "Edit kit" : "Make it a kit"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex w-full flex-col gap-1.5 rounded-lg border border-line bg-canvas/60 p-2.5 lg:ml-50 lg:max-w-xl"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save(parts);
+      }}
+    >
+      <p className="text-xs text-muted">
+        One {product.name} is made of: (stock shown on Forecasting = ready stock + how many the parts make)
+      </p>
+      {parts.map((p, i) => (
+        <div key={i} className="flex gap-1.5">
+          <label htmlFor={`${id}-p${i}`} className="sr-only">
+            Part {i + 1}
+          </label>
+          <input
+            id={`${id}-p${i}`}
+            list={listId}
+            value={p.text}
+            onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
+            placeholder="Pick master SKU"
+            className="input min-w-0 flex-1 text-sm"
+            autoComplete="off"
+          />
+          <label htmlFor={`${id}-q${i}`} className="sr-only">
+            Quantity of part {i + 1}
+          </label>
+          <input
+            id={`${id}-q${i}`}
+            type="number"
+            min={1}
+            max={1000}
+            step={1}
+            inputMode="numeric"
+            value={p.qty}
+            onChange={(e) => setParts(parts.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)))}
+            className="input w-16 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setParts(parts.filter((_, j) => j !== i))}
+            aria-label={`Remove part ${i + 1}`}
+            className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-ink"
+          >
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-1.5">
+        <button type="button" disabled={parts.length >= 20} onClick={() => setParts([...parts, { text: "", qty: "1" }])} className={buttonClass("secondary")}>
+          Add part
+        </button>
+        <button type="submit" disabled={pending} className={buttonClass("primary")}>
+          Save kit
+        </button>
+        {product.kit.length ? (
+          <button type="button" disabled={pending} onClick={() => save([])} className={buttonClass("secondary")}>
+            Not a kit
+          </button>
+        ) : null}
+        <button type="button" onClick={() => setEditing(false)} className={buttonClass("secondary")}>
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }

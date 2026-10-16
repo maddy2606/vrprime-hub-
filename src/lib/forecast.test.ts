@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { coverBySku, coversPerWarehouse, daysOfCover, ratePerDay } from "./cover.ts";
-import { buildMasterGroups, buildRows, forecastRow, historyNote, readForecast, topMovers } from "./forecast.ts";
+import { buildMasterGroups, buildRows, forecastRow, historyNote, kitsFromParts, readForecast, topMovers } from "./forecast.ts";
 import { masterLookup, parseMasterCsv, parseMasterTable, suggestMaster } from "./master-csv.ts";
 
 test("100 units over 10 days: rate 10, forecasts 10 / 70 / 300", () => {
@@ -139,6 +139,27 @@ test("the warehouse filter applies to the children before they are combined", ()
   ];
   const { groups } = buildMasterGroups(rows, 7, lookup, "w2");
   assert.deepEqual([groups[0].total.stock, groups[0].total.rate], [20, 5]);
+});
+
+test("a kit makes as many as its scarcest part allows, added to its own stock", () => {
+  assert.equal(kitsFromParts([{ qty: 1, stock: 500 }, { qty: 1, stock: 500 }]), 500, "500 Berry + 500 Musk = 500 combos");
+  assert.equal(kitsFromParts([{ qty: 1, stock: 500 }, { qty: 2, stock: 300 }]), 150);
+  assert.equal(kitsFromParts([{ qty: 1, stock: 500 }, { qty: 1, stock: 0 }]), 0);
+  assert.equal(kitsFromParts([]), 0);
+  const l = masterLookup([{ master: "Berry", sku: "BERRY1" }, { master: "Musk", sku: "MUSK2", units: 2 }, { master: "Combo", sku: "COMBO1" }]);
+  const rows = [
+    { sku: "BERRY1", wid: "w1", title: null, disp: 0, stock: 500 },
+    { sku: "MUSK2", wid: "w1", title: null, disp: 0, stock: 250 }, // 2-packs: 500 Musk
+    { sku: "COMBO1", wid: "w1", title: null, disp: 70, stock: 30 },
+  ];
+  const kits = [{ name: "Combo", parts: [{ name: "Berry", qty: 1 }, { name: "Musk", qty: 1 }] }];
+  const { groups } = buildMasterGroups(rows, 7, l, null, new Set(), kits);
+  const combo = groups.find((g) => g.name === "Combo");
+  assert.deepEqual(combo?.kit, { own: 30, canMake: 500, parts: [{ name: "Berry", qty: 1, stock: 500 }, { name: "Musk", qty: 1, stock: 500 }] });
+  assert.deepEqual([combo?.total.stock, combo?.total.rate, combo?.total.cover], [530, 10, 53]);
+  assert.equal(groups.find((g) => g.name === "Berry")?.total.stock, 500, "the parts keep their own stock");
+  const solo = buildMasterGroups([], 7, l, null, new Set(), [{ name: "Shoe Kit", parts: [{ name: "Nothing", qty: 1 }] }]).groups;
+  assert.deepEqual([solo[0].name, solo[0].total.stock, solo[0].kit?.canMake], ["Shoe Kit", 0, 0], "a kit with no SKU of its own still shows");
 });
 
 test("master CSV: exact spelling kept, header checked, one product per SKU", () => {

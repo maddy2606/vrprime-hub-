@@ -17,7 +17,7 @@ import {
   type ReturnRate,
 } from "@/lib/flipkart-analysis";
 import { COVER_HISTORY_DAYS, coverBySku, coversPerWarehouse, type DispatchRow } from "@/lib/cover";
-import { readForecast, type ForecastRaw } from "@/lib/forecast";
+import { readForecast, type ForecastRaw, type KitDef } from "@/lib/forecast";
 import { addDays, todayIST } from "@/lib/format";
 import { NOT_FOUND_DAYS } from "@/lib/new-listing";
 import { logError } from "@/lib/redact";
@@ -42,7 +42,8 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
 }
 
 export type MasterData = {
-  products: { id: string; code: string | null; name: string }[];
+  /** `kit`: the parts when the product is a kit (combo); empty otherwise. */
+  products: { id: string; code: string | null; name: string; kit: KitPart[] }[];
   links: { sku: string; masterId: string; units: number }[];
   /** SKUs taken out of the checks ("Removed"). */
   removed: string[];
@@ -52,14 +53,14 @@ export type MasterData = {
 export async function loadMasterData(supabase: Supabase): Promise<MasterData> {
   try {
     const [products, links, removed] = await Promise.all([
-      fetchAll<{ id: string; code: string | null; name: string }>((from, to) => supabase.from("master_products").select("id, code, name").order("id").range(from, to)),
+      fetchAll<{ id: string; code: string | null; name: string; kit_parts: unknown }>((from, to) => supabase.from("master_products").select("id, code, name, kit_parts").order("id").range(from, to)),
       fetchAll<{ channel_sku: string; master_id: string; units_per_order: number }>((from, to) =>
         supabase.from("sku_master").select("channel_sku, master_id, units_per_order").order("channel_sku").range(from, to),
       ),
       fetchAll<{ channel_sku: string }>((from, to) => supabase.from("sku_excluded").select("channel_sku").order("channel_sku").range(from, to)),
     ]);
     return {
-      products,
+      products: products.map((p) => ({ id: p.id, code: p.code, name: p.name, kit: readKitParts(p.kit_parts) })),
       links: links.map((l) => ({ sku: l.channel_sku, masterId: l.master_id, units: l.units_per_order })),
       removed: removed.map((r) => r.channel_sku),
     };
@@ -84,6 +85,25 @@ export function masterRows(data: MasterData): MasterRow[] {
     const p = byId.get(l.masterId);
     return p ? [{ master: p.name, sku: l.sku, units: l.units, ...(p.code ? { code: p.code } : {}) }] : [];
   });
+}
+
+export type KitPart = { partId: string; qty: number };
+
+/** Kit parts from the database, read safely. */
+function readKitParts(value: unknown): KitPart[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((x) => {
+    const qty = Number(x?.qty);
+    return typeof x?.part === "string" && Number.isInteger(qty) && qty >= 1 ? [{ partId: x.part, qty }] : [];
+  });
+}
+
+/** The kits by product name, for Forecasting. Parts that no longer exist are left out. */
+export function masterKits(data: MasterData): KitDef[] {
+  const nameOf = new Map(data.products.map((p) => [p.id, p.name]));
+  return data.products
+    .filter((p) => p.kit.length)
+    .map((p) => ({ name: p.name, parts: p.kit.flatMap((k) => (nameOf.has(k.partId) ? [{ name: nameOf.get(k.partId)!, qty: k.qty }] : [])) }));
 }
 
 function fail(where: string, error: unknown): never {

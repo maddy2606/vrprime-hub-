@@ -5,7 +5,7 @@ import { ChevronDownIcon } from "@/components/icons";
 import { Picker } from "@/components/flipkart/kit";
 import { EmptyState } from "@/components/ui";
 import { formatNumber } from "@/lib/format";
-import type { ForecastRow, MasterChild, MasterGroup } from "@/lib/forecast";
+import type { ForecastRow, KitInfo, MasterChild, MasterGroup } from "@/lib/forecast";
 
 export type MasterSortKey = "product" | "stock" | "rate" | "f1" | "f7" | "f30" | "cover";
 export type MasterSort = { key: MasterSortKey; dir: "asc" | "desc" };
@@ -129,12 +129,14 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
               <button type="button" aria-expanded={expanded} onClick={() => toggle(g.key)} className="focus-ring flex w-full min-w-0 items-start gap-2 rounded-lg text-left">
                 <span className="min-w-0 flex-1">
                   <span className="text-[15px] font-bold leading-snug">{g.name}</span>
+                  {g.kit ? <KitBadge /> : null}
                   {count(g.children.length)}
                 </span>
                 <ChevronDownIcon className={`mt-0.5 h-5 w-5 shrink-0 text-muted transition ${expanded ? "rotate-180" : ""}`} />
               </button>
               <Numbers row={g.total} />
-              {expanded ? (
+              {expanded && g.kit ? <KitNote kit={g.kit} className="mt-3 border-t border-line pt-3" /> : null}
+              {expanded && g.children.length ? (
                 <ul className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
                   {childrenOf(g).map((c) => (
                     <li key={c.key} className="rounded-lg border border-line-soft bg-canvas/60 p-2.5">
@@ -189,6 +191,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
                     <button type="button" aria-expanded={expanded} onClick={() => toggle(g.key)} className="focus-ring flex min-h-11 w-full items-center gap-1.5 px-2 py-2 text-left">
                       <ChevronDownIcon className={`h-4 w-4 shrink-0 text-muted transition ${expanded ? "" : "-rotate-90"}`} />
                       <span className="min-w-0 font-bold leading-snug">{g.name}</span>
+                      {g.kit ? <KitBadge /> : null}
                       {count(g.children.length)}
                     </button>
                   </td>
@@ -198,6 +201,15 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
                     </td>
                   ))}
                 </tr>,
+                ...(expanded && g.kit
+                  ? [
+                      <tr key={`${g.key}|kit`} className="border-b border-line-soft bg-canvas/50">
+                        <td colSpan={NUMBERS.length + 1} className="py-1.5 pl-8 pr-2">
+                          <KitNote kit={g.kit} className="sticky left-8" />
+                        </td>
+                      </tr>,
+                    ]
+                  : []),
                 ...(expanded
                   ? childrenOf(g).map((r) => (
                       <tr key={`${g.key}|${r.key}`} className="border-b border-line-soft bg-canvas/50">
@@ -257,6 +269,38 @@ function SortHeader({ label, active, dir, onClick, first = false }: { label: str
         </span>
       </button>
     </th>
+  );
+}
+
+function KitBadge() {
+  return (
+    <span title="A kit (combo) made of other products" className="ml-2 inline-flex shrink-0 items-center rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-text">
+      Kit
+    </span>
+  );
+}
+
+/** What a kit's stock is made of: its own stock plus what the parts make, and each part's stock. */
+function KitNote({ kit, className = "" }: { kit: KitInfo; className?: string }) {
+  return (
+    <div className={`text-xs leading-relaxed ${className}`}>
+      <p>
+        <span className="font-semibold">Stock now {n0(kit.own + kit.canMake)}</span> <span className="text-muted">=</span> {n0(kit.own)} ready{" "}
+        <span className="text-muted">+</span> <span className="font-semibold text-accent-text">{n0(kit.canMake)} can be made</span> from the parts
+      </p>
+      {kit.parts.length ? (
+        <ul className="mt-1 flex flex-wrap gap-1.5">
+          {kit.parts.map((p) => (
+            <li key={p.name} className="rounded-full bg-surface2 px-2 py-0.5 font-semibold">
+              {p.qty > 1 ? `${p.qty} × ` : ""}
+              {p.name}: <span className="font-mono tabular-nums">{n0(p.stock)}</span> in stock
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted">No parts set yet: add them on the Master SKUs tab.</p>
+      )}
+    </div>
   );
 }
 

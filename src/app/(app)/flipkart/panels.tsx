@@ -34,6 +34,7 @@ import {
   loadListingsNotFound,
   loadListingTitles,
   loadMasterData,
+  masterKits,
   loadOrderSyncState,
   loadPriceRows,
   loadReturnRates,
@@ -235,6 +236,7 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
       window={days}
       masters={masterRows(masters)}
       removed={masters.removed}
+      kits={masterKits(masters)}
       allLabel={user.role === "warehouse" ? "All my warehouses" : "All warehouses"}
     />
   );

@@ -5,7 +5,7 @@ import { ChevronDownIcon } from "@/components/icons";
 import { Picker } from "@/components/flipkart/kit";
 import { EmptyState } from "@/components/ui";
 import { formatNumber } from "@/lib/format";
-import type { ForecastRow, MasterGroup } from "@/lib/forecast";
+import type { ForecastRow, MasterChild, MasterGroup } from "@/lib/forecast";
 
 export type MasterSortKey = "product" | "stock" | "rate" | "f1" | "f7" | "f30" | "cover";
 export type MasterSort = { key: MasterSortKey; dir: "asc" | "desc" };
@@ -74,7 +74,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
 
   const sortedGroups = sortRows(groups, sort, (g) => g.total, (g) => g.name);
   const sortedUnmapped = sortRows(unmapped, sort, (r) => r, (r) => r.sku);
-  const childrenOf = (g: MasterGroup) => sortRows(g.children, sort, (r) => r, (r) => r.sku);
+  const childrenOf = (g: MasterGroup): MasterChild[] => sortRows(g.children, sort, (r) => r, (r) => r.sku);
 
   if (!groups.length && !unmapped.length) {
     return (
@@ -85,9 +85,14 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
     );
   }
 
-  const skuLabel = (r: ForecastRow) => (
+  const skuLabel = (r: ForecastRow, units = 1) => (
     <div className="min-w-0">
       <span className="break-all font-mono text-[13px] font-bold leading-tight">{r.sku}</span>
+      {units > 1 ? (
+        <span title={`One order uses ${units} of the product`} className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 font-mono text-[11px] font-semibold text-accent-text">
+          ×{units}
+        </span>
+      ) : null}
       {r.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.title}</p> : null}
     </div>
   );
@@ -133,7 +138,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
                 <ul className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
                   {childrenOf(g).map((c) => (
                     <li key={c.key} className="rounded-lg border border-line-soft bg-canvas/60 p-2.5">
-                      {skuLabel(c)}
+                      {skuLabel(c, c.units)}
                       <Numbers row={c} small />
                     </li>
                   ))}
@@ -196,7 +201,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
                 ...(expanded
                   ? childrenOf(g).map((r) => (
                       <tr key={`${g.key}|${r.key}`} className="border-b border-line-soft bg-canvas/50">
-                        <td className="sticky left-0 z-10 max-w-[18rem] bg-panel2 py-1.5 pl-8 pr-2">{skuLabel(r)}</td>
+                        <td className="sticky left-0 z-10 max-w-[18rem] bg-panel2 py-1.5 pl-8 pr-2">{skuLabel(r, r.units)}</td>
                         {NUMBERS.map((c) => (
                           <td key={c.key} className="px-2 py-1.5 text-right font-mono text-[13px] tabular-nums text-muted">
                             {c.cell(r)}

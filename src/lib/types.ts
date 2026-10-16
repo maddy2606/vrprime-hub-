@@ -302,10 +302,13 @@ export type FkReturn = {
 };
 
 /** A master product: one product that several channel SKUs belong to. */
-export type MasterProduct = { id: string; name: string; created_at: string };
+export type MasterProduct = { id: string; code: string | null; name: string; created_at: string };
 
 /** Which master product a channel SKU belongs to (the SKU exactly as written). */
-export type SkuMaster = { channel_sku: string; master_id: string; updated_at: string };
+export type SkuMaster = { channel_sku: string; master_id: string; units_per_order: number; updated_at: string };
+
+/** A Flipkart SKU taken out of the checks and lists ("Removed" on the Master SKUs tab). */
+export type SkuExcluded = { channel_sku: string; excluded_at: string; excluded_by: string | null };
 
 type Table<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 
@@ -332,6 +335,7 @@ export type Database = {
       fk_returns: Table<FkReturn>;
       master_products: Table<MasterProduct>;
       sku_master: Table<SkuMaster>;
+      sku_excluded: Table<SkuExcluded>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -350,7 +354,12 @@ export type Database = {
       flipkart_return_rates: { Args: { p_days?: number }; Returns: Json };
       flipkart_snapshot_date: { Args: Record<string, never>; Returns: string | null };
       flipkart_forecast: { Args: { p_days?: number }; Returns: Json };
-      replace_master_skus: { Args: { p_rows: { master: string; sku: string }[] }; Returns: Json };
+      replace_master_skus: { Args: { p_rows: { master: string; sku: string; units?: number; code?: string }[] }; Returns: Json };
+      master_import: { Args: { p_rows: { code?: string; name?: string; sku?: string; units?: number }[] }; Returns: Json };
+      master_link_sku: { Args: { p_sku: string; p_master: string; p_units: number }; Returns: undefined };
+      master_unlink_sku: { Args: { p_sku: string }; Returns: undefined };
+      master_exclude_sku: { Args: { p_sku: string }; Returns: undefined };
+      master_restore_sku: { Args: { p_sku: string }; Returns: undefined };
       deck_series: { Args: { p_low?: number }; Returns: Json };
       dispatch_series: { Args: { p_days?: number }; Returns: Json };
       flipkart_order_counts: { Args: Record<string, never>; Returns: Json };

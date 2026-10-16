@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { coverBySku, coversPerWarehouse, daysOfCover, ratePerDay } from "./cover.ts";
 import { buildMasterGroups, buildRows, forecastRow, historyNote, readForecast, topMovers } from "./forecast.ts";
-import { masterLookup, parseMasterCsv } from "./master-csv.ts";
+import { masterLookup, parseMasterCsv, parseMasterTable, suggestMaster } from "./master-csv.ts";
 
 test("100 units over 10 days: rate 10, forecasts 10 / 70 / 300", () => {
   const r = forecastRow({ sku: "A", wid: null, title: null, disp: 100, stock: 50 }, 10);
@@ -106,8 +106,30 @@ test("a product combines its Flipkart SKUs: stock and rate are sums, forecasts a
   assert.deepEqual([lint.total.f1, lint.total.f7, lint.total.f30], [17, 119, 510]);
   assert.equal(lint.total.f30, lint.children.reduce((n, c) => n + c.f30, 0), "30-day forecast = sum of the children here");
   assert.equal(lint.total.cover, 132 / 17);
+  assert.deepEqual(lint.children.map((c) => c.units), [1, 1, 1]);
   assert.equal(groups.some((g) => g.name === "Never sold"), false, "a product with no Flipkart SKU in the data is left out");
   assert.deepEqual(unmapped.map((u) => u.sku), ["OTHER1"]);
+});
+
+test("units per order: a 2pc listing counts 2 in the product's stock, rate and forecast", () => {
+  const l = masterLookup([{ master: "Rack", sku: "RACK1" }, { master: "Rack", sku: "RACK2PC", units: 2 }]);
+  const rows = [
+    { sku: "RACK1", wid: "w1", title: null, disp: 70, stock: 10 },
+    { sku: "RACK2PC", wid: "w1", title: null, disp: 35, stock: 4 },
+  ];
+  const g = buildMasterGroups(rows, 7, l).groups[0];
+  assert.deepEqual([g.total.stock, g.total.rate, g.total.f7], [18, 20, 140], "10 + 4x2 in stock; 10 + 5x2 a day");
+  assert.equal(g.children.find((c) => c.sku === "RACK2PC")?.rate, 5, "the child keeps its own listing numbers");
+});
+
+test("removed SKUs are left out of the products and of Unmapped", () => {
+  const rows = [
+    { sku: "LINT1", wid: "w1", title: null, disp: 7, stock: 1 },
+    { sku: "OTHER1", wid: "w1", title: null, disp: 7, stock: 1 },
+    { sku: "OTHER2", wid: "w1", title: null, disp: 7, stock: 1 },
+  ];
+  const { groups, unmapped } = buildMasterGroups(rows, 7, lookup, null, new Set(["LINT1", "OTHER2"]));
+  assert.deepEqual([groups.length, unmapped.map((u) => u.sku)], [0, ["OTHER1"]]);
 });
 
 test("the warehouse filter applies to the children before they are combined", () => {
@@ -123,16 +145,37 @@ test("master CSV: exact spelling kept, header checked, one product per SKU", () 
   const ok = parseMasterCsv('\uFEFFmaster_name,channel_sku\r\nLint Machine,LINT1\r\n"Rack, black",\" RACK1\"\r\nLint Machine,LINT1\r\n');
   assert.deepEqual(ok.errors, []);
   assert.deepEqual(ok.rows, [{ master: "Lint Machine", sku: "LINT1" }, { master: "Rack, black", sku: " RACK1" }], "quotes, commas, a leading space, a repeated line");
-  assert.match(parseMasterCsv("name,sku\nA,B").errors[0], /master_name and channel_sku/);
+  assert.match(parseMasterCsv("colour,size\nA,B").errors[0], /master_name/);
+  assert.match(parseMasterCsv("master_code,colour\nA,B").errors[0], /master_name and channel_sku/, "the full list needs a name and a SKU");
   assert.match(parseMasterCsv("master_name,channel_sku\nA,X1\nB,X1").errors[0], /already under "A"/);
   assert.match(parseMasterCsv("master_name,channel_sku\nA,").errors[0], /must both be filled/);
 });
 
 test("lookup: exact first, then any case; a spelling two products share in different case matches nothing", () => {
   const l = masterLookup([{ master: "A", sku: "Sh_X" }, { master: "A", sku: "SH_x" }, { master: "B", sku: "dup" }, { master: "C", sku: "DUP" }]);
-  assert.equal(l("Sh_X"), "A");
-  assert.equal(l("sh_x"), "A", "both spellings are the same product, so any case is fine");
-  assert.equal(l("DUP"), "C", "exact wins");
+  assert.equal(l("Sh_X")?.master, "A");
+  assert.equal(l("sh_x")?.master, "A", "both spellings are the same product, so any case is fine");
+  assert.equal(l("DUP")?.master, "C", "exact wins");
   assert.equal(l("Dup"), null, "ambiguous in any case");
   assert.equal(l(" SH_X"), null, "a space is part of the SKU");
+});
+
+test("master tables: optional code and units columns, a product list without SKUs for the import", () => {
+  const full = parseMasterCsv("Master Code,Master_Name,Flipkart SKU,Units per order\n180-LINT,Lint 180,LINT3,\n180-LINT,Lint 180,LINT3X2,2\n");
+  assert.deepEqual(full.errors, []);
+  assert.deepEqual(full.rows, [
+    { master: "Lint 180", sku: "LINT3", code: "180-LINT" },
+    { master: "Lint 180", sku: "LINT3X2", units: 2, code: "180-LINT" },
+  ]);
+  assert.match(parseMasterCsv("master_name,channel_sku,units\nA,X,0").errors[0], /whole number from 1 to 1000/);
+  const products = parseMasterTable([["Master SKU", "Name"], ["8PC-AROMA", "Aroma Oil"], ["", ""]], false);
+  assert.deepEqual(products, { rows: [{ master: "Aroma Oil", sku: "", code: "8PC-AROMA" }], errors: [] });
+});
+
+test("suggestions come from the linked SKU that looks most like it", () => {
+  const rows = [{ master: "Lint 180", sku: "LINTR1" }, { master: "Car Rat 2pc", sku: "SH_NRATT2" }, { master: "Snake 4pc", sku: "SNAKE4" }];
+  assert.equal(suggestMaster("Shopsy_LINTR1", rows), "Lint 180", "same stem once the channel prefix is gone");
+  assert.equal(suggestMaster("S_NRATT2", rows), "Car Rat 2pc");
+  assert.equal(suggestMaster("SNAKE-4", rows), "Snake 4pc");
+  assert.equal(suggestMaster("ZZZ1", rows), null);
 });

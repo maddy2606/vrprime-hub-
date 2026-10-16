@@ -70,7 +70,9 @@ export async function uploadMasterSkus(csv: unknown): Promise<ActionResult<Maste
   if (!rows.length) return { ok: false, message: "Nothing was changed: the file has no lines under the header." };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("replace_master_skus", { p_rows: rows });
+  const { data, error } = await supabase.rpc("replace_master_skus", {
+    p_rows: rows.map((r) => ({ master: r.master, sku: r.sku, ...(r.units ? { units: r.units } : {}), ...(r.code ? { code: r.code } : {}) })),
+  });
   if (error) {
     if (error.code === "PGRST202") return { ok: false, message: "The upload is not switched on in the database yet. Ask the developer." };
     return dbError(error, "replace the master SKU list");
@@ -79,7 +81,6 @@ export async function uploadMasterSkus(csv: unknown): Promise<ActionResult<Maste
   const n = (k: string) => (typeof r[k] === "number" ? (r[k] as number) : 0);
   const result: MasterUploadResult = { rows: n("rows"), added: n("added"), changed: n("changed"), removed: n("removed"), unchanged: n("unchanged"), products: n("products") };
   revalidatePath("/flipkart");
-  revalidatePath("/admin/settings");
   return {
     ok: true,
     message: `Master SKU list replaced: ${result.added} added, ${result.changed} changed, ${result.removed} removed, ${result.unchanged} unchanged (${result.products} products).`,

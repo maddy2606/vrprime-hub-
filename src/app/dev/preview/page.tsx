@@ -10,6 +10,7 @@ import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { ForecastTab } from "@/components/flipkart/forecast-tab";
+import { MastersTab } from "@/components/flipkart/masters-tab";
 import { HealthTab } from "@/components/flipkart/health-tab";
 import { NeedsAction } from "@/components/flipkart/needs-action";
 import { OrdersTab } from "@/components/flipkart/orders-tab";
@@ -88,6 +89,7 @@ const VIEWS = [
   "fprices",
   "fhealth",
   "fforecast",
+  "fmasters",
   "settings",
   "users",
   "password",
@@ -296,7 +298,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
   const today = todayIST();
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
-  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : "health";
+  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : "health";
   const ordersView = FAKE_ORDER_VIEW[view]?.view ?? "sku";
   const needs = view === "fneeds" ? fakeNeedsAction() : null;
   const health = view === "fhealth" ? fakeHealthRows() : null;
@@ -351,6 +353,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
             { sku: "FAKE-SHOPSY-LINT2", wid: FAKE_WAREHOUSES[1].id, title: null, disp: 12, stock: 60 },
             { sku: "FAKE-RACK-BLK", wid: FAKE_WAREHOUSES[3].id, title: "Fake black rack, two piece", disp: 30, stock: 200 },
             { sku: "FAKE-RACK-BLK2", wid: FAKE_WAREHOUSES[4].id, title: null, disp: 6, stock: 3 },
+            { sku: "FAKE-REMOVED", wid: FAKE_WAREHOUSES[4].id, title: "Removed on the Master SKUs tab: never shown", disp: 600, stock: 3 },
           ]}
           warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))}
           window={30}
@@ -359,11 +362,41 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
             { master: "Lint Machine", sku: "FAKE-LINT2" },
             { master: "Lint Machine", sku: "FAKE-SHOPSY-LINT2" },
             { master: "Black Rack 2pc", sku: "FAKE-RACK-BLK" },
-            { master: "Black Rack 2pc", sku: "FAKE-RACK-BLK2" },
+            { master: "Black Rack 2pc", sku: "FAKE-RACK-BLK2", units: 2 },
             { master: "Red Cleaner", sku: "FAKE-SKU-RED-XL" },
             { master: "Product with no Flipkart SKU", sku: "FAKE-GHOST" },
           ]}
+          removed={["FAKE-REMOVED"]}
           allLabel="All warehouses"
+        />
+      ) : null}
+      {view === "fmasters" ? (
+        <MastersTab
+          products={[
+            { id: "00000000-0000-4000-8000-000000000101", code: "180-LINT", name: "Lint Roller 180" },
+            { id: "00000000-0000-4000-8000-000000000102", code: "ALLIN_ONE", name: "All In One Repellent" },
+            { id: "00000000-0000-4000-8000-000000000103", code: "8PC-AROMA", name: "Aroma Oil" },
+            { id: "00000000-0000-4000-8000-000000000104", code: null, name: "Black Rack 2pc" },
+          ]}
+          links={[
+            { sku: "FAKE-LINT3", masterId: "00000000-0000-4000-8000-000000000101", units: 1 },
+            { sku: "FAKE-LINTR1", masterId: "00000000-0000-4000-8000-000000000101", units: 1 },
+            { sku: "Shopsy_FAKE-LINT3", masterId: "00000000-0000-4000-8000-000000000101", units: 1 },
+            { sku: "FAKE-ALLIN1", masterId: "00000000-0000-4000-8000-000000000102", units: 1 },
+            { sku: "FAKE-ALLIN-2", masterId: "00000000-0000-4000-8000-000000000102", units: 2 },
+            { sku: "FAKE-OALLIN4", masterId: "00000000-0000-4000-8000-000000000102", units: 4 },
+            { sku: "FAKE-RACK1", masterId: "00000000-0000-4000-8000-000000000104", units: 1 },
+          ]}
+          removed={["FAKE-OLD1", "FAKE-OLD-2", "FAKE-DISCONTINUED"]}
+          listings={[
+            { sku: "FAKE-LINT3", title: "Fake lint roller" },
+            { sku: "SH_FAKE-LINTR1", title: "Fake lint roller, Shopsy listing" },
+            { sku: "FAKE-CLEAN-KIT", title: "Fake laptop cleaning kit, 500 ml, with microfibre cloth, pack of one" },
+            { sku: "S_FAKE-ALLIN1", title: "Fake all-in-one repellent spray" },
+            { sku: "FAKE-NEW-THING", title: null },
+          ]}
+          sold={{ "SH_FAKE-LINTR1": 66, "FAKE-CLEAN-KIT": 360, "S_FAKE-ALLIN1": 22 }}
+          canReplace
         />
       ) : null}
       {health ? <HealthTab rows={health.rows} total={health.total} taxUnread={0} slaLimit={2} /> : null}

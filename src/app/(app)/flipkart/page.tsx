@@ -5,7 +5,7 @@ import { PanelSkeleton } from "@/components/flipkart/panel-skeleton";
 import { isTabKey, TabBar, tabsFor, type TabKey } from "@/components/flipkart/tab-bar";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { ForecastPanel, HealthPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockPanel } from "./panels";
+import { ForecastPanel, HealthPanel, MastersPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockPanel } from "./panels";
 
 export const metadata: Metadata = { title: "Flipkart" };
 
@@ -22,6 +22,7 @@ const SUB: Record<TabKey, string> = {
   health: "Listings with problems to fix",
   forecast: "Expected dispatches, by dispatch day",
   overfill: "Orders waiting where the stock is 0",
+  masters: "Master SKUs and the Flipkart SKUs that belong to them",
 };
 
 export default async function FlipkartPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -47,6 +48,7 @@ export default async function FlipkartPage({ searchParams }: { searchParams: Pro
         {tab === "health" ? <HealthPanel /> : null}
         {tab === "forecast" ? <ForecastPanel user={user} sp={sp} /> : null}
         {tab === "overfill" ? <OverfillPanel user={user} /> : null}
+        {tab === "masters" ? <MastersPanel user={user} /> : null}
       </Suspense>
     </>
   );

@@ -27,8 +27,10 @@ type Props = {
   warehouses: { id: string; name: string }[];
   /** The window asked for in the address. */
   window: number;
-  /** Which product each channel SKU belongs to. */
+  /** Which product each channel SKU belongs to, with units per order. */
   masters: MasterRow[];
+  /** SKUs taken out of the checks on the Master SKUs tab: left out here too. */
+  removed: string[];
   /** "All warehouses" for owner and admin, "All my warehouses" for a warehouse user. */
   allLabel: string;
 };
@@ -37,7 +39,7 @@ type View = "master" | "sku";
 
 const n0 = (v: number) => formatNumber(Math.round(v));
 
-export function ForecastTab({ meta, raw, warehouses, window, masters, allLabel }: Props) {
+export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, removed, allLabel }: Props) {
   const router = useRouter();
   const [view, setView] = useState<View>("master");
   const [split, setSplit] = useState(false);
@@ -46,6 +48,11 @@ export function ForecastTab({ meta, raw, warehouses, window, masters, allLabel }
   const [sort, setSort] = useState<MasterSort>({ key: "f30", dir: "desc" });
   const nameOf = (id: string | null) => warehouses.find((w) => w.id === id)?.name ?? "Unknown warehouse";
   const masterOf = useMemo(() => masterLookup(masters), [masters]);
+  // Removed SKUs are out of every list on this tab.
+  const raw = useMemo(() => {
+    const out = new Set(removed);
+    return out.size ? allRaw.filter((r) => !out.has(r.sku)) : allRaw;
+  }, [allRaw, removed]);
 
   const rows = useMemo(() => buildRows(raw, meta.days, split, wh || null), [raw, meta.days, split, wh]);
   const grouped = useMemo(() => buildMasterGroups(raw, meta.days, masterOf, wh || null), [raw, meta.days, masterOf, wh]);
@@ -74,12 +81,13 @@ export function ForecastTab({ meta, raw, warehouses, window, masters, allLabel }
 
   /** The expanded detail: each product's total, then its SKUs; the unmapped SKUs last. */
   const exportMasterCsv = () => {
-    const line = (product: string, kind: string, r: ForecastRow, sku: string, title: string | null, children: number | null): CsvCell[] => [
+    const line = (product: string, kind: string, r: ForecastRow, sku: string, title: string | null, children: number | null, units: number | null): CsvCell[] => [
       product,
       kind,
       sku,
       title,
       children,
+      units,
       r.stock,
       Math.round(r.rate * 10) / 10,
       r.f1,
@@ -90,14 +98,14 @@ export function ForecastTab({ meta, raw, warehouses, window, masters, allLabel }
     ];
     const out: CsvCell[][] = [];
     for (const g of shownGroups) {
-      out.push(line(g.name, "Product total", g.total, "", null, g.children.length));
-      for (const c of g.children) out.push(line(g.name, "SKU", c, c.sku, c.title, null));
+      out.push(line(g.name, "Product total", g.total, "", null, g.children.length, null));
+      for (const c of g.children) out.push(line(g.name, "SKU", c, c.sku, c.title, null, c.units));
     }
-    for (const u of shownUnmapped) out.push(line("Unmapped", "SKU", u, u.sku, u.title, null));
+    for (const u of shownUnmapped) out.push(line("Unmapped", "SKU", u, u.sku, u.title, null, null));
     downloadCsv(
       `vrprime-forecast-by-product-${window}d${wh ? `-${nameOf(wh).toLowerCase().replace(/[^a-z0-9]+/g, "-")}` : ""}.csv`,
       toCsv(
-        ["Product", "Row", "SKU", "Title", "Child SKUs", "Stock now", "Avg / day", "Forecast 1d", "Forecast 7d", "Forecast 30d", "Days of cover", "Units dispatched in window"],
+        ["Product", "Row", "SKU", "Title", "Child SKUs", "Units per order", "Stock now", "Avg / day", "Forecast 1d", "Forecast 7d", "Forecast 30d", "Days of cover", "Units dispatched in window"],
         out,
       ),
     );
@@ -127,7 +135,7 @@ export function ForecastTab({ meta, raw, warehouses, window, masters, allLabel }
       csv: (r) => r.sku,
     },
     { key: "title", label: "Title", csvOnly: true, cell: () => null, csv: (r) => r.title },
-    { key: "product", label: "Product", csvOnly: true, cell: () => null, csv: (r) => masterOf(r.sku) ?? "Unmapped" },
+    { key: "product", label: "Product", csvOnly: true, cell: () => null, csv: (r) => masterOf(r.sku)?.master ?? "Unmapped" },
     { key: "wh", label: "Warehouse", csvOnly: true, cell: () => null, csv: (r) => (split ? nameOf(r.wid) : wh ? nameOf(wh) : "All") },
     num("stock", "Stock now", (r) => r.stock),
     num("rate", "Avg / day", (r) => r.rate, 1),
@@ -152,8 +160,9 @@ export function ForecastTab({ meta, raw, warehouses, window, masters, allLabel }
       {view === "master" ? (
         <>
           {" "}
-          <b>A product row combines its Flipkart SKUs</b>: stock = the sum of their stock, average per day = the sum of their averages, and the forecasts and
-          days of cover come from those sums. SKUs are matched to products by exact spelling, then in any case.
+          <b>A product row combines its Flipkart SKUs</b> in units of the product: each SKU&apos;s stock and units dispatched times its units per order (a 2pc
+          listing counts 2, shown as ×2), summed; the forecasts and days of cover come from those sums. SKUs are matched by exact spelling, then in any
+          case. SKUs removed on the Master SKUs tab are left out.
         </>
       ) : null}
     </>
@@ -227,7 +236,7 @@ export function ForecastTab({ meta, raw, warehouses, window, masters, allLabel }
           rowKey={(r) => r.key}
           defaultSort={{ key: "f30", dir: "desc" }}
           textKeys={["sku"]}
-          searchText={(r) => `${r.sku} ${r.title ?? ""} ${masterOf(r.sku) ?? ""}`}
+          searchText={(r) => `${r.sku} ${r.title ?? ""} ${masterOf(r.sku)?.master ?? ""}`}
           searchLabel="Search SKU, title or product"
           csvName={`vrprime-forecast-${window}d.csv`}
           noun={split ? ["SKU at a warehouse", "SKUs at warehouses"] : ["SKU", "SKUs"]}

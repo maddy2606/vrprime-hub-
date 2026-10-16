@@ -125,20 +125,28 @@ export function topMovers(rows: ForecastRow[], n = 5): ForecastRow[] {
 
 // --- By product (master) ------------------------------------------------------------------------------------------
 
+export type MasterChild = ForecastRow & {
+  /** Units of the product one order of this listing uses (a 2pc listing = 2). */
+  units: number;
+};
+
 export type MasterGroup = {
   key: string;
   /** The product's name. */
   name: string;
-  /** The product's Flipkart SKUs, each with its own numbers (summed over the warehouses in scope). */
-  children: ForecastRow[];
-  /** The children combined: stock and units dispatched summed, so the rate is the sum of the children's rates. */
+  /** The product's Flipkart SKUs, each with its own numbers in listing units (summed over the warehouses in scope). */
+  children: MasterChild[];
+  /**
+   * The children combined, in units of the product: each child's stock and units dispatched times its units per
+   * order, summed. So the rate is the sum of the children's rates (times units per order).
+   */
   total: ForecastRow;
 };
 
-/** Children combined into one row: stock = sum, rate = sum (same window), forecasts and cover from those sums. */
-export function combineRows(key: string, label: string, children: ForecastRow[], days: number): ForecastRow {
-  const stock = children.reduce((n, c) => n + c.stock, 0);
-  const dispatched = children.reduce((n, c) => n + c.dispatched, 0);
+/** Children combined into one row in product units; forecasts and cover from those sums. */
+export function combineRows(key: string, label: string, children: MasterChild[], days: number): ForecastRow {
+  const stock = children.reduce((n, c) => n + c.stock * c.units, 0);
+  const dispatched = children.reduce((n, c) => n + c.dispatched * c.units, 0);
   return { ...forecastRow({ sku: label, wid: null, title: null, disp: dispatched, stock }, days), key };
 }
 
@@ -146,25 +154,27 @@ export function combineRows(key: string, label: string, children: ForecastRow[],
  * The Forecasting tab grouped by product. Every Flipkart SKU in the forecast is looked up (exact spelling, then any
  * case); SKUs of one product become that product's children and a combined row. Products with no Flipkart SKU in
  * the data are left out. SKUs with no product come back as `unmapped`, each its own row, so nothing is hidden.
+ * SKUs in `removed` (taken out of the checks on the Master SKUs tab) are left out altogether.
  */
 export function buildMasterGroups(
   raw: ForecastRaw[],
   days: number,
-  masterOf: (sku: string) => string | null,
+  masterOf: (sku: string) => { master: string; units: number } | null,
   onlyWarehouse: string | null = null,
+  removed: ReadonlySet<string> = new Set(),
 ): { groups: MasterGroup[]; unmapped: ForecastRow[] } {
-  const perSku = buildRows(raw, days, false, onlyWarehouse);
-  const byMaster = new Map<string, ForecastRow[]>();
+  const perSku = buildRows(raw.filter((r) => !removed.has(r.sku)), days, false, onlyWarehouse);
+  const byMaster = new Map<string, MasterChild[]>();
   const unmapped: ForecastRow[] = [];
   for (const row of perSku) {
-    const master = masterOf(row.sku);
-    if (master === null) unmapped.push(row);
-    else byMaster.set(master, [...(byMaster.get(master) ?? []), row]);
+    const m = masterOf(row.sku);
+    if (m === null) unmapped.push(row);
+    else byMaster.set(m.master, [...(byMaster.get(m.master) ?? []), { ...row, units: m.units }]);
   }
   const groups = [...byMaster.entries()].map(([name, children]) => ({
     key: `m:${name}`,
     name,
-    children: children.sort((a, b) => b.f30 - a.f30 || a.sku.localeCompare(b.sku)),
+    children: children.sort((a, b) => b.f30 * b.units - a.f30 * a.units || a.sku.localeCompare(b.sku)),
     total: combineRows(`m:${name}`, name, children, days),
   }));
   return { groups, unmapped };

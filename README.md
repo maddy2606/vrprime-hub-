@@ -417,9 +417,23 @@ see each SKU's own numbers. SKUs with no product are listed under **Unmapped** a
 **All SKUs** is the flat list as before. Search finds a product by name or by any of its SKUs; the CSV holds each
 product's total row followed by its SKUs, then the unmapped SKUs. Top movers follow the view (products or SKUs).
 
-The owner refreshes the mapping in Settings > **Master SKU list**: the uploaded CSV (`master_name`, `channel_sku`)
-**replaces** the whole list in one transaction (`replace_master_skus`) and reports rows added, changed, removed and
-unchanged. A file with any problem (missing column, empty cell, a SKU under two products) changes nothing.
+Each link has **units per order** (a 2pc listing = 2): a product row counts each SKU's stock and units dispatched
+times its units per order, so the product's numbers are in pieces of the product (the SKU's own row stays in listing
+units, marked ×2). SKUs **removed** on the Master SKUs tab are left out of Forecasting altogether.
+
+**Flipkart > Master SKUs** (owner and admin) manages it:
+
+| Part | What it does |
+|---|---|
+| Master SKUs and their Flipkart SKUs | Each master SKU (optional code such as `180-LINT`, and a name) with its SKUs as chips (×2 = units per order). × unlinks a SKU; Add links one (with units). "Add master SKU" creates a new one |
+| Not linked yet | Flipkart listings with no master SKU and not removed: SKU, title, units sold in 14 days (by dispatch day), a suggested master SKU (from the most similar linked SKU, prefixes such as SH_ and Shopsy_ ignored; check it), units, Save, Remove |
+| Removed | SKUs taken out of the checks; × puts one back under Not linked yet |
+| Import Master SKU Excel | .xlsx (first sheet) or .csv with master_code and/or master_name, and optionally channel_sku and units_per_order: adds or updates master SKUs and links; never removes anything |
+| Download CSV | The list as it is: master_code, master_name, channel_sku, units_per_order |
+| Upload CSV | Owner only: the file **replaces** the whole list (master_name, channel_sku, optional units_per_order and master_code) in one transaction and reports rows added, changed, removed and unchanged. A file with any problem changes nothing |
+
+The database functions behind the buttons (`master_link_sku`, `master_unlink_sku`, `master_exclude_sku`,
+`master_restore_sku`, `master_import`, `replace_master_skus`) check the caller's role themselves.
 
 ### Days left ("running out soon")
 

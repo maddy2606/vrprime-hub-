@@ -41,21 +41,49 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
   }
 }
 
-/** The master product mapping (product name per channel SKU), for grouping the Forecasting tab. */
-export async function loadMasterMap(supabase: Supabase): Promise<MasterRow[]> {
+export type MasterData = {
+  products: { id: string; code: string | null; name: string }[];
+  links: { sku: string; masterId: string; units: number }[];
+  /** SKUs taken out of the checks ("Removed"). */
+  removed: string[];
+};
+
+/** The master SKUs: products, which channel SKUs belong to them (with units per order), and removed SKUs. */
+export async function loadMasterData(supabase: Supabase): Promise<MasterData> {
   try {
-    const [products, links] = await Promise.all([
-      fetchAll<{ id: string; name: string }>((from, to) => supabase.from("master_products").select("id, name").order("id").range(from, to)),
-      fetchAll<{ channel_sku: string; master_id: string }>((from, to) => supabase.from("sku_master").select("channel_sku, master_id").order("channel_sku").range(from, to)),
+    const [products, links, removed] = await Promise.all([
+      fetchAll<{ id: string; code: string | null; name: string }>((from, to) => supabase.from("master_products").select("id, code, name").order("id").range(from, to)),
+      fetchAll<{ channel_sku: string; master_id: string; units_per_order: number }>((from, to) =>
+        supabase.from("sku_master").select("channel_sku, master_id, units_per_order").order("channel_sku").range(from, to),
+      ),
+      fetchAll<{ channel_sku: string }>((from, to) => supabase.from("sku_excluded").select("channel_sku").order("channel_sku").range(from, to)),
     ]);
-    const nameOf = new Map(products.map((p) => [p.id, p.name]));
-    return links.flatMap((l) => {
-      const master = nameOf.get(l.master_id);
-      return master ? [{ master, sku: l.channel_sku }] : [];
-    });
+    return {
+      products,
+      links: links.map((l) => ({ sku: l.channel_sku, masterId: l.master_id, units: l.units_per_order })),
+      removed: removed.map((r) => r.channel_sku),
+    };
   } catch (error) {
     return fail("master products", error);
   }
+}
+
+/** Every Flipkart listing's SKU and title. */
+export async function loadListingTitles(supabase: Supabase): Promise<{ sku: string; title: string | null }[]> {
+  try {
+    return await fetchAll<{ sku: string; title: string | null }>((from, to) => supabase.from("stock_listings").select("sku, title").eq("platform", "flipkart").order("sku").range(from, to));
+  } catch (error) {
+    return fail("listing titles", error);
+  }
+}
+
+/** The mapping as rows (product name, SKU, units) for grouping and matching. */
+export function masterRows(data: MasterData): MasterRow[] {
+  const byId = new Map(data.products.map((p) => [p.id, p]));
+  return data.links.flatMap((l) => {
+    const p = byId.get(l.masterId);
+    return p ? [{ master: p.name, sku: l.sku, units: l.units, ...(p.code ? { code: p.code } : {}) }] : [];
+  });
 }
 
 function fail(where: string, error: unknown): never {

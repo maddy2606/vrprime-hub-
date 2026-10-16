@@ -1,4 +1,5 @@
 import { ForecastTab } from "@/components/flipkart/forecast-tab";
+import { MastersTab } from "@/components/flipkart/masters-tab";
 import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { HealthTab } from "@/components/flipkart/health-tab";
 import { NeedsAction } from "@/components/flipkart/needs-action";
@@ -31,10 +32,12 @@ import {
   loadHealthRows,
   loadInTransit,
   loadListingsNotFound,
-  loadMasterMap,
+  loadListingTitles,
+  loadMasterData,
   loadOrderSyncState,
   loadPriceRows,
   loadReturnRates,
+  masterRows,
   warehousesFor,
 } from "@/server/flipkart-data";
 import { loadOrderCounts, loadOrdersView, pickWarehouseOf } from "@/server/orders-view";
@@ -221,7 +224,7 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
   const asked = Number(one(sp.days));
   const days = (WINDOWS as readonly number[]).includes(asked) ? asked : 30;
   // Row level security gives a warehouse user only their own warehouses' orders and stock.
-  const [{ data, error }, warehouses, masters] = await Promise.all([supabase.rpc("flipkart_forecast", { p_days: days }), warehousesFor(user), loadMasterMap(supabase)]);
+  const [{ data, error }, warehouses, masters] = await Promise.all([supabase.rpc("flipkart_forecast", { p_days: days }), warehousesFor(user), loadMasterData(supabase)]);
   const parsed = error ? null : readForecast(data);
   if (!parsed) return <EmptyState title="The forecast could not be loaded" body="Reload the page. If it keeps happening, tell the developer." />;
   return (
@@ -230,10 +233,22 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
       raw={parsed.raw}
       warehouses={warehouses}
       window={days}
-      masters={masters}
+      masters={masterRows(masters)}
+      removed={masters.removed}
       allLabel={user.role === "warehouse" ? "All my warehouses" : "All warehouses"}
     />
   );
+}
+
+// --- Master SKUs ------------------------------------------------------------------------------------------------
+
+export async function MastersPanel({ user }: { user: SessionUser }) {
+  if (user.role !== "owner" && user.role !== "admin") return <EmptyState title="Not available" body="Master SKUs are for the owner and admins." />;
+  const supabase = await createClient();
+  const [data, listings, forecast] = await Promise.all([loadMasterData(supabase), loadListingTitles(supabase), supabase.rpc("flipkart_forecast", { p_days: 14 })]);
+  const sold: Record<string, number> = {};
+  for (const r of readForecast(forecast.error ? null : forecast.data)?.raw ?? []) sold[r.sku] = (sold[r.sku] ?? 0) + r.disp;
+  return <MastersTab products={data.products} links={data.links} removed={data.removed} listings={listings} sold={sold} canReplace={user.role === "owner"} />;
 }
 
 // --- Overfill Orders ----------------------------------------------------------------------------------------------

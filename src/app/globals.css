@@ -75,6 +75,17 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* A native select's list is drawn by the browser and does not inherit a transparent background: without this its
+   options can come out dark text on a dark list. */
+select {
+  color-scheme: dark;
+}
+select option,
+select optgroup {
+  background-color: var(--panel2);
+  color: var(--ink);
+}
+
 /* In the components layer so Tailwind utilities (pl-10, text-sm, font-mono) can override. */
 @layer components {
   /* Form controls share one look. 16px text stops iOS zooming in on focus. */

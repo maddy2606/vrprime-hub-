@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { coverBySku, coversPerWarehouse, daysOfCover, ratePerDay } from "./cover.ts";
-import { buildRows, forecastRow, historyNote, readForecast, topMovers } from "./forecast.ts";
+import { buildMasterGroups, buildRows, forecastRow, historyNote, readForecast, topMovers } from "./forecast.ts";
+import { masterLookup, parseMasterCsv } from "./master-csv.ts";
 
 test("100 units over 10 days: rate 10, forecasts 10 / 70 / 300", () => {
   const r = forecastRow({ sku: "A", wid: null, title: null, disp: 100, stock: 50 }, 10);
@@ -74,4 +75,64 @@ test("the Stock tab and Forecasting give the same days of cover for the same sco
 test("per warehouse cover skips empty stock and SKUs nobody dispatches", () => {
   const covers = coversPerWarehouse([...raw, { sku: "C", wid: "w1", disp: 0, stock: 99 }], 10);
   assert.deepEqual(covers.map((c) => `${c.sku}@${c.warehouseId}:${c.days}`).sort(), ["A@w1:1.6666666666666667", "A@w2:10"].sort());
+});
+
+// --- By product (master) ---------------------------------------------------------------------------------------
+
+const lookup = masterLookup([
+  { master: "Lint Machine", sku: "LINT1" },
+  { master: "Lint Machine", sku: "LINT2" },
+  { master: "Lint Machine", sku: "Shopsy_LINT2" },
+  { master: "Rack", sku: "RACKC1" },
+  { master: "Never sold", sku: "GHOST1" },
+]);
+
+test("a product combines its Flipkart SKUs: stock and rate are sums, forecasts and cover come from the sums", () => {
+  const rows = [
+    { sku: "LINT1", wid: "w1", title: "Lint", disp: 70, stock: 100 },
+    { sku: "LINT1", wid: "w2", title: "Lint", disp: 35, stock: 20 },
+    { sku: "lint2", wid: "w1", title: null, disp: 14, stock: 5 }, // matched in any case
+    { sku: "SHOPSY_LINT2", wid: "w1", title: null, disp: 0, stock: 7 },
+    { sku: "RACKC1", wid: "w1", title: null, disp: 7, stock: 0 },
+    { sku: "OTHER1", wid: "w1", title: null, disp: 3, stock: 1 },
+  ];
+  const { groups, unmapped } = buildMasterGroups(rows, 7, lookup);
+  const lint = groups.find((g) => g.name === "Lint Machine");
+  assert.ok(lint);
+  assert.deepEqual(lint.children.map((c) => c.sku), ["LINT1", "lint2", "SHOPSY_LINT2"]);
+  assert.equal(lint.total.stock, 132);
+  assert.equal(lint.total.rate, 17, "(105 + 14 + 0) / 7 = 15 + 2 + 0");
+  assert.equal(lint.total.rate, lint.children.reduce((n, c) => n + c.rate, 0));
+  assert.deepEqual([lint.total.f1, lint.total.f7, lint.total.f30], [17, 119, 510]);
+  assert.equal(lint.total.f30, lint.children.reduce((n, c) => n + c.f30, 0), "30-day forecast = sum of the children here");
+  assert.equal(lint.total.cover, 132 / 17);
+  assert.equal(groups.some((g) => g.name === "Never sold"), false, "a product with no Flipkart SKU in the data is left out");
+  assert.deepEqual(unmapped.map((u) => u.sku), ["OTHER1"]);
+});
+
+test("the warehouse filter applies to the children before they are combined", () => {
+  const rows = [
+    { sku: "LINT1", wid: "w1", title: null, disp: 70, stock: 100 },
+    { sku: "LINT1", wid: "w2", title: null, disp: 35, stock: 20 },
+  ];
+  const { groups } = buildMasterGroups(rows, 7, lookup, "w2");
+  assert.deepEqual([groups[0].total.stock, groups[0].total.rate], [20, 5]);
+});
+
+test("master CSV: exact spelling kept, header checked, one product per SKU", () => {
+  const ok = parseMasterCsv('\uFEFFmaster_name,channel_sku\r\nLint Machine,LINT1\r\n"Rack, black",\" RACK1\"\r\nLint Machine,LINT1\r\n');
+  assert.deepEqual(ok.errors, []);
+  assert.deepEqual(ok.rows, [{ master: "Lint Machine", sku: "LINT1" }, { master: "Rack, black", sku: " RACK1" }], "quotes, commas, a leading space, a repeated line");
+  assert.match(parseMasterCsv("name,sku\nA,B").errors[0], /master_name and channel_sku/);
+  assert.match(parseMasterCsv("master_name,channel_sku\nA,X1\nB,X1").errors[0], /already under "A"/);
+  assert.match(parseMasterCsv("master_name,channel_sku\nA,").errors[0], /must both be filled/);
+});
+
+test("lookup: exact first, then any case; a spelling two products share in different case matches nothing", () => {
+  const l = masterLookup([{ master: "A", sku: "Sh_X" }, { master: "A", sku: "SH_x" }, { master: "B", sku: "dup" }, { master: "C", sku: "DUP" }]);
+  assert.equal(l("Sh_X"), "A");
+  assert.equal(l("sh_x"), "A", "both spellings are the same product, so any case is fine");
+  assert.equal(l("DUP"), "C", "exact wins");
+  assert.equal(l("Dup"), null, "ambiguous in any case");
+  assert.equal(l(" SH_X"), null, "a space is part of the SKU");
 });

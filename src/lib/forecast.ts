@@ -122,3 +122,50 @@ export function historyNote(meta: ForecastMeta): string | null {
 export function topMovers(rows: ForecastRow[], n = 5): ForecastRow[] {
   return [...rows].sort((a, b) => b.f30 - a.f30 || b.dispatched - a.dispatched || a.sku.localeCompare(b.sku)).slice(0, n);
 }
+
+// --- By product (master) ------------------------------------------------------------------------------------------
+
+export type MasterGroup = {
+  key: string;
+  /** The product's name. */
+  name: string;
+  /** The product's Flipkart SKUs, each with its own numbers (summed over the warehouses in scope). */
+  children: ForecastRow[];
+  /** The children combined: stock and units dispatched summed, so the rate is the sum of the children's rates. */
+  total: ForecastRow;
+};
+
+/** Children combined into one row: stock = sum, rate = sum (same window), forecasts and cover from those sums. */
+export function combineRows(key: string, label: string, children: ForecastRow[], days: number): ForecastRow {
+  const stock = children.reduce((n, c) => n + c.stock, 0);
+  const dispatched = children.reduce((n, c) => n + c.dispatched, 0);
+  return { ...forecastRow({ sku: label, wid: null, title: null, disp: dispatched, stock }, days), key };
+}
+
+/**
+ * The Forecasting tab grouped by product. Every Flipkart SKU in the forecast is looked up (exact spelling, then any
+ * case); SKUs of one product become that product's children and a combined row. Products with no Flipkart SKU in
+ * the data are left out. SKUs with no product come back as `unmapped`, each its own row, so nothing is hidden.
+ */
+export function buildMasterGroups(
+  raw: ForecastRaw[],
+  days: number,
+  masterOf: (sku: string) => string | null,
+  onlyWarehouse: string | null = null,
+): { groups: MasterGroup[]; unmapped: ForecastRow[] } {
+  const perSku = buildRows(raw, days, false, onlyWarehouse);
+  const byMaster = new Map<string, ForecastRow[]>();
+  const unmapped: ForecastRow[] = [];
+  for (const row of perSku) {
+    const master = masterOf(row.sku);
+    if (master === null) unmapped.push(row);
+    else byMaster.set(master, [...(byMaster.get(master) ?? []), row]);
+  }
+  const groups = [...byMaster.entries()].map(([name, children]) => ({
+    key: `m:${name}`,
+    name,
+    children: children.sort((a, b) => b.f30 - a.f30 || a.sku.localeCompare(b.sku)),
+    total: combineRows(`m:${name}`, name, children, days),
+  }));
+  return { groups, unmapped };
+}

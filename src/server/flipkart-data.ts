@@ -1,4 +1,5 @@
 import "server-only";
+import type { MasterRow } from "@/lib/master-csv";
 import { getLookups } from "@/lib/data";
 import {
   buildHealthRows,
@@ -37,6 +38,23 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
     if (error) throw new Error(error.message);
     rows.push(...(data ?? []));
     if (!data || data.length < PAGE) return rows;
+  }
+}
+
+/** The master product mapping (product name per channel SKU), for grouping the Forecasting tab. */
+export async function loadMasterMap(supabase: Supabase): Promise<MasterRow[]> {
+  try {
+    const [products, links] = await Promise.all([
+      fetchAll<{ id: string; name: string }>((from, to) => supabase.from("master_products").select("id, name").order("id").range(from, to)),
+      fetchAll<{ channel_sku: string; master_id: string }>((from, to) => supabase.from("sku_master").select("channel_sku, master_id").order("channel_sku").range(from, to)),
+    ]);
+    const nameOf = new Map(products.map((p) => [p.id, p.name]));
+    return links.flatMap((l) => {
+      const master = nameOf.get(l.master_id);
+      return master ? [{ master, sku: l.channel_sku }] : [];
+    });
+  } catch (error) {
+    return fail("master products", error);
   }
 }
 

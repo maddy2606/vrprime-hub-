@@ -404,6 +404,23 @@ Views:
 | Upcoming vs stock | Per SKU and warehouse: units in Upcoming orders against current stock, shortfalls first ("Short of stock" filter), with when the first becomes Active |
 | Cancelled | Cancellations in 30 days, seller and buyer apart, counts per day |
 
+### Forecasting by product (master SKUs)
+
+A master product (for example "Lint Machine") groups several channel SKUs. The mapping lives in `master_products` and
+`sku_master` (each SKU belongs to one product; SKUs kept exactly as written, spaces included), seeded from
+`supabase/seed-data/master_sku_mapping.csv` (121 products, 433 SKUs; the seed SQL comes from
+`node scripts/master-sku-seed.mjs <csv>`). A Flipkart SKU is matched by exact spelling, then in any case.
+
+The Forecasting tab opens **By product (master)**: one row per product that has at least one Flipkart SKU in the data,
+combining its SKUs (stock = sum, average per day = sum, forecasts and days of cover from those sums). Open a product to
+see each SKU's own numbers. SKUs with no product are listed under **Unmapped** at the bottom, each its own row.
+**All SKUs** is the flat list as before. Search finds a product by name or by any of its SKUs; the CSV holds each
+product's total row followed by its SKUs, then the unmapped SKUs. Top movers follow the view (products or SKUs).
+
+The owner refreshes the mapping in Settings > **Master SKU list**: the uploaded CSV (`master_name`, `channel_sku`)
+**replaces** the whole list in one transaction (`replace_master_skus`) and reports rows added, changed, removed and
+unchanged. A file with any problem (missing column, empty cell, a SKU under two products) changes nothing.
+
 ### Days left ("running out soon")
 
 Per SKU and warehouse: units in stock ÷ units used per day. Units used per day come from real orders (the larger of the 7-day and

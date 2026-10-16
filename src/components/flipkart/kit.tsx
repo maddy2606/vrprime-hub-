@@ -3,12 +3,13 @@
 // The small shared pieces of the Flipkart page, so every tab looks and behaves the same:
 //   Toolbar    one row: segmented control for the sub-view, compact dropdown filters, search, CSV. Wraps on a phone.
 //   Segmented  the sub-view switch. Violet marks the one that is on.
-//   Dropdown   a labelled compact filter.
+//   Dropdown   a labelled compact filter (the browser's own list).
+//   Picker     the same, with the list drawn by the app: readable in the dark theme and above the table.
 //   SearchField, CsvButton, InfoTip (the "i" that holds long explanations), Caption (one line of small text).
 //   PageSection, StatTile, MiniStat for headings and numbers.
 // Spacing is on an 8px scale: gap-2 (8), gap-4 (16), mb-4 (16), mb-6 (24).
-import { useId, type ReactNode } from "react";
-import { SearchIcon } from "@/components/icons";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { ChevronDownIcon, SearchIcon } from "@/components/icons";
 import { formatNumber } from "@/lib/format";
 
 export function Toolbar({ children }: { children: ReactNode }) {
@@ -80,6 +81,128 @@ export function Dropdown({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+/**
+ * A labelled filter whose list the app draws itself (a listbox), so it is readable in the dark theme and opens above
+ * the table instead of the browser's own popup. Keyboard: arrows, Home, End, Enter or Space to choose, Escape to
+ * close. A tap or click outside closes it.
+ */
+export function Picker({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  const box = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const current = options.find((o) => o.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    list.current?.focus();
+    return () => document.removeEventListener("pointerdown", away);
+  }, [open]);
+
+  const show = () => {
+    setActive(Math.max(0, options.findIndex((o) => o.value === value)));
+    setOpen(true);
+  };
+  const choose = (i: number) => {
+    const o = options[i];
+    if (o) onChange(o.value);
+    setOpen(false);
+    button.current?.focus();
+  };
+  const onListKey = (e: KeyboardEvent<HTMLUListElement>) => {
+    const last = options.length - 1;
+    const moves: Record<string, () => void> = {
+      ArrowDown: () => setActive((i) => Math.min(last, i + 1)),
+      ArrowUp: () => setActive((i) => Math.max(0, i - 1)),
+      Home: () => setActive(0),
+      End: () => setActive(last),
+      Enter: () => choose(active),
+      " ": () => choose(active),
+      Escape: () => {
+        setOpen(false);
+        button.current?.focus();
+      },
+      Tab: () => setOpen(false),
+    };
+    const move = moves[e.key];
+    if (!move) return;
+    if (e.key !== "Tab") e.preventDefault();
+    move();
+  };
+
+  return (
+    <div ref={box} className="relative min-w-[9.5rem] flex-1 sm:flex-none">
+      <button
+        ref={button}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={`${id}-list`}
+        onClick={() => (open ? setOpen(false) : show())}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            show();
+          }
+        }}
+        className="focus-ring flex min-h-11 w-full items-center gap-1.5 sp-card pl-2.5 pr-2 text-left sm:min-h-9"
+      >
+        <span className="shrink-0 text-xs font-semibold text-muted">{label}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink sm:max-w-44">{current?.label}</span>
+        <ChevronDownIcon className={`h-4 w-4 shrink-0 text-muted transition ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? (
+        <ul
+          ref={list}
+          id={`${id}-list`}
+          role="listbox"
+          tabIndex={-1}
+          aria-label={label}
+          aria-activedescendant={`${id}-opt-${active}`}
+          onKeyDown={onListKey}
+          className="absolute left-0 z-50 mt-1 max-h-72 min-w-full overflow-auto rounded-xl border border-line bg-panel2 p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.85)] focus:outline-none"
+        >
+          {options.map((o, i) => {
+            const selected = o.value === value;
+            return (
+              <li
+                key={o.value}
+                id={`${id}-opt-${i}`}
+                role="option"
+                aria-selected={selected}
+                onPointerEnter={() => setActive(i)}
+                onClick={() => choose(i)}
+                className={`flex min-h-11 cursor-pointer items-center whitespace-nowrap rounded-lg px-3 text-sm font-semibold sm:min-h-9 ${
+                  i === active ? "bg-accent-soft text-ink" : "text-ink"
+                } ${selected ? "text-accent-text" : ""}`}
+              >
+                {o.label}
+                {selected ? <span aria-hidden="true" className="ml-auto pl-3 text-accent-text">✓</span> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </div>
   );
 }

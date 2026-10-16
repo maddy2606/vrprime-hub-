@@ -345,9 +345,25 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
             { sku: "FAKE-SKU-RED-XL", wid: FAKE_WAREHOUSES[1].id, title: null, disp: 240, stock: 90 },
             { sku: "FAKE-SKU-BLU-M", wid: FAKE_WAREHOUSES[0].id, title: "Fake blue spray", disp: 48, stock: 1000 },
             { sku: "FAKE-NO-SALES", wid: FAKE_WAREHOUSES[0].id, title: "Never sold", disp: 0, stock: 25 },
+            { sku: "FAKE-LINT1", wid: FAKE_WAREHOUSES[0].id, title: "Fake lint remover, rechargeable", disp: 300, stock: 120 },
+            { sku: "FAKE-LINT1", wid: FAKE_WAREHOUSES[2].id, title: null, disp: 96, stock: 40 },
+            { sku: "fake-lint2", wid: FAKE_WAREHOUSES[1].id, title: "Fake lint remover, two pack", disp: 72, stock: 15 },
+            { sku: "FAKE-SHOPSY-LINT2", wid: FAKE_WAREHOUSES[1].id, title: null, disp: 12, stock: 60 },
+            { sku: "FAKE-RACK-BLK", wid: FAKE_WAREHOUSES[3].id, title: "Fake black rack, two piece", disp: 30, stock: 200 },
+            { sku: "FAKE-RACK-BLK2", wid: FAKE_WAREHOUSES[4].id, title: null, disp: 6, stock: 3 },
           ]}
           warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))}
           window={30}
+          masters={[
+            { master: "Lint Machine", sku: "FAKE-LINT1" },
+            { master: "Lint Machine", sku: "FAKE-LINT2" },
+            { master: "Lint Machine", sku: "FAKE-SHOPSY-LINT2" },
+            { master: "Black Rack 2pc", sku: "FAKE-RACK-BLK" },
+            { master: "Black Rack 2pc", sku: "FAKE-RACK-BLK2" },
+            { master: "Red Cleaner", sku: "FAKE-SKU-RED-XL" },
+            { master: "Product with no Flipkart SKU", sku: "FAKE-GHOST" },
+          ]}
+          allLabel="All warehouses"
         />
       ) : null}
       {health ? <HealthTab rows={health.rows} total={health.total} taxUnread={0} slaLimit={2} /> : null}

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { OwnerOnly } from "@/components/owner-only";
+import { MasterSkuUpload } from "@/components/admin/master-sku-upload";
 import { MoneySwitch } from "@/components/admin/money-switch";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { PageTitle } from "@/components/ui";
@@ -28,11 +29,16 @@ export default async function SettingsPage() {
     return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
   };
 
-  const moneyOn = await isMoneyEnabled();
+  const [moneyOn, productCount, skuCount] = await Promise.all([
+    isMoneyEnabled(),
+    supabase.from("master_products").select("id", { count: "exact", head: true }),
+    supabase.from("sku_master").select("channel_sku", { count: "exact", head: true }),
+  ]);
   return (
     <div className="mx-auto max-w-2xl">
       <PageTitle title="Settings" sub="Thresholds for the Flipkart page. They apply the next time anyone opens it." />
       <MoneySwitch initial={moneyOn} />
+      <MasterSkuUpload products={productCount.count ?? 0} skus={skuCount.count ?? 0} />
       <SettingsForm
         initial={{
           low_stock_threshold: String(read("low_stock_threshold", DEFAULT_SETTINGS.low)),

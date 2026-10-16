@@ -301,6 +301,12 @@ export type FkReturn = {
   last_run_id: string | null;
 };
 
+/** A master product: one product that several channel SKUs belong to. */
+export type MasterProduct = { id: string; name: string; created_at: string };
+
+/** Which master product a channel SKU belongs to (the SKU exactly as written). */
+export type SkuMaster = { channel_sku: string; master_id: string; updated_at: string };
+
 type Table<Row> = { Row: Row; Insert: Partial<Row>; Update: Partial<Row>; Relationships: [] };
 
 export type Database = {
@@ -324,6 +330,8 @@ export type Database = {
       order_runs: Table<OrderRun>;
       fk_order_items: Table<FkOrderItem>;
       fk_returns: Table<FkReturn>;
+      master_products: Table<MasterProduct>;
+      sku_master: Table<SkuMaster>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -342,6 +350,7 @@ export type Database = {
       flipkart_return_rates: { Args: { p_days?: number }; Returns: Json };
       flipkart_snapshot_date: { Args: Record<string, never>; Returns: string | null };
       flipkart_forecast: { Args: { p_days?: number }; Returns: Json };
+      replace_master_skus: { Args: { p_rows: { master: string; sku: string }[] }; Returns: Json };
       deck_series: { Args: { p_low?: number }; Returns: Json };
       dispatch_series: { Args: { p_days?: number }; Returns: Json };
       flipkart_order_counts: { Args: Record<string, never>; Returns: Json };

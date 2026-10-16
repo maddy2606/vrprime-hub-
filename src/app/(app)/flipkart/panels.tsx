@@ -31,6 +31,7 @@ import {
   loadHealthRows,
   loadInTransit,
   loadListingsNotFound,
+  loadMasterMap,
   loadOrderSyncState,
   loadPriceRows,
   loadReturnRates,
@@ -220,10 +221,19 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
   const asked = Number(one(sp.days));
   const days = (WINDOWS as readonly number[]).includes(asked) ? asked : 30;
   // Row level security gives a warehouse user only their own warehouses' orders and stock.
-  const [{ data, error }, warehouses] = await Promise.all([supabase.rpc("flipkart_forecast", { p_days: days }), warehousesFor(user)]);
+  const [{ data, error }, warehouses, masters] = await Promise.all([supabase.rpc("flipkart_forecast", { p_days: days }), warehousesFor(user), loadMasterMap(supabase)]);
   const parsed = error ? null : readForecast(data);
   if (!parsed) return <EmptyState title="The forecast could not be loaded" body="Reload the page. If it keeps happening, tell the developer." />;
-  return <ForecastTab meta={parsed.meta} raw={parsed.raw} warehouses={warehouses} window={days} />;
+  return (
+    <ForecastTab
+      meta={parsed.meta}
+      raw={parsed.raw}
+      warehouses={warehouses}
+      window={days}
+      masters={masters}
+      allLabel={user.role === "warehouse" ? "All my warehouses" : "All warehouses"}
+    />
+  );
 }
 
 // --- Overfill Orders ----------------------------------------------------------------------------------------------

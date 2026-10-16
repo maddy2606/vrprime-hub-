@@ -1,6 +1,8 @@
 // The Command Deck's logic, as plain functions (relative imports, so `node --test` can load it): how the priority queue is
 // ranked, what the headline says, and how healthy a warehouse looks.
 
+import { analyze, isInactive, type DeskData } from "./stock-analysis.ts";
+
 export type QueueKind = "late" | "risk" | "overfill" | "dry" | "ticket" | "work";
 
 export type QueueAction = { label: string; href: string };
@@ -98,18 +100,47 @@ export function warehouseHealth(card: { active: number; late: number; nextDue: s
   return { pct, tone, chip: soon ? { label: "Due soon", tone: "warn" } : { label: "On time", tone: "ok" } };
 }
 
-/** Selling SKUs with nothing in stock across the scope: from the forecast rows (units dispatched and stock per SKU per warehouse). */
-export function dryAndSelling(rows: { sku: string; title: string | null; disp: number; stock: number }[]): { sku: string; title: string | null; disp: number }[] {
-  const by = new Map<string, { title: string | null; disp: number; stock: number }>();
+/** SKUs the Stock tab lists as out of stock (no units in any warehouse in scope), inactive listings included, and which are inactive. */
+export type OutOfStock = ReadonlyMap<string, { inactive: boolean }>;
+
+/** The Stock tab's out-of-stock list over every warehouse this person can see, with inactive listings kept in. */
+export function outOfStock(data: DeskData): OutOfStock {
+  const rows = analyze(data, data.warehouses.map((_, i) => i), false).out;
+  return new Map(rows.map((r) => [r.sku, { inactive: isInactive(r.status) }]));
+}
+
+export type DrySku = { sku: string; title: string | null; disp: number; inactive: boolean };
+
+/**
+ * Selling SKUs with nothing in stock across the scope, busiest first: dispatched in the forecast window and on the Stock tab's
+ * out-of-stock list. A SKU the stock sync does not record (FBF, or no longer listed) has no known stock, so it is left out rather
+ * than called out of stock. `inactive` marks a listing that has gone inactive, which the Out of stock tile does not count.
+ */
+export function dryAndSelling(rows: { sku: string; title: string | null; disp: number }[], out: OutOfStock): DrySku[] {
+  const by = new Map<string, { title: string | null; disp: number }>();
   for (const r of rows) {
-    const cur = by.get(r.sku) ?? { title: r.title, disp: 0, stock: 0 };
+    const cur = by.get(r.sku) ?? { title: r.title, disp: 0 };
     cur.disp += r.disp;
-    cur.stock += r.stock;
     cur.title = cur.title ?? r.title;
     by.set(r.sku, cur);
   }
-  return [...by.entries()]
-    .filter(([, v]) => v.stock <= 0 && v.disp > 0)
-    .map(([sku, v]) => ({ sku, title: v.title, disp: v.disp }))
-    .sort((a, b) => b.disp - a.disp || a.sku.localeCompare(b.sku));
+  const dry: DrySku[] = [];
+  for (const [sku, v] of by) {
+    const o = out.get(sku);
+    if (o && v.disp > 0) dry.push({ sku, title: v.title, disp: v.disp, inactive: o.inactive });
+  }
+  return dry.sort((a, b) => b.disp - a.disp || a.sku.localeCompare(b.sku));
+}
+
+/**
+ * The line under the Out of stock tile. The tile counts active listings with no units, so only those are "of them";
+ * inactive listings that still sold in the window are named apart.
+ */
+export function outOfStockSub(dry: Pick<DrySku, "inactive">[]): string {
+  const inactive = dry.filter((d) => d.inactive).length;
+  const active = dry.length - inactive;
+  const parts: string[] = [];
+  if (active > 0) parts.push(`${active.toLocaleString("en-IN")} of them selling`);
+  if (inactive > 0) parts.push(`${plural(inactive, "inactive listing", "inactive listings")} sold recently`);
+  return parts.length > 0 ? parts.join(" · ") : "active listings with no units";
 }

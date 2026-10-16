@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { dryAndSelling, heroFor, rankQueue, SEVERITY, urgentCount, warehouseHealth, type QueueItem } from "./deck.ts";
+import { dryAndSelling, heroFor, outOfStock, outOfStockSub, rankQueue, SEVERITY, urgentCount, warehouseHealth, type QueueItem } from "./deck.ts";
+import { analyze, type DeskData, type DeskListing } from "./stock-analysis.ts";
 
 const item = (key: string, kind: QueueItem["kind"], deadline: number | null, title = key): QueueItem => ({ key, kind, severity: SEVERITY[kind], deadline, title, detail: "", actions: [] });
 
@@ -46,13 +47,57 @@ test("warehouse health: share of active orders that are not late, with a late, s
   assert.equal(warehouseHealth({ active: 500, late: 1, nextDue: null }, now).chip.tone, "bad");
 });
 
-test("dry and selling: no stock anywhere in scope but dispatched recently, busiest first", () => {
-  const out = dryAndSelling([
-    { sku: "A", title: "a", disp: 5, stock: 0 },
-    { sku: "A", title: "a", disp: 5, stock: 0 },
-    { sku: "B", title: null, disp: 3, stock: 0 },
-    { sku: "C", title: null, disp: 50, stock: 2 },
-    { sku: "D", title: null, disp: 0, stock: 0 },
-  ]);
-  assert.deepEqual(out.map((r) => [r.sku, r.disp]), [["A", 10], ["B", 3]]);
+const WH = [{ id: "11111111-1111-4111-8111-111111111111", name: "Delhi" }, { id: "22222222-2222-4222-8222-222222222222", name: "Pune" }];
+
+const listing = (sku: string, now: (number | null)[], over: Partial<DeskListing> = {}): DeskListing => ({
+  sku, title: `Title ${sku}`, status: "ACTIVE", listingId: `L-${sku}`, inactiveSince: null, beforeTracking: false, dims: null, now, prev: now.map(() => null), prevStatus: null, ...over,
+});
+
+const desk = (listings: DeskListing[]): DeskData => ({
+  warehouses: WH, listings, settings: { low: 100, weightLimit: 2000, newInactiveDays: 2 }, today: "2026-10-17", snapshotDate: "2026-10-17", previousDate: null, fullAccess: true,
+});
+
+test("dry and selling: on the out-of-stock list and dispatched recently, busiest first", () => {
+  const out = outOfStock(desk([listing("A", [0, 0]), listing("B", [0, null]), listing("C", [5, 0]), listing("D", [0, 0])]));
+  const dry = dryAndSelling(
+    [
+      { sku: "A", title: "a", disp: 5 },
+      { sku: "A", title: "a", disp: 5 },
+      { sku: "B", title: null, disp: 3 },
+      { sku: "C", title: null, disp: 50 },
+      { sku: "D", title: null, disp: 0 },
+    ],
+    out,
+  );
+  assert.deepEqual(dry.map((r) => [r.sku, r.disp]), [["A", 10], ["B", 3]]);
+});
+
+test("a SKU the stock sync does not record (FBF, delisted) is not called out of stock", () => {
+  const dry = dryAndSelling([{ sku: "FBF-1", title: null, disp: 900 }], outOfStock(desk([listing("A", [10, 10])])));
+  assert.deepEqual(dry, []);
+});
+
+test("inactive listings that sold are kept but marked, and never counted as 'of them' under the tile", () => {
+  const data = desk([listing("A", [0, 0]), listing("VACMAP2", [0, 0], { status: "INACTIVE" }), listing("VAC1", [0, 0], { status: "INACTIVE" }), listing("OK", [50, 50])]);
+  const dry = dryAndSelling(
+    [
+      { sku: "A", title: null, disp: 4 },
+      { sku: "VACMAP2", title: null, disp: 2050 },
+      { sku: "VAC1", title: null, disp: 1383 },
+      { sku: "FBF-1", title: null, disp: 700 },
+    ],
+    outOfStock(data),
+  );
+  assert.deepEqual(dry.map((d) => [d.sku, d.inactive]), [["VACMAP2", true], ["VAC1", true], ["A", false]]);
+
+  const tile = analyze(data, [0, 1], true).tiles.out;
+  assert.equal(tile, 1, "the tile hides inactive listings");
+  assert.ok(dry.filter((d) => !d.inactive).length <= tile, "'of them' is part of the tile's count");
+  assert.equal(outOfStockSub(dry), "1 of them selling · 2 inactive listings sold recently");
+});
+
+test("the Out of stock tile's line: active sellers, inactive sellers, both or neither", () => {
+  assert.equal(outOfStockSub([{ inactive: false }, { inactive: false }]), "2 of them selling");
+  assert.equal(outOfStockSub([{ inactive: true }]), "1 inactive listing sold recently");
+  assert.equal(outOfStockSub([]), "active listings with no units");
 });

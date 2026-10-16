@@ -1,5 +1,5 @@
 import "server-only";
-import { dryAndSelling, heroFor, KIND_TAG, rankQueue, SEVERITY, urgentCount, warehouseHealth, type Health, type Hero, type QueueItem } from "@/lib/deck";
+import { dryAndSelling, heroFor, KIND_TAG, outOfStock, outOfStockSub, rankQueue, SEVERITY, urgentCount, warehouseHealth, type Health, type Hero, type OutOfStock, type QueueItem } from "@/lib/deck";
 import { ticketHref } from "@/lib/flipkart-analysis";
 import { buildRows, topMovers } from "@/lib/forecast";
 import { dueLabel, formatDateTime, formatNumber, postNumber, ticketNumber, todayIST } from "@/lib/format";
@@ -97,7 +97,9 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
 
   const cover = desk && desk.kind === "ready" ? desk.cover : null;
   const forecast = cover?.forecast ?? [];
-  const dry = dryAndSelling(forecast);
+  // Matched against the Stock tab's own out-of-stock list, so "selling" never counts SKUs the tile cannot see.
+  const out: OutOfStock = desk && desk.kind === "ready" ? outOfStock(desk.page.data) : new Map();
+  const dry = dryAndSelling(forecast, out);
   const overfill = [...empties].sort((a, b) => b.units - a.units || a.sku.localeCompare(b.sku));
   const overfillSkus = new Set(overfill.map((e) => e.sku));
   const dryOnly = dry.filter((d) => !overfillSkus.has(d.sku));
@@ -159,12 +161,14 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
       severity: SEVERITY.dry,
       deadline: null,
       title: d.sku,
-      detail: `${d.title ? `${d.title} · ` : ""}${formatNumber(d.disp)} dispatched in the last ${formatNumber(cover?.days ?? 0)} days, 0 in stock`,
+      detail: `${d.title ? `${d.title} · ` : ""}${formatNumber(d.disp)} dispatched in the last ${formatNumber(cover?.days ?? 0)} days, 0 in stock${d.inactive ? ", listing inactive" : ""}`,
       actions: [{ label: "+ Restock", href: restockHref(d.sku, null) }],
     });
   }
   if (dryOnly.length > 5) {
-    items.push({ key: "dry-more", kind: "dry", severity: SEVERITY.dry, deadline: Number.MAX_SAFE_INTEGER - 1, title: `${formatNumber(dryOnly.length - 5)} more selling SKUs out of stock`, detail: "Busiest first on the Stock tab", actions: [{ label: "Open", href: "/flipkart?tab=stock&view=out&hide=1" }] });
+    // Inactive listings only show on the Stock tab with "Hide inactive" off.
+    const href = dryOnly.some((d) => d.inactive) ? "/flipkart?tab=stock&view=out" : "/flipkart?tab=stock&view=out&hide=1";
+    items.push({ key: "dry-more", kind: "dry", severity: SEVERITY.dry, deadline: Number.MAX_SAFE_INTEGER - 1, title: `${formatNumber(dryOnly.length - 5)} more selling SKUs out of stock`, detail: "Busiest first on the Stock tab", actions: [{ label: "Open", href }] });
   }
   for (const t of followUps.data ?? []) {
     items.push({
@@ -203,7 +207,7 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
   const outNow = tiles ? tiles.out : null;
   const pulses: DeckData["pulses"] = [
     { key: "late", label: "Late dispatch", value: lateTotal, tone: lateTotal > 0 ? "bad" : "cyan", sub: lateTotal > 0 ? "past their dispatch-by time" : "nothing past its deadline", spark: dueByDay(0, 4), sparkLabel: "Orders still waiting, by the day they were due, last 3 days and today", href: "/flipkart?tab=orders&view=list" },
-    { key: "out", label: "Out of stock", value: outNow ?? 0, tone: (outNow ?? 0) > 0 ? "warn" : "cyan", sub: dry.length ? `${formatNumber(dry.length)} of them selling` : "active listings with no units", spark: stockSeries.map((s) => s.out), sparkLabel: "SKUs out of stock at each stock reading", href: "/flipkart?tab=stock&view=out&hide=1" },
+    { key: "out", label: "Out of stock", value: outNow ?? 0, tone: (outNow ?? 0) > 0 ? "warn" : "cyan", sub: outOfStockSub(dry), spark: stockSeries.map((s) => s.out), sparkLabel: "SKUs out of stock at each stock reading", href: "/flipkart?tab=stock&view=out&hide=1" },
     { key: "tomorrow", label: "Due tomorrow", value: tomorrowTotal, tone: "cyan", sub: "orders with a deadline tomorrow", spark: dueByDay(3, 10), sparkLabel: "Orders due per day, today and the next 6 days", href: "/flipkart?tab=orders&view=list" },
   ];
 

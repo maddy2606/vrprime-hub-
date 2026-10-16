@@ -308,6 +308,12 @@ export type MasterProduct = { id: string; code: string | null; name: string; cre
 /** Which master product a channel SKU belongs to (the SKU exactly as written). */
 export type SkuMaster = { channel_sku: string; master_id: string; units_per_order: number; updated_at: string };
 
+/** One upload of the VR Prime inventory report; the newest is the stock Forecasting uses. */
+export type InventoryUpload = { id: string; uploaded_at: string; uploaded_by: string | null; file_name: string; report_month: string | null; products: number; pieces: number };
+
+/** Pieces of a report product (by its code) in a warehouse, from the newest upload. */
+export type InventoryStock = { code: string; warehouse_id: string; name: string; pieces: number; upload_id: string };
+
 /** A Flipkart SKU taken out of the checks and lists ("Removed" on the Master SKUs tab). */
 export type SkuExcluded = { channel_sku: string; excluded_at: string; excluded_by: string | null };
 
@@ -337,6 +343,8 @@ export type Database = {
       master_products: Table<MasterProduct>;
       sku_master: Table<SkuMaster>;
       sku_excluded: Table<SkuExcluded>;
+      inventory_uploads: Table<InventoryUpload>;
+      inventory_stock: Table<InventoryStock>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -358,6 +366,7 @@ export type Database = {
       replace_master_skus: { Args: { p_rows: { master: string; sku: string; units?: number; code?: string }[] }; Returns: Json };
       master_import: { Args: { p_rows: { code?: string; name?: string; sku?: string; units?: number }[] }; Returns: Json };
       master_link_sku: { Args: { p_sku: string; p_master: string; p_units: number }; Returns: undefined };
+      inventory_upload: { Args: { p_file: string; p_month: string | null; p_rows: { code: string; name: string; wid: string; pieces: number }[] }; Returns: Json };
       master_set_kit: { Args: { p_master: string; p_parts: { part: string; qty: number }[] }; Returns: undefined };
       master_unlink_sku: { Args: { p_sku: string }; Returns: undefined };
       master_exclude_sku: { Args: { p_sku: string }; Returns: undefined };

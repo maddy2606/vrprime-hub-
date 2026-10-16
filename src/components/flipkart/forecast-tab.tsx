@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { ListView } from "@/components/flipkart/list-view";
-import { CoverValue, MasterTable, type MasterSort } from "@/components/flipkart/master-table";
+import { MasterTable, type MasterSort } from "@/components/flipkart/master-table";
 import { Caption, CsvButton, InfoTip, Picker, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
 import type { Column } from "@/components/stock/data-table";
+import { useToast } from "@/components/toast";
+import { buttonClass } from "@/components/ui";
 import { downloadCsv, toCsv, type CsvCell } from "@/lib/csv";
 import { formatDate, formatNumber } from "@/lib/format";
 import {
@@ -20,7 +22,10 @@ import {
   type KitDef,
   type MasterGroup,
 } from "@/lib/forecast";
+import { parseInventoryReport, reportMonth } from "@/lib/inventory-report";
 import { masterLookup, type MasterRow } from "@/lib/master-csv";
+import { readSheets } from "@/lib/read-table";
+import { uploadInventory } from "@/server/actions/inventory";
 
 type Props = {
   meta: ForecastMeta;
@@ -34,6 +39,14 @@ type Props = {
   removed: string[];
   /** Products made of other products (combos): stock includes what the parts make. */
   kits: KitDef[];
+  /** Stock from the VR Prime inventory report: pieces per master product and warehouse. */
+  inventory: { product: string; wid: string; pieces: number }[];
+  /** The newest inventory report, or null before the first upload. */
+  inventoryUpload: { at: string; file: string; month: string | null } | null;
+  /** Report products that match no master SKU (their stock is not counted). */
+  unmatched: string[];
+  /** Owner and admin may upload the inventory report. */
+  canUpload: boolean;
   /** "All warehouses" for owner and admin, "All my warehouses" for a warehouse user. */
   allLabel: string;
 };
@@ -42,8 +55,11 @@ type View = "master" | "sku";
 
 const n0 = (v: number) => formatNumber(Math.round(v));
 
-export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, removed, kits, allLabel }: Props) {
+export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, removed, kits, inventory, inventoryUpload, unmatched, canUpload, allLabel }: Props) {
   const router = useRouter();
+  const toast = useToast();
+  const [uploading, startUpload] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<View>("master");
   const [split, setSplit] = useState(false);
   const [wh, setWh] = useState<string>("");
@@ -58,7 +74,33 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   }, [allRaw, removed]);
 
   const rows = useMemo(() => buildRows(raw, meta.days, split, wh || null), [raw, meta.days, split, wh]);
-  const grouped = useMemo(() => buildMasterGroups(raw, meta.days, masterOf, wh || null, new Set(), kits), [raw, meta.days, masterOf, wh, kits]);
+  const stockMap = useMemo(() => {
+    const m = new Map<string, Map<string, number>>();
+    for (const s of inventory) m.set(s.product, (m.get(s.product) ?? new Map()).set(s.wid, s.pieces));
+    return m;
+  }, [inventory]);
+  const grouped = useMemo(() => buildMasterGroups(raw, meta.days, masterOf, wh || null, new Set(), kits, stockMap), [raw, meta.days, masterOf, wh, kits, stockMap]);
+
+  const onUpload = (file: File | undefined) => {
+    if (!file) return;
+    startUpload(async () => {
+      try {
+        const sheets = await readSheets(file);
+        const products = [...sheets].find(([name]) => name.trim().toLowerCase() === "products")?.[1] ?? [...sheets.values()][0] ?? [];
+        const summary = [...sheets].find(([name]) => name.trim().toLowerCase() === "summary")?.[1];
+        const { lines, errors } = parseInventoryReport(products, warehouses);
+        if (errors.length) {
+          toast.show(`Nothing was uploaded. ${errors.slice(0, 2).join(" ")}`, "bad");
+          return;
+        }
+        if (toast.result(await uploadInventory(file.name, reportMonth(summary), lines))) router.refresh();
+      } catch {
+        toast.show("That file could not be read. Download the report again as .xlsx and try again.", "bad");
+      } finally {
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    });
+  };
   const note = historyNote(meta);
 
   // Top movers follow the view: products (combined) in the product view, SKUs in the flat list.
@@ -78,9 +120,10 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   const shownUnmapped = needle ? grouped.unmapped.filter(matches) : grouped.unmapped;
   const coveredSkus = grouped.groups.reduce((n, g) => n + g.children.length, 0);
 
-  const scope = meta.days
-    ? `${formatDate(meta.windowStart, meta.today)} to ${formatDate(meta.windowEnd, meta.today)}, ${meta.days} complete days${meta.snapshot ? ` · stock as of ${formatDate(meta.snapshot, meta.today)}` : ""}`
-    : undefined;
+  const stockNote = inventoryUpload
+    ? `stock from the inventory report${inventoryUpload.month ? ` (${inventoryUpload.month})` : ""}, uploaded ${formatDate(inventoryUpload.at.slice(0, 10), meta.today)}`
+    : "no inventory report uploaded yet";
+  const scope = meta.days ? `${formatDate(meta.windowStart, meta.today)} to ${formatDate(meta.windowEnd, meta.today)}, ${meta.days} complete days · ${stockNote}` : stockNote;
 
   /** The expanded detail: each product's total, then its SKUs; the unmapped SKUs last. */
   const exportMasterCsv = () => {
@@ -91,7 +134,7 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
       title,
       children,
       units,
-      r.stock,
+      r.noStock ? null : r.stock,
       Math.round(r.rate * 10) / 10,
       r.f1,
       r.f7,
@@ -140,32 +183,24 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
     { key: "title", label: "Title", csvOnly: true, cell: () => null, csv: (r) => r.title },
     { key: "product", label: "Product", csvOnly: true, cell: () => null, csv: (r) => masterOf(r.sku)?.master ?? "Unmapped" },
     { key: "wh", label: "Warehouse", csvOnly: true, cell: () => null, csv: (r) => (split ? nameOf(r.wid) : wh ? nameOf(wh) : "All") },
-    num("stock", "Stock now", (r) => r.stock),
     num("rate", "Avg / day", (r) => r.rate, 1),
     num("f1", "Forecast 1d", (r) => r.f1),
     num("f7", "Forecast 7d", (r) => r.f7),
     num("f30", "Forecast 30d", (r) => r.f30),
-    {
-      key: "cover",
-      label: "Days of cover",
-      align: "right",
-      sort: (r) => r.cover,
-      cell: (r) => <CoverValue cover={r.cover} />,
-      csv: (r) => (r.cover === null ? null : Math.round(r.cover * 10) / 10),
-    },
     { key: "disp", label: "Units dispatched in window", csvOnly: true, cell: () => null, csv: (r) => r.dispatched },
   ];
 
   const explain = (
     <>
       <b>By dispatch day</b>, in units. Average per day = units dispatched in the window ÷ its complete days (today is left out). Forecast = that average
-      × 1, 7 or 30. Days of cover = stock now ÷ the average per day, the same calculation the Stock tab uses.
+      × 1, 7 or 30. <b>Stock now comes from the VR Prime inventory report</b> (Total Pieces per warehouse), not Flipkart: it is counted per product, so
+      SKU rows show sales only. Days of cover = stock now ÷ the product&apos;s average per day.
       {view === "master" ? (
         <>
           {" "}
-          <b>A product row combines its Flipkart SKUs</b> in units of the product: each SKU&apos;s stock and units dispatched times its units per order (a 2pc
-          listing counts 2, shown as ×2), summed; the forecasts and days of cover come from those sums. SKUs are matched by exact spelling, then in any
-          case. SKUs removed on the Master SKUs tab are left out. <b>A kit</b> (combo) also counts what its parts make: the smallest of each part&apos;s
+          <b>A product row combines its Flipkart SKUs&apos; sales</b> in units of the product: each SKU&apos;s units dispatched times its units per order (a
+          2pc listing counts 2, shown as ×2), summed. A report product belongs to the master SKU with the same code, or else the same name. SKUs are matched
+          by exact spelling, then in any case. SKUs removed on the Master SKUs tab are left out. <b>A kit</b> (combo) also counts what its parts make: the smallest of each part&apos;s
           stock ÷ its quantity, added to the kit&apos;s own stock.
         </>
       ) : null}
@@ -194,8 +229,30 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   const warehousePicker =
     warehouses.length > 1 ? <Picker label="Only" value={wh} onChange={setWh} options={[{ value: "", label: allLabel }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))]} /> : null;
 
+  const uploadButton = canUpload ? (
+    <>
+      <input ref={fileRef} type="file" accept=".xlsx" className="sr-only" aria-label="VR Prime inventory report (.xlsx)" onChange={(e) => onUpload(e.target.files?.[0])} />
+      <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()} className={buttonClass("secondary")}>
+        {uploading ? "Uploading…" : "Upload inventory report"}
+      </button>
+    </>
+  ) : null;
+
   return (
     <>
+      {!inventoryUpload ? (
+        <p role="status" className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
+          Stock comes from the VR Prime inventory report.{" "}
+          {canUpload ? "Download it from the inventory site (Reports, .xlsx) and use Upload inventory report." : "Ask the owner or an admin to upload it."}
+        </p>
+      ) : null}
+      {unmatched.length && canUpload ? (
+        <p role="status" className="mb-4 rounded-lg bg-info-soft px-3 py-2 text-sm font-semibold text-info">
+          {unmatched.length} {unmatched.length === 1 ? "product" : "products"} in the inventory report {unmatched.length === 1 ? "matches" : "match"} no master SKU, so{" "}
+          {unmatched.length === 1 ? "its" : "their"} stock is not counted: {unmatched.slice(0, 6).join(", ")}
+          {unmatched.length > 6 ? ` and ${unmatched.length - 6} more` : ""}. Add them on the Master SKUs tab (Import Master SKU Excel).
+        </p>
+      ) : null}
       {note ? (
         <p role="status" className="mb-4 rounded-lg bg-info-soft px-3 py-2 text-sm font-semibold text-info">
           {note}
@@ -224,6 +281,7 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
             {warehousePicker}
             <SearchField value={q} onChange={setQ} placeholder="Search product or SKU" />
             <CsvButton onClick={exportMasterCsv} disabled={shownGroups.length + shownUnmapped.length === 0} />
+            {uploadButton}
             <InfoTip>{explain}</InfoTip>
           </Toolbar>
           <Caption>
@@ -260,6 +318,7 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
                 ]}
               />
               {warehousePicker}
+              {uploadButton}
             </>
           }
           emptyTitle="Nothing to forecast"

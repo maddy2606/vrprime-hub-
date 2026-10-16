@@ -8,7 +8,8 @@ import { useToast } from "@/components/toast";
 import { buttonClass, EmptyState } from "@/components/ui";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { formatNumber } from "@/lib/format";
-import { masterLookup, parseMasterTable, splitCsv, suggestMaster, type MasterRow } from "@/lib/master-csv";
+import { masterLookup, parseMasterTable, suggestMaster, type MasterRow } from "@/lib/master-csv";
+import { readTable } from "@/lib/read-table";
 import type { ActionResult } from "@/lib/types";
 import { createMaster, excludeSku, importMasters, linkSku, restoreSku, setKit, unlinkSku } from "@/server/actions/masters";
 import { uploadMasterSkus } from "@/server/actions/settings";
@@ -29,31 +30,6 @@ type Props = {
 };
 
 const label = (p: Product) => (p.code ? `${p.code} — ${p.name}` : p.name);
-
-/** Reads the first sheet of an .xlsx file (or a .csv) as rows of cells. */
-async function readTable(file: File): Promise<string[][]> {
-  if (!/\.xlsx$/i.test(file.name)) return splitCsv(await file.text());
-  const { readWorkbook } = await import("@/lib/money/xlsx-stream");
-  async function* chunks(): AsyncGenerator<Uint8Array> {
-    const reader = file.stream().getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) return;
-      yield value;
-    }
-  }
-  const index = (letters: string) => [...letters].reduce((n, c) => n * 26 + (c.charCodeAt(0) - 64), 0) - 1;
-  const out: string[][] = [];
-  let first: string | null = null;
-  for await (const row of readWorkbook(chunks())) {
-    first ??= row.sheet;
-    if (row.sheet !== first) break;
-    const cells: string[] = [];
-    for (const [col, text] of Object.entries(row.cells)) cells[index(col)] = text;
-    out.push(Array.from(cells, (c) => c ?? ""));
-  }
-  return out.filter((r) => r.some((c) => c.trim() !== ""));
-}
 
 export function MastersTab({ products, links, removed, listings, sold, canReplace }: Props) {
   const router = useRouter();

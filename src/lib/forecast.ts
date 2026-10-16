@@ -41,6 +41,8 @@ export type ForecastRow = {
   f30: number;
   /** stock / rate, or null when the rate is 0 */
   cover: number | null;
+  /** No stock of its own here: a SKU row when stock comes from the inventory report, which counts products. */
+  noStock?: boolean;
 };
 
 const num = (v: unknown): number => {
@@ -182,13 +184,16 @@ export function buildMasterGroups(
   onlyWarehouse: string | null = null,
   removed: ReadonlySet<string> = new Set(),
   kits: KitDef[] = [],
+  inventory: ReadonlyMap<string, ReadonlyMap<string, number>> | null = null,
 ): { groups: MasterGroup[]; unmapped: ForecastRow[] } {
+  // With the inventory report, stock is per product only: SKU rows keep their sales but show no stock.
+  const noStock = (r: ForecastRow): ForecastRow => (inventory ? { ...r, stock: 0, cover: null, noStock: true } : r);
   const perSku = buildRows(raw.filter((r) => !removed.has(r.sku)), days, false, onlyWarehouse);
   const byMaster = new Map<string, MasterChild[]>();
   const unmapped: ForecastRow[] = [];
   for (const row of perSku) {
     const m = masterOf(row.sku);
-    if (m === null) unmapped.push(row);
+    if (m === null) unmapped.push(noStock(row));
     else byMaster.set(m.master, [...(byMaster.get(m.master) ?? []), { ...row, units: m.units }]);
   }
   const groups = [...byMaster.entries()].map(([name, children]) => ({
@@ -197,6 +202,25 @@ export function buildMasterGroups(
     children: children.sort((a, b) => b.f30 * b.units - a.f30 * a.units || a.sku.localeCompare(b.sku)),
     total: combineRows(`m:${name}`, name, children, days),
   })) as MasterGroup[];
+
+  if (inventory) {
+    const piecesOf = (name: string) => {
+      let n = 0;
+      for (const [wid, pieces] of inventory.get(name) ?? []) if (!onlyWarehouse || wid === onlyWarehouse) n += pieces;
+      return n;
+    };
+    for (const g of groups) {
+      g.children = g.children.map((c) => ({ ...c, stock: 0, cover: null, noStock: true }));
+      g.total = { ...forecastRow({ sku: g.name, wid: null, title: null, disp: g.total.dispatched, stock: piecesOf(g.name) }, days), key: g.key };
+    }
+    // Products in stock that sold nothing on Flipkart still show, with their stock.
+    const have = new Set(groups.map((g) => g.name));
+    for (const name of inventory.keys()) {
+      const pieces = piecesOf(name);
+      if (have.has(name) || pieces <= 0) continue;
+      groups.push({ key: `m:${name}`, name, children: [], total: { ...forecastRow({ sku: name, wid: null, title: null, disp: 0, stock: pieces }, days), key: `m:${name}` } });
+    }
+  }
   if (!kits.length) return { groups, unmapped };
 
   // Kits: stock = own stock + what the parts make. Parts are read before any kit changes (kits are never parts).

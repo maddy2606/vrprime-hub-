@@ -11,6 +11,7 @@ import { SyncBar } from "@/components/stock/sync-bar";
 import { EmptyState } from "@/components/ui";
 import { buildNeedsAction } from "@/lib/flipkart-analysis";
 import { readForecast, WINDOWS } from "@/lib/forecast";
+import { inventoryByProduct } from "@/lib/inventory-report";
 import { defaultQuery, INITIAL_PAGE_SIZE, ordersQuerySchema, readCards, type OrdersQuery } from "@/lib/orders-view";
 import { defaultReturnsQuery, RETURNS_INITIAL_PAGE_SIZE } from "@/lib/returns-view";
 import { defaultStockQuery, STOCK_INITIAL_PAGE_SIZE, stockQuerySchema } from "@/lib/stock-view";
@@ -33,6 +34,7 @@ import {
   loadInTransit,
   loadListingsNotFound,
   loadListingTitles,
+  loadInventory,
   loadMasterData,
   masterKits,
   loadOrderSyncState,
@@ -225,8 +227,16 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
   const asked = Number(one(sp.days));
   const days = (WINDOWS as readonly number[]).includes(asked) ? asked : 30;
   // Row level security gives a warehouse user only their own warehouses' orders and stock.
-  const [{ data, error }, warehouses, masters] = await Promise.all([supabase.rpc("flipkart_forecast", { p_days: days }), warehousesFor(user), loadMasterData(supabase)]);
+  const [{ data, error }, warehouses, masters, inventory] = await Promise.all([
+    supabase.rpc("flipkart_forecast", { p_days: days }),
+    warehousesFor(user),
+    loadMasterData(supabase),
+    loadInventory(supabase),
+  ]);
   const parsed = error ? null : readForecast(data);
+  // Stock comes from the VR Prime inventory report, per master product (by code, else name).
+  const { byProduct, unmatched } = inventoryByProduct(inventory.stock, masters.products);
+  const stock = [...byProduct].flatMap(([product, per]) => [...per].map(([wid, pieces]) => ({ product, wid, pieces })));
   if (!parsed) return <EmptyState title="The forecast could not be loaded" body="Reload the page. If it keeps happening, tell the developer." />;
   return (
     <ForecastTab
@@ -237,6 +247,10 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
       masters={masterRows(masters)}
       removed={masters.removed}
       kits={masterKits(masters)}
+      inventory={stock}
+      inventoryUpload={inventory.upload}
+      unmatched={unmatched}
+      canUpload={user.role === "owner" || user.role === "admin"}
       allLabel={user.role === "warehouse" ? "All my warehouses" : "All warehouses"}
     />
   );

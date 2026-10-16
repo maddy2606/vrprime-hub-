@@ -377,6 +377,19 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
             { name: "Car Perfume", parts: [{ name: "Berry Car Perfume", qty: 1 }, { name: "Musk Car Perfume", qty: 1 }] },
             { name: "Shoe Cleaning Kit", parts: [{ name: "Shoe Bottle", qty: 1 }, { name: "Shoe Brush", qty: 1 }] },
           ]}
+          inventory={[
+            { product: "Lint Machine", wid: FAKE_WAREHOUSES[0].id, pieces: 9000 },
+            { product: "Lint Machine", wid: FAKE_WAREHOUSES[1].id, pieces: 1200 },
+            { product: "Red Cleaner", wid: FAKE_WAREHOUSES[0].id, pieces: 800 },
+            { product: "Black Rack 2pc", wid: FAKE_WAREHOUSES[3].id, pieces: 140 },
+            { product: "Berry Car Perfume", wid: FAKE_WAREHOUSES[0].id, pieces: 2176 },
+            { product: "Musk Car Perfume", wid: FAKE_WAREHOUSES[0].id, pieces: 1920 },
+            { product: "Car Perfume", wid: FAKE_WAREHOUSES[0].id, pieces: 2 },
+            { product: "Product only in the warehouse", wid: FAKE_WAREHOUSES[2].id, pieces: 300 },
+          ]}
+          inventoryUpload={{ at: `${today}T09:00:00Z`, file: "vrprime-report-2026-10.xlsx", month: "2026-10" }}
+          unmatched={["Wardrobe 12pc", "Fake Chopping Board"]}
+          canUpload
           allLabel="All warehouses"
         />
       ) : null}

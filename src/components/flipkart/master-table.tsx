@@ -31,7 +31,7 @@ export function CoverValue({ cover }: { cover: number | null }) {
 }
 
 const NUMBERS: { key: Exclude<MasterSortKey, "product">; label: string; value: (r: ForecastRow) => number | null; cell: (r: ForecastRow) => ReactNode }[] = [
-  { key: "stock", label: "Stock now", value: (r) => r.stock, cell: (r) => n0(r.stock) },
+  { key: "stock", label: "Stock now", value: (r) => (r.noStock ? null : r.stock), cell: (r) => (r.noStock ? <span className="text-muted">—</span> : n0(r.stock)) },
   { key: "rate", label: "Avg / day", value: (r) => r.rate, cell: (r) => r.rate.toFixed(1) },
   { key: "f1", label: "Forecast 1d", value: (r) => r.f1, cell: (r) => n0(r.f1) },
   { key: "f7", label: "Forecast 7d", value: (r) => r.f7, cell: (r) => n0(r.f7) },

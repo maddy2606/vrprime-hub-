@@ -18,6 +18,7 @@ import {
 } from "@/lib/flipkart-analysis";
 import { COVER_HISTORY_DAYS, coverBySku, coversPerWarehouse, type DispatchRow } from "@/lib/cover";
 import { readForecast, type ForecastRaw, type KitDef } from "@/lib/forecast";
+import type { InventoryLine } from "@/lib/inventory-report";
 import { addDays, todayIST } from "@/lib/format";
 import { NOT_FOUND_DAYS } from "@/lib/new-listing";
 import { logError } from "@/lib/redact";
@@ -85,6 +86,32 @@ export function masterRows(data: MasterData): MasterRow[] {
     const p = byId.get(l.masterId);
     return p ? [{ master: p.name, sku: l.sku, units: l.units, ...(p.code ? { code: p.code } : {}) }] : [];
   });
+}
+
+export type InventoryData = {
+  /** The newest upload, or null before the first. */
+  upload: { at: string; file: string; month: string | null } | null;
+  stock: InventoryLine[];
+};
+
+/** The stock from the newest VR Prime inventory report (a warehouse user gets only their warehouses). */
+export async function loadInventory(supabase: Supabase): Promise<InventoryData> {
+  try {
+    const [{ data: up, error }, stock] = await Promise.all([
+      supabase.from("inventory_uploads").select("uploaded_at, file_name, report_month").order("uploaded_at", { ascending: false }).limit(1),
+      fetchAll<{ code: string; warehouse_id: string; name: string; pieces: number }>((from, to) =>
+        supabase.from("inventory_stock").select("code, warehouse_id, name, pieces").gt("pieces", 0).order("code").order("warehouse_id").range(from, to),
+      ),
+    ]);
+    if (error) throw new Error(error.message);
+    const u = up?.[0];
+    return {
+      upload: u ? { at: u.uploaded_at, file: u.file_name, month: u.report_month } : null,
+      stock: stock.map((s) => ({ code: s.code, name: s.name, wid: s.warehouse_id, pieces: s.pieces })),
+    };
+  } catch (error) {
+    return fail("inventory stock", error);
+  }
 }
 
 export type KitPart = { partId: string; qty: number };

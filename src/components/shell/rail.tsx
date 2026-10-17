@@ -43,7 +43,7 @@ function RailInner({ isOwner }: { isOwner: boolean }) {
     <>
       {/* Slim icon rail, 72px, from 561px up */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[72px] flex-col items-center border-r border-line-soft bg-panel2/90 py-4 backdrop-blur min-[561px]:flex">
-        <Link prefetch={false} href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring mb-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-sm font-extrabold text-white sp-glow">
+        <Link prefetch={false} href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring font-display mb-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-base font-semibold text-accent-ink sp-glow">
           VR
         </Link>
         <nav aria-label="Main" className="flex flex-1 flex-col items-center gap-2">
@@ -60,11 +60,11 @@ function RailInner({ isOwner }: { isOwner: boolean }) {
                   on ? "bg-accent-soft text-accent-text" : "text-muted hover:-translate-y-px hover:bg-surface2 hover:text-ink"
                 }`}
               >
-                {on ? <span aria-hidden="true" className="absolute -left-[12px] h-6 w-[3px] rounded-r-full bg-accent shadow-[0_0_12px_2px_rgba(139,92,246,0.8)]" /> : null}
+                {on ? <span aria-hidden="true" className="absolute -left-[12px] h-6 w-[3px] rounded-r-full bg-madder" /> : null}
                 <item.icon className="h-[22px] w-[22px]" />
                 <span
                   role="tooltip"
-                  className="pointer-events-none absolute left-[58px] z-50 whitespace-nowrap rounded-lg border border-line bg-surface2 px-2.5 py-1.5 text-xs font-bold text-ink opacity-0 shadow-xl transition group-hover:opacity-100 group-focus-visible:opacity-100"
+                  className="pointer-events-none absolute left-[58px] z-50 whitespace-nowrap rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-accent-ink opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-visible:opacity-100"
                 >
                   {item.label}
                 </span>
@@ -90,7 +90,7 @@ function RailInner({ isOwner }: { isOwner: boolean }) {
                   aria-current={on ? "page" : undefined}
                   className={`focus-ring relative flex h-16 min-h-11 flex-col items-center justify-center gap-0.5 text-[10px] font-bold ${on ? "text-accent-text" : "text-muted"}`}
                 >
-                  {on ? <span aria-hidden="true" className="absolute top-0 h-[3px] w-8 rounded-b-full bg-accent shadow-[0_0_12px_2px_rgba(139,92,246,0.8)]" /> : null}
+                  {on ? <span aria-hidden="true" className="absolute top-0 h-[3px] w-8 rounded-b-full bg-madder" /> : null}
                   <item.icon className="h-6 w-6" />
                   <span className="max-w-full truncate px-0.5">{item.label.replace("Command Deck", "Deck").replace("Work board", "Work")}</span>
                 </Link>

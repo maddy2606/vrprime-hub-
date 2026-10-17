@@ -180,7 +180,7 @@ export function Picker({
           aria-label={label}
           aria-activedescendant={`${id}-opt-${active}`}
           onKeyDown={onListKey}
-          className="absolute left-0 z-50 mt-1 max-h-72 min-w-full overflow-auto rounded-xl border border-line bg-panel2 p-1 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.85)] focus:outline-none"
+          className="absolute left-0 z-50 mt-1 max-h-72 min-w-full overflow-auto rounded-xl border border-line bg-panel2 p-1 shadow-[0_16px_36px_-14px_rgba(28,37,80,0.45)] focus:outline-none"
         >
           {options.map((o, i) => {
             const selected = o.value === value;

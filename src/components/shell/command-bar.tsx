@@ -157,7 +157,7 @@ export function CommandBar({
               prefetch={false}
               href="/posts/new"
               aria-label="New post"
-              className="focus-ring sp-glow flex h-11 w-11 items-center justify-center gap-1.5 rounded-xl bg-accent text-sm font-bold text-white transition hover:brightness-110 sm:w-auto sm:px-4"
+              className="focus-ring sp-glow flex h-11 w-11 items-center justify-center gap-1.5 rounded-xl bg-accent text-sm font-bold text-accent-ink transition hover:brightness-110 sm:w-auto sm:px-4"
             >
               <PlusIcon className="h-5 w-5" />
               <span className="hidden sm:inline">Post</span>

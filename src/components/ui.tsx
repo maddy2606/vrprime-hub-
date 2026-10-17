@@ -33,7 +33,7 @@ export function Chip({ tone = "neutral", children }: { tone?: Tone; children: Re
 export function UnreadBadge({ count }: { count: number }) {
   if (!count) return null;
   return (
-    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-bad px-1 text-[11px] font-extrabold leading-none text-white">
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-bad px-1 text-[11px] font-extrabold leading-none text-bad-ink">
       {count > 99 ? "99+" : count}
     </span>
   );
@@ -115,7 +115,7 @@ export function PageTitle({ title, sub, action }: { title: string; sub?: string;
   return (
     <div className="mb-4 flex items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">{title}</h1>
         {sub ? <p className="mt-0.5 text-sm text-muted">{sub}</p> : null}
       </div>
       {action}

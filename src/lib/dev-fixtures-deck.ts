@@ -1,12 +1,14 @@
 // Fake Command Deck data for the local preview only (/dev/preview?view=deck and deckclear). Not used in production.
 import { KIND_TAG, rankQueue, SEVERITY, urgentCount, warehouseHealth, type QueueItem } from "@/lib/deck";
+import { warehouseColor } from "@/lib/theme";
 import type { DeckData } from "@/server/deck-data";
 
 const WH = [
-  { id: "w1", name: "Fake Bangalore", active: 412, late: 1, next: "2026-10-14T10:30:00Z", out: 9 },
-  { id: "w2", name: "Fake Delhi", active: 655, late: 0, next: "2026-10-14T16:00:00Z", out: 21 },
-  { id: "w3", name: "Fake Kolkata", active: 184, late: 0, next: "2026-10-14T09:00:00Z", out: 4 },
-  { id: "w4", name: "Fake Mumbai", active: 0, late: 0, next: null, out: 0 },
+  { id: "w1", name: "Fake Bangalore", active: 412, late: 1, next: "2026-10-14T10:30:00Z", out: 9, units: 306_000, low: 49, stages: [120, 180, 112] },
+  { id: "w2", name: "Fake Bhiwandi", active: 655, late: 0, next: "2026-10-14T16:00:00Z", out: 21, units: 1_092_000, low: 1, stages: [210, 300, 145] },
+  { id: "w3", name: "Fake Delhi", active: 184, late: 0, next: "2026-10-14T09:00:00Z", out: 4, units: 554_000, low: 3, stages: [40, 90, 54] },
+  { id: "w4", name: "Fake Kolkata", active: 96, late: 0, next: "2026-10-14T12:00:00Z", out: 12, units: 496_000, low: 6, stages: [20, 50, 26] },
+  { id: "w5", name: "Fake Lucknow", active: 0, late: 0, next: null, out: 0, units: 346_000, low: 2, stages: [0, 0, 0] },
 ];
 
 export function fakeDeck(clear: boolean): DeckData {
@@ -40,7 +42,9 @@ export function fakeDeck(clear: boolean): DeckData {
       { key: "tomorrow", label: "Due tomorrow", value: 1920, tone: "cyan", sub: "orders with a deadline tomorrow", spark: [1710, 1920, 927, 370, 302, 240, 190], sparkLabel: "Due per day", href: "/flipkart?tab=orders" },
     ],
     queue,
-    warehouses: WH.map((w) => ({ id: w.id, name: w.name, health: warehouseHealth({ active: w.active, late: clear ? 0 : w.late, nextDue: w.next }, now), active: w.active, late: clear ? 0 : w.late, out: w.out, next: w.next ? "Today 4:00 pm" : null, href: "/flipkart?tab=stock" })),
+    warehouses: WH.map((w, i) => ({ id: w.id, name: w.name, color: warehouseColor(w.name, i), health: warehouseHealth({ active: w.active, late: clear ? 0 : w.late, nextDue: w.next }, now), active: w.active, late: clear ? 0 : w.late, out: w.out, next: w.next ? "Today 4:00 pm" : null, href: "/flipkart?tab=stock" })),
+    whStock: WH.map((w, i) => ({ id: w.id, name: w.name, color: warehouseColor(w.name, i), units: w.units, out: w.out, low: w.low })),
+    whStages: WH.map((w, i) => ({ id: w.id, name: w.name, color: warehouseColor(w.name, i), to_accept: w.stages[0], to_pack: w.stages[1], to_dispatch: w.stages[2] })),
     dispatch: { points: [["Thu", 812], ["Fri", 905], ["Sat", 1040], ["Sun", 770], ["Mon", 1180], ["Tue", 1295], ["Wed", 1004]].map(([label, value]) => ({ label: label as string, value: value as number })), total: 7006, avg: 1001 },
     kpis: {
       units: 2_468_440,

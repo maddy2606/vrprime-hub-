@@ -94,7 +94,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center px-3 pt-[10vh]" role="dialog" aria-modal="true" aria-label="Search">
-      <button type="button" aria-label="Close search" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm" />
+      <button type="button" aria-label="Close search" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-scrim backdrop-blur-sm" />
       <div onKeyDown={onKey} className="sp-card sp-card-lg relative w-full max-w-xl overflow-hidden bg-surface2">
         <div className="flex items-center gap-3 border-b border-line px-4">
           <SearchIcon className="h-5 w-5 shrink-0 text-muted" />

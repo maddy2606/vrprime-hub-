@@ -1,17 +1,20 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { PushPrompt } from "@/components/notifications/push-prompt";
 import { CommandBar } from "@/components/shell/command-bar";
 import { Rail } from "@/components/shell/rail";
+import { ThemeSwitch } from "@/components/shell/theme-switch";
 import { buttonClass } from "@/components/ui";
 import { ROLE_LABEL } from "@/lib/labels";
+import { readThemeMode, THEME_COOKIE } from "@/lib/theme-mode";
 import type { SessionUser } from "@/lib/types";
 
 /**
- * Signal Pro shell: a 72px icon rail (a bottom bar on phones), the command bar on top of every page, and the page.
+ * The shell: a 72px icon rail (a bottom bar on phones), the command bar on top of every page, and the page.
  */
-export function AppShell({
+export async function AppShell({
   user,
   unread = 0,
   money = false,
@@ -30,6 +33,7 @@ export function AppShell({
   syncedAt: string | null;
   children: ReactNode;
 }) {
+  const theme = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
     <div className="min-[561px]:pl-[72px]">
       <Rail isOwner={user.role === "owner"} />
@@ -40,6 +44,7 @@ export function AppShell({
         syncedAt={syncedAt}
         menu={
           <>
+            <ThemeSwitch initial={theme} />
             {money ? (
               <Link prefetch={false} href="/money" className={buttonClass("outline", "w-full")}>
                 Money

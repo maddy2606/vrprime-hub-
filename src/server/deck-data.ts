@@ -8,6 +8,7 @@ import { logError } from "@/lib/redact";
 import { restockHref } from "@/lib/stock-analysis";
 import { defaultStockQuery } from "@/lib/stock-view";
 import { createClient } from "@/lib/supabase/server";
+import { warehouseColor } from "@/lib/theme";
 import { ACTIVE_STATUSES, type SessionUser } from "@/lib/types";
 import { loadEmpties, warehousesFor } from "@/server/flipkart-data";
 import { loadOrderCounts } from "@/server/orders-view";
@@ -17,7 +18,12 @@ const HOUR = 3_600_000;
 
 type Series = { stock: { day: string; units: number; out: number; low: number }[]; due: { day: string; n: number }[]; tickets: { day: string; n: number }[] };
 
-export type DeckWarehouse = { id: string; name: string; health: Health; active: number; late: number; out: number | null; next: string | null; href: string };
+export type DeckWarehouse = { id: string; name: string; color: string; health: Health; active: number; late: number; out: number | null; next: string | null; href: string };
+
+/** One warehouse's stock (active listings) and its empty and low SKUs, for the deck's breakdown charts. */
+export type WarehouseStock = { id: string; name: string; color: string; units: number; out: number; low: number };
+/** One warehouse's active orders by Seller Hub stage. */
+export type WarehouseStages = { id: string; name: string; color: string; to_accept: number; to_pack: number; to_dispatch: number };
 
 export type DeckData = {
   firstName: string;
@@ -28,6 +34,9 @@ export type DeckData = {
   pulses: { key: string; label: string; value: number; tone: "bad" | "warn" | "cyan"; sub: string; spark: number[]; sparkLabel: string; href: string }[];
   queue: (QueueItem & { tag: string })[];
   warehouses: DeckWarehouse[];
+  /** Empty when stock has not been read yet. */
+  whStock: WarehouseStock[];
+  whStages: WarehouseStages[];
   dispatch: { points: { label: string; value: number }[]; total: number; avg: number } | null;
   kpis: {
     units: number | null;
@@ -90,6 +99,7 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
   for (const r of [lineRes, dispatchRes, followUps, openTickets, mine]) if (r.error) logError("deck", r.error);
 
   const nameOf = (id: string | null) => warehouses.find((w) => w.id === id)?.name ?? "a warehouse";
+  const colorOf = (id: string, name: string) => warehouseColor(name, warehouses.findIndex((w) => w.id === id));
   const cards = readCards(counts, warehouses).filter((c) => c.warehouseId);
   const lateTotal = cards.reduce((n, c) => n + c.late, 0);
   const activeTotal = cards.reduce((n, c) => n + c.active, 0);
@@ -216,12 +226,22 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
   const whRows: DeckWarehouse[] = cards.map((c) => ({
     id: c.warehouseId as string,
     name: c.name,
+    color: colorOf(c.warehouseId as string, c.name),
     health: warehouseHealth(c, now),
     active: c.active,
     late: c.late,
     out: stockCards.find((s) => s.id === c.warehouseId)?.empty ?? null,
     next: c.nextDue ? formatDateTime(c.nextDue, now) : null,
     href: `/flipkart?tab=stock&wh=${c.warehouseId}`,
+  }));
+  const whStock: WarehouseStock[] = stockCards.map((s) => ({ id: s.id, name: s.name, color: colorOf(s.id, s.name), units: s.units, out: s.empty, low: s.low }));
+  const whStages: WarehouseStages[] = cards.map((c) => ({
+    id: c.warehouseId as string,
+    name: c.name,
+    color: colorOf(c.warehouseId as string, c.name),
+    to_accept: c.to_accept,
+    to_pack: c.to_pack,
+    to_dispatch: c.to_dispatch,
   }));
 
   // ---- Dispatch chart -----------------------------------------------------------------------------------------------
@@ -244,6 +264,8 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
     pulses,
     queue,
     warehouses: whRows,
+    whStock,
+    whStages,
     dispatch: disp.length ? { points: disp, total: dispatchTotal, avg: Math.round(dispatchTotal / disp.length) } : null,
     kpis: {
       units: tiles ? tiles.units : null,

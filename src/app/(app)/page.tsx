@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DispatchChart, Hero, Movers, PriorityQueue, Pulses, StockHealth, Warehouses } from "@/components/deck/sections";
+import { DispatchChart, Hero, Movers, OrdersByStage, PriorityQueue, Pulses, StockByWarehouse, StockHealth, Warehouses } from "@/components/deck/sections";
 import { requireUser } from "@/lib/auth";
 import { loadDeck } from "@/server/deck-data";
 
@@ -22,6 +22,10 @@ export default async function CommandDeckPage() {
       <div className="grid items-start gap-5 lg:grid-cols-[1.5fr_1fr]">
         <PriorityQueue d={d} />
         <Warehouses d={d} />
+      </div>
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <StockByWarehouse d={d} />
+        <OrdersByStage d={d} />
       </div>
       <DispatchChart d={d} />
       <StockHealth d={d} />

@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Bar, AreaChart, Gauge } from "@/components/signal/charts";
+import { Bar, AreaChart, Gauge, PairedRows, ShareBar, StackedRows } from "@/components/signal/charts";
 import { CountUp } from "@/components/signal/count-up";
 import { KpiTile } from "@/components/signal/kpi";
 import { Sparkline } from "@/components/signal/charts";
 import { QueueList } from "@/components/deck/queue";
 import { buttonClass, Chip } from "@/components/ui";
 import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
-import type { SignalTone } from "@/lib/theme";
+import { COLOR, STAGE_COLOR, type SignalTone } from "@/lib/theme";
 import type { DeckData } from "@/server/deck-data";
 
 const style = (i: number) => ({ ["--i" as string]: i });
@@ -19,21 +19,18 @@ function CheckIcon({ className = "h-6 w-6" }: { className?: string }) {
   );
 }
 
-const HERO_GLOW: Record<"bad" | "warn" | "ok", string> = {
-  bad: "radial-gradient(520px 220px at 90% 0%, rgba(255,77,103,0.20), transparent 70%)",
-  warn: "radial-gradient(520px 220px at 90% 0%, rgba(255,176,32,0.16), transparent 70%)",
-  ok: "radial-gradient(520px 220px at 90% 0%, rgba(53,224,160,0.18), transparent 70%)",
-};
+/** The hero's printed band: the state of the day, in its status colour, across the top of the card. */
+const HERO_BAND: Record<"bad" | "warn" | "ok", string> = { bad: "var(--bad)", warn: "var(--warn)", ok: "var(--ok)" };
 
 export function Hero({ d }: { d: DeckData }) {
   const { hero } = d;
   const time = formatDateTime(d.nowIso).replace(/^Today /, "");
   return (
-    <section className="sp-card sp-card-lg sp-reveal relative overflow-hidden p-5 sm:p-7" style={{ ...style(0), backgroundImage: HERO_GLOW[hero.tone] }} aria-labelledby="deck-headline">
+    <section className="sp-card sp-card-lg sp-reveal relative overflow-hidden border-t-[5px] p-5 sm:p-7" style={{ ...style(0), borderTopColor: HERO_BAND[hero.tone] }} aria-labelledby="deck-headline">
       <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
         Operations · {formatDate(d.today)} · {time}
       </p>
-      <h1 id="deck-headline" className="mt-3 flex items-start gap-3 text-[1.7rem] font-extrabold leading-[1.15] tracking-tight sm:text-4xl">
+      <h1 id="deck-headline" className="font-display mt-3 flex items-start gap-3 text-[1.75rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl">
         {hero.tone === "ok" ? (
           <span aria-hidden="true" className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ok-soft text-ok sm:h-11 sm:w-11">
             <CheckIcon />
@@ -86,7 +83,7 @@ export function PriorityQueue({ d }: { d: DeckData }) {
   return (
     <section id="queue" className="sp-card sp-reveal scroll-mt-24 overflow-hidden" style={style(4)} aria-labelledby="queue-title">
       <header className="flex items-center justify-between gap-3 px-4 pb-3 pt-4">
-        <h2 id="queue-title" className="text-base font-extrabold">
+        <h2 id="queue-title" className="font-display text-lg font-semibold">
           Priority queue
         </h2>
         {clear ? <Chip tone="ok">All clear</Chip> : <Chip tone={d.urgent > 0 ? "bad" : "neutral"}>{formatNumber(d.queue.length)} to do</Chip>}
@@ -110,7 +107,7 @@ export function Warehouses({ d }: { d: DeckData }) {
   return (
     <section className="sp-card sp-reveal overflow-hidden" style={style(5)} aria-labelledby="wh-title">
       <header className="flex items-center justify-between px-4 pb-2 pt-4">
-        <h2 id="wh-title" className="text-base font-extrabold">
+        <h2 id="wh-title" className="font-display text-lg font-semibold">
           Warehouses
         </h2>
         <span className="text-xs text-muted">On-time health</span>
@@ -125,6 +122,7 @@ export function Warehouses({ d }: { d: DeckData }) {
                 <Gauge pct={w.health.pct} tone={w.health.tone} label={`${w.name} on-time health ${w.health.pct} percent`} />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
+                    <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: w.color }} />
                     <span className="truncate text-sm font-bold">{w.name}</span>
                     <Chip tone={w.health.chip.tone}>{w.health.chip.label}</Chip>
                   </span>
@@ -149,7 +147,7 @@ export function DispatchChart({ d }: { d: DeckData }) {
     <section className="sp-card sp-reveal p-4 sm:p-5" style={style(6)} aria-labelledby="disp-title">
       <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 id="disp-title" className="text-base font-extrabold">
+          <h2 id="disp-title" className="font-display text-lg font-semibold">
             Dispatch, last 7 days
           </h2>
           <p className="text-xs text-muted">Units dispatched per day</p>
@@ -176,7 +174,7 @@ export function StockHealth({ d }: { d: DeckData }) {
   const delta = k.unitsChange;
   return (
     <section aria-labelledby="stock-title">
-      <h2 id="stock-title" className="mb-3 text-base font-extrabold">
+      <h2 id="stock-title" className="font-display mb-3 text-lg font-semibold">
         Stock health
       </h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -207,7 +205,7 @@ export function Movers({ d }: { d: DeckData }) {
     <section className="sp-card sp-reveal p-4 sm:p-5" style={style(12)} aria-labelledby="mov-title">
       <header className="mb-3 flex items-end justify-between gap-2">
         <div>
-          <h2 id="mov-title" className="text-base font-extrabold">
+          <h2 id="mov-title" className="font-display text-lg font-semibold">
             Forecast, top movers
           </h2>
           <p className="text-xs text-muted">Next 30 days, from {formatNumber(d.moversDays)} days of dispatches</p>
@@ -245,6 +243,91 @@ export function Movers({ d }: { d: DeckData }) {
             );
           })}
         </ol>
+      )}
+    </section>
+  );
+}
+
+/** Where the stock sits (one bar, a part per warehouse), then each warehouse's empty and low SKUs side by side. */
+export function StockByWarehouse({ d }: { d: DeckData }) {
+  const rows = d.whStock;
+  const total = rows.reduce((n, r) => n + r.units, 0);
+  const parts = rows.map((r) => ({ key: r.id, label: r.name, color: r.color }));
+  return (
+    <section className="sp-card sp-reveal p-4 sm:p-5" style={style(6)} aria-labelledby="whs-title">
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 id="whs-title" className="font-display text-lg font-semibold">
+            Stock by warehouse
+          </h2>
+          <p className="text-xs text-muted">Units in stock on active listings, and where SKUs are empty or low</p>
+        </div>
+        {rows.length ? (
+          <p className="text-right">
+            <span className="text-2xl font-bold">{formatNumber(total)}</span>
+            <span className="ml-1.5 text-xs text-muted">units</span>
+          </p>
+        ) : null}
+      </header>
+      {rows.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted">Stock has not been read from Flipkart yet.</p>
+      ) : (
+        <div className="flex flex-col gap-6">
+          <ShareBar
+            parts={parts}
+            values={Object.fromEntries(rows.map((r) => [r.id, r.units]))}
+            unit="units"
+            ariaLabel={`Units in stock by warehouse: ${rows.map((r) => `${r.name} ${formatNumber(r.units)}`).join(", ")}`}
+          />
+          <div className="bp-rule pt-4">
+            <PairedRows
+              rows={rows.map((r) => ({ key: r.id, label: r.name, color: r.color, values: { out: r.out, low: r.low } }))}
+              measures={[
+                { key: "out", label: "Empty (0 units)", color: COLOR.danger },
+                { key: "low", label: "Low", color: COLOR.warn },
+              ]}
+              ariaLabel={`SKUs empty and low by warehouse: ${rows.map((r) => `${r.name} ${formatNumber(r.out)} empty, ${formatNumber(r.low)} low`).join("; ")}`}
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const STAGES = [
+  { key: "to_accept", label: "To Accept", color: STAGE_COLOR.to_accept },
+  { key: "to_pack", label: "To Pack", color: STAGE_COLOR.to_pack },
+  { key: "to_dispatch", label: "To Dispatch", color: STAGE_COLOR.to_dispatch },
+] as const;
+
+/** Active orders per warehouse, split into Seller Hub's stages, light to dark as orders move along. */
+export function OrdersByStage({ d }: { d: DeckData }) {
+  const rows = d.whStages;
+  const total = rows.reduce((n, r) => n + r.to_accept + r.to_pack + r.to_dispatch, 0);
+  return (
+    <section className="sp-card sp-reveal p-4 sm:p-5" style={style(7)} aria-labelledby="stage-title">
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 id="stage-title" className="font-display text-lg font-semibold">
+            Active orders by stage
+          </h2>
+          <p className="text-xs text-muted">Per warehouse, as Seller Hub counts them</p>
+        </div>
+        <p className="text-right">
+          <span className="text-2xl font-bold">{formatNumber(total)}</span>
+          <span className="ml-1.5 text-xs text-muted">active</span>
+        </p>
+      </header>
+      {rows.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted">No warehouse is set up for you yet.</p>
+      ) : (
+        <StackedRows
+          rows={rows.map((r) => ({ key: r.id, label: r.name, color: r.color, values: { to_accept: r.to_accept, to_pack: r.to_pack, to_dispatch: r.to_dispatch } }))}
+          parts={[...STAGES]}
+          unit="orders"
+          ariaLabel={`Active orders by warehouse and stage: ${rows.map((r) => `${r.name}: ${r.to_accept} to accept, ${r.to_pack} to pack, ${r.to_dispatch} to dispatch`).join("; ")}`}
+        />
       )}
     </section>
   );

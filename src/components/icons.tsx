@@ -19,7 +19,13 @@ function Icon({ children, className = "h-6 w-6" }: { children: ReactNode; classN
 
 type IconProps = { className?: string };
 
-export const InboxIcon = (p: IconProps) => (
+export const RefreshIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16M20 20v-4h-4" />
+  </Icon>
+);
+
+export const InboxIcon =(p: IconProps) => (
   <Icon {...p}>
     <path d="M4 13h4l1.5 3h5L16 13h4" />
     <path d="M5.5 5h13L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5z" />

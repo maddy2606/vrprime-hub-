@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BellIcon, PlusIcon, SearchIcon } from "@/components/icons";
+import { BellIcon, PlusIcon, RefreshIcon, SearchIcon } from "@/components/icons";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { UnreadBadge } from "@/components/ui";
+import { syncInventoryNow } from "@/server/actions/inventory";
+import { startOrdersSync } from "@/server/actions/orders";
 import { lastSyncedAt } from "@/server/actions/search";
+import { startStockSync } from "@/server/actions/stock";
 
 type Role = "owner" | "admin" | "warehouse";
 
@@ -57,6 +61,47 @@ function SyncStatus({ since, scope }: { since: string | null; scope: string }) {
       <span aria-hidden="true" className="hidden lg:inline">·</span>
       <span className="hidden truncate lg:inline">{scope}</span>
     </div>
+  );
+}
+
+/** "Sync now" in the top bar: one button for everything (VR Prime stock, Flipkart stock and orders). Owner and admin only. */
+function SyncNowButton() {
+  const router = useRouter();
+  const [state, setState] = useState<"idle" | "busy" | "done" | "failed">("idle");
+
+  async function run() {
+    setState("busy");
+    try {
+      // Everything at once: VR Prime stock, Flipkart stock, and Flipkart orders (pending, today's daily, upcoming).
+      const results = await Promise.allSettled([
+        syncInventoryNow(),
+        startStockSync(),
+        startOrdersSync("pending"),
+        startOrdersSync("daily"),
+        startOrdersSync("upcoming"),
+      ]);
+      const started = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
+      setState(started > 0 ? "done" : "failed");
+      // The answers arrive a few seconds later; look again then.
+      globalThis.setTimeout(() => router.refresh(), 8000);
+    } catch {
+      setState("failed");
+    }
+    globalThis.setTimeout(() => setState("idle"), 9000);
+  }
+
+  const label = state === "busy" ? "Syncing…" : state === "done" ? "Started" : state === "failed" ? "Failed" : "Sync now";
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={state === "busy"}
+      aria-label="Sync everything now"
+      className="focus-ring flex h-11 items-center justify-center gap-1.5 rounded-xl border border-line px-3 text-sm font-bold text-ink transition hover:border-accent/50 disabled:opacity-60"
+    >
+      <RefreshIcon className={`h-5 w-5 ${state === "busy" ? "animate-spin" : ""}`} />
+      <span className="hidden md:inline">{label}</span>
+    </button>
   );
 }
 
@@ -153,6 +198,7 @@ export function CommandBar({
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
             <SyncStatus since={syncedAt} scope={scope} />
+            {user.role !== "warehouse" ? <SyncNowButton /> : null}
             <Link
               prefetch={false}
               href="/posts/new"

@@ -222,6 +222,34 @@ const note = (n: number, row: Omit<NotificationRow, "id" | "user_id" | "created_
   ...row,
 });
 
+const alertNote = (n: number, minutesAgo: number, row: Pick<NotificationRow, "kind" | "title" | "body">): NotificationRow => ({
+  id: id(4100 + n),
+  user_id: id(1),
+  post_id: null,
+  ticket_id: null,
+  read_at: null,
+  created_at: new Date(Date.now() - minutesAgo * 60_000).toISOString(),
+  ...row,
+});
+
+/** Made-up alerts for the alerts panel in the preview: one of each kind, two of dispatch. */
+export const FAKE_ALERTS: NotificationRow[] = [
+  alertNote(0, 4, { kind: "dispatch_risk", title: "12 orders may miss their dispatch deadline", body: "Fake Warehouse BLR 9 · Fake Warehouse DEL 3 · earliest 19 Oct, 2:00 pm" }),
+  alertNote(1, 35, { kind: "dispatch_risk", title: "4 orders may miss their dispatch deadline", body: "Fake Warehouse BLR 4 · earliest 19 Oct, 11:00 am" }),
+  alertNote(2, 90, {
+    kind: "stock_alert",
+    title: "Stock running low: 4 products (19 Oct)",
+    body: "Under 7 days of cover, soonest first: Fake Kit 8-in-1 OUT · Fake Car Perfume OUT · Fake Black Rack 6d · Fake Repellent 2d",
+  }),
+  alertNote(3, 15, { kind: "sync_alert", title: "Flipkart orders have not been read for 3 hours", body: "Order numbers, dispatch deadlines and alerts may be out of date. Try Sync now in the top bar." }),
+  alertNote(4, 120, {
+    kind: "capacity_alert",
+    title: "More orders booked than the team can pack (19 Oct)",
+    body: "Fake Warehouse BLR 20 Oct: 2,350 orders, room for 2,000 · Fake Warehouse DEL 21 Oct: 900 orders, room for 800. See the Team page to plan extra people.",
+  }),
+  alertNote(5, 300, { kind: "money_reminder", title: "Upload a Flipkart settlement report", body: "Nothing has been uploaded to Money for 7+ days." }),
+];
+
 export const FAKE_NOTIFICATIONS: NotificationRow[] = [
   note(0, { kind: "overdue", title: "2 overdue items", body: "VR-1042 Customer returned a different… · VR-1039 Count shelf C", read_at: null }),
   note(1, { kind: "assigned", title: "Assigned to you: VR-1046", body: "Call the pretend courier about pickup timing", post_id: id(1005), read_at: null }),

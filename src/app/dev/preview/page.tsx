@@ -20,6 +20,8 @@ import { ReturnsTab } from "@/components/flipkart/returns-tab";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
 import { DispatchChart, Hero, Movers, OrdersByStage, PriorityQueue, Pulses, StockByWarehouse, StockHealth, Warehouses } from "@/components/deck/sections";
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
+import { fakeTeam } from "@/lib/dev-fixtures-team";
+import { TeamBoard } from "@/components/team/board";
 import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { MarkAllReadButton, NotificationList } from "@/components/notifications/notification-list";
@@ -30,6 +32,7 @@ import { TicketForm } from "@/components/tickets/ticket-form";
 import { PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
 import {
+  FAKE_ALERTS,
   FAKE_COMMENTS,
   FAKE_EVENTS,
   FAKE_NOTIFICATIONS,
@@ -90,6 +93,7 @@ const VIEWS = [
   "fhealth",
   "fforecast",
   "fmasters",
+  "team",
   "settings",
   "users",
   "password",
@@ -130,7 +134,13 @@ export default async function PreviewPage({
   }));
 
   return (
-    <AppShell user={{ name: me.name, role: "owner", email: "fake.owner@example.test" }} unread={3} scope="All warehouses" syncedAt={PREVIEW_SYNCED}>
+    <AppShell
+      user={{ name: me.name, role: "owner", email: "fake.owner@example.test" }}
+      unread={3 + FAKE_ALERTS.length}
+      alerts={sp.alerts === "none" ? [] : [...FAKE_ALERTS, ...FAKE_NOTIFICATIONS.filter((n) => !n.read_at)]}
+      scope="All warehouses"
+      syncedAt={PREVIEW_SYNCED}
+    >
       <nav className="mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">
         <span>Preview (fake data):</span>
         {VIEWS.map((v) => (
@@ -241,11 +251,12 @@ export default async function PreviewPage({
           />
         </div>
       ) : null}
+      {view === "team" ? <TeamBoard d={fakeTeam()} /> : null}
       {view === "notifications" ? (
         <div className="mx-auto max-w-2xl">
           <PageTitle title="Notifications" sub="3 unread" action={<MarkAllReadButton />} />
           <PushSettings userId={me.id} />
-          <NotificationList items={FAKE_NOTIFICATIONS} />
+          <NotificationList items={[...FAKE_ALERTS, ...FAKE_NOTIFICATIONS]} />
         </div>
       ) : null}
       {view === "stock" ? (

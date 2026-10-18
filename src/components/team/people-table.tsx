@@ -17,8 +17,9 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
   const sorted = [...people].sort((a, b) => (by.get(a.warehouseId)?.name ?? "").localeCompare(by.get(b.warehouseId)?.name ?? "") || a.name.localeCompare(b.name));
   const salaryTotal = people.filter((p) => p.active).reduce((n, p) => n + (p.salary ?? 0), 0);
   if (people.length === 0) return null;
+  const toggle = (p: PersonView) => startTransition(async () => void toast.result(await setStaffActive(p.id, !p.active)));
   return (
-    <section className="sp-card p-4 sm:p-5" aria-labelledby="people-title">
+    <section className="sp-card min-w-0 p-4 sm:p-5" aria-labelledby="people-title">
       <header className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 id="people-title" className="font-display text-lg font-semibold">The team, {monthLabel}</h2>
@@ -31,8 +32,56 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
           </p>
         ) : null}
       </header>
-      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <table className="w-full min-w-[36rem] text-sm">
+      {/* Phone: one card per person, no sideways scrolling. */}
+      <ul className="flex flex-col gap-2 sm:hidden">
+        {sorted.map((p) => {
+          const w = by.get(p.warehouseId);
+          return (
+            <li key={p.id} className={`rounded-xl border border-line-soft bg-surface/60 p-3 ${p.active ? "" : "opacity-60"}`}>
+              <div className="flex items-start gap-2">
+                <span aria-hidden="true" className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: w?.color }} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold">{p.name}</p>
+                  <p className="text-xs text-muted">
+                    {w?.name ?? "Unknown warehouse"}
+                    {isOwner && p.salary !== null ? <span className="font-mono tabular-nums"> · {formatINR(p.salary)}</span> : null}
+                  </p>
+                </div>
+                {!p.active ? <Chip tone="neutral">Removed</Chip> : null}
+                {isOwner ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => toggle(p)}
+                    className="focus-ring -mr-1 -mt-1 min-h-11 shrink-0 rounded-lg px-2.5 text-xs font-bold text-accent-text hover:bg-accent-soft disabled:opacity-50"
+                  >
+                    {p.active ? "Remove" : "Add back"}
+                  </button>
+                ) : null}
+              </div>
+              <dl className="mt-2 grid grid-cols-4 gap-1.5 text-center">
+                {(
+                  [
+                    ["Present", p.month.present, "text-ok"],
+                    ["Half", p.month.half, "text-warn"],
+                    ["Absent", p.month.absent, "text-bad"],
+                    ["Leave", p.month.leave, "text-info"],
+                  ] as const
+                ).map(([label, n, tone]) => (
+                  <div key={label} className="rounded-lg bg-surface2/70 px-1 py-1.5">
+                    <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</dt>
+                    <dd className={`font-mono text-base font-bold tabular-nums ${tone}`}>{n}</dd>
+                  </div>
+                ))}
+              </dl>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Wider screens: the table. */}
+      <div className="hidden sm:block">
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wider text-muted">
               <th scope="col" className="py-2 pr-3">Person</th>
@@ -69,7 +118,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => startTransition(async () => void toast.result(await setStaffActive(p.id, !p.active)))}
+                        onClick={() => toggle(p)}
                         className="focus-ring min-h-9 rounded-lg px-2 text-xs font-bold text-accent-text hover:bg-accent-soft disabled:opacity-50"
                       >
                         {p.active ? "Remove" : "Add back"}

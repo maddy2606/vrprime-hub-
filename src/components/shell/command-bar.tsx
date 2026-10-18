@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ALERTS_COUNT_EVENT, ALERTS_OPEN_EVENT } from "@/components/alerts/alert-center";
 import { BellIcon, PlusIcon, RefreshIcon, SearchIcon } from "@/components/icons";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { UnreadBadge } from "@/components/ui";
@@ -22,8 +23,11 @@ function ago(ms: number): string {
   return h < 48 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
-/** "Synced 42s ago · All warehouses": ticks every second and starts over when a sync finishes (checked every minute). */
-function SyncStatus({ since, scope }: { since: string | null; scope: string }) {
+/**
+ * "Synced 42s ago · All warehouses" and, for the owner and admins, the Sync now button. It ticks every second and starts
+ * over when a sync finishes (checked every minute). On a phone the age sits inside the button to save room.
+ */
+function SyncControl({ since, scope, canSync }: { since: string | null; scope: string; canSync: boolean }) {
   const [at, setAt] = useState<string | null>(since);
   const [now, setNow] = useState<number | null>(null);
 
@@ -55,19 +59,30 @@ function SyncStatus({ since, scope }: { since: string | null; scope: string }) {
   // Orders are read every 30 minutes in working hours; an hour with no read is worth a second look.
   const stale = age !== null && age > 60 * 60_000;
   const label = !at ? "Not synced yet" : age === null ? "Synced" : `Synced ${ago(age)}`;
+  const short = !at ? "—" : age === null ? "" : ago(age).replace(" ago", "");
+  const dot = `sp-dot h-2 w-2 shrink-0 rounded-full ${stale || !at ? "bg-warn text-warn" : "bg-cyan text-cyan"}`;
   return (
-    <div className="flex min-w-0 items-center gap-2 text-xs text-muted" role="status" aria-label={`${label}, ${scope}`}>
-      <span aria-hidden="true" className={`sp-dot h-2 w-2 shrink-0 rounded-full ${stale || !at ? "bg-warn text-warn" : "bg-cyan text-cyan"}`} />
-      <span className="whitespace-nowrap font-mono max-[419px]:hidden">{label}</span>
-      <span className="whitespace-nowrap font-mono min-[420px]:hidden">{!at ? "—" : age === null ? "" : ago(age).replace(" ago", "")}</span>
-      <span aria-hidden="true" className="hidden lg:inline">·</span>
-      <span className="hidden truncate lg:inline">{scope}</span>
-    </div>
+    <>
+      <div className="hidden min-w-0 items-center gap-2 text-xs text-muted sm:flex" role="status" aria-label={`${label}, ${scope}`}>
+        <span aria-hidden="true" className={dot} />
+        <span className="whitespace-nowrap font-mono">{label}</span>
+        <span aria-hidden="true" className="hidden lg:inline">·</span>
+        <span className="hidden truncate lg:inline">{scope}</span>
+      </div>
+      {canSync ? (
+        <SyncNowButton short={short} label={label} dot={dot} />
+      ) : (
+        <span className="flex items-center gap-1.5 font-mono text-xs text-muted sm:hidden" role="status" aria-label={label}>
+          <span aria-hidden="true" className={dot} />
+          {short}
+        </span>
+      )}
+    </>
   );
 }
 
 /** "Sync now" in the top bar: one button for everything (VR Prime stock, Flipkart stock and orders). Owner and admin only. */
-function SyncNowButton() {
+function SyncNowButton({ short, label: synced, dot }: { short: string; label: string; dot: string }) {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "busy" | "done" | "failed">("idle");
 
@@ -98,11 +113,58 @@ function SyncNowButton() {
       type="button"
       onClick={run}
       disabled={state === "busy"}
-      aria-label="Sync everything now"
-      className="focus-ring flex h-11 items-center justify-center gap-1.5 rounded-xl border border-line px-3 text-sm font-bold text-ink transition hover:border-accent/50 disabled:opacity-60"
+      aria-label={`Sync everything now. ${synced}`}
+      className="focus-ring flex h-11 items-center justify-center gap-1.5 rounded-xl border border-line bg-surface/60 px-2.5 text-sm font-bold text-ink transition hover:border-accent/50 disabled:opacity-60 md:px-3"
     >
       <RefreshIcon className={`h-5 w-5 ${state === "busy" ? "animate-spin" : ""}`} />
+      {/* Phone: how long ago, with the green/amber dot. Wide screens: the words. */}
+      <span className="flex items-center gap-1 font-mono text-xs font-semibold text-muted sm:hidden">
+        {state === "idle" ? (
+          <>
+            <span aria-hidden="true" className={dot} />
+            {short}
+          </>
+        ) : state === "busy" ? (
+          "…"
+        ) : (
+          label
+        )}
+      </span>
       <span className="hidden md:inline">{label}</span>
+    </button>
+  );
+}
+
+/** The bell: opens the alerts panel. Its count follows the panel, which checks for new alerts every minute. */
+function AlertBell({ unread }: { unread: number }) {
+  const [count, setCount] = useState(unread);
+  const [prev, setPrev] = useState(unread);
+  if (unread !== prev) {
+    setPrev(unread);
+    setCount(unread);
+  }
+  useEffect(() => {
+    const onCount = (e: Event) => {
+      const n = (e as CustomEvent<unknown>).detail;
+      if (typeof n === "number") setCount(n);
+    };
+    window.addEventListener(ALERTS_COUNT_EVENT, onCount);
+    return () => window.removeEventListener(ALERTS_COUNT_EVENT, onCount);
+  }, []);
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new Event(ALERTS_OPEN_EVENT))}
+      aria-haspopup="dialog"
+      aria-label={count ? `Alerts and notifications, ${count} unread` : "Alerts and notifications"}
+      className="focus-ring relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface2 hover:text-ink"
+    >
+      <BellIcon className="h-6 w-6" />
+      {count ? (
+        <span className="vr-ring absolute right-0.5 top-0.5 rounded-full">
+          <UnreadBadge count={count} />
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -184,12 +246,30 @@ export function CommandBar({
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-line-soft bg-canvas/75 backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4 lg:px-8">
+      <header className="sticky top-0 z-30 border-b border-line-soft bg-canvas/75 pt-[env(safe-area-inset-top)] backdrop-blur-md">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-1.5 px-3 min-[400px]:px-4 sm:gap-2 lg:px-8">
+          {/* Phones have no side rail, so the logo (home) sits here. */}
+          <Link
+            prefetch={false}
+            href="/"
+            aria-label="VR Prime Ops, Command Deck"
+            className="focus-ring sp-glow font-display flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-semibold text-accent-ink max-[339px]:hidden min-[561px]:hidden"
+          >
+            VR
+          </Link>
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="focus-ring flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-line bg-surface px-3 text-left text-sm text-faint transition hover:border-accent/50 md:max-w-md"
+            className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-surface/60 text-muted transition hover:border-accent/50 sm:hidden"
+            aria-label="Search"
+            aria-haspopup="dialog"
+          >
+            <SearchIcon className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="focus-ring hidden min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-line bg-surface px-3 text-left text-sm text-faint transition hover:border-accent/50 sm:flex md:max-w-md"
             aria-label="Search (Ctrl K)"
             aria-haspopup="dialog"
           >
@@ -198,9 +278,8 @@ export function CommandBar({
             <kbd className="hidden shrink-0 rounded-md border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted sm:block">Ctrl K</kbd>
           </button>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
-            <SyncStatus since={syncedAt} scope={scope} />
-            {user.role !== "warehouse" ? <SyncNowButton /> : null}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <SyncControl since={syncedAt} scope={scope} canSync={user.role !== "warehouse"} />
             <Link
               prefetch={false}
               href="/posts/new"
@@ -210,19 +289,7 @@ export function CommandBar({
               <PlusIcon className="h-5 w-5" />
               <span className="hidden sm:inline">Post</span>
             </Link>
-            <Link
-              prefetch={false}
-              href="/notifications"
-              aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
-              className="focus-ring relative flex h-11 w-11 items-center justify-center rounded-full text-muted transition hover:bg-surface2 hover:text-ink"
-            >
-              <BellIcon className="h-6 w-6" />
-              {unread ? (
-                <span className="absolute right-0.5 top-0.5">
-                  <UnreadBadge count={unread} />
-                </span>
-              ) : null}
-            </Link>
+            <AlertBell unread={unread} />
             <AccountMenu name={user.name} sub={user.sub}>
               {menu}
             </AccountMenu>

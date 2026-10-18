@@ -123,4 +123,7 @@ export const NOTIFICATION_ICON_LABEL: Record<string, string> = {
   listing_live: "Live",
   listing_not_found: "Check SKU",
   money_reminder: "Money",
+  stock_alert: "Stock",
+  capacity_alert: "Capacity",
+  sync_alert: "Sync",
 };

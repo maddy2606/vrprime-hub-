@@ -119,21 +119,31 @@ function WarehouseCard({ w, d, index }: { w: WarehouseView; d: TeamData; index: 
 
 function StatusGrid({ d }: { d: TeamData }) {
   const rows = [
-    ...d.warehouses.filter((w) => w.staff > 0).map((w) => ({ key: w.id, name: w.name, color: w.color, days: w.plan.days })),
-    { key: "all", name: "All warehouses", color: "var(--ink)", days: d.total.plan.days },
+    ...d.warehouses.filter((w) => w.staff > 0).map((w) => ({ key: w.id, name: w.name, color: w.color, now: w.plan.now, days: w.plan.days })),
+    { key: "all", name: "All warehouses", color: "var(--ink)", now: d.total.plan.now, days: d.total.plan.days },
   ];
   const heads = d.total.plan.days.map((x) => dayHead(x.day));
+  const todayHead = dayHead(d.today);
   return (
-    <section className="sp-card sp-reveal p-4 sm:p-5" style={style(8)} aria-labelledby="grid-title">
+    // min-w-0: without it the wide table stretches the card, and the whole page, past a phone's width.
+    <section className="sp-card sp-reveal min-w-0 p-4 sm:p-5" style={style(8)} aria-labelledby="grid-title">
       <header className="mb-3">
         <h2 id="grid-title" className="font-display text-lg font-semibold">Day by day, per warehouse</h2>
-        <p className="text-xs text-muted">Orders expected. Green is covered, amber is tight, red is more than the team can pack.</p>
+        <p className="text-xs text-muted">
+          Today is the orders already due to go out today; the other days are expected orders. Green is covered, amber is tight, red is more than the team can
+          pack.<span className="sm:hidden"> Swipe for more days.</span>
+        </p>
       </header>
-      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <table className="w-full min-w-[44rem] border-separate border-spacing-[3px] text-center text-xs">
+      {/* relative: the screen-reader words in each cell are positioned absolutely; this keeps them inside the scrolling box. */}
+      <div className="relative -mx-4 overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:px-0">
+        <table className="w-full min-w-[47rem] border-separate border-spacing-[3px] text-center text-xs">
           <thead>
             <tr>
-              <th scope="col" className="w-28 text-left text-[11px] font-bold text-muted"><span className="sr-only">Warehouse</span></th>
+              <th scope="col" className="sticky left-0 z-10 w-28 bg-surface text-left text-[11px] font-bold text-muted"><span className="sr-only">Warehouse</span></th>
+              <th scope="col" className="pb-1 text-[11px] font-bold text-accent-text">
+                <span className="block">Today</span>
+                <span className="block font-mono tabular-nums">{todayHead.num}</span>
+              </th>
               {heads.map((h, i) => (
                 <th key={i} scope="col" className="pb-1 text-[11px] font-bold text-muted">
                   <span className="block">{h.wd}</span>
@@ -145,12 +155,19 @@ function StatusGrid({ d }: { d: TeamData }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.key}>
-                <th scope="row" className="text-left text-sm font-bold">
+                <th scope="row" className="sticky left-0 z-10 bg-surface pr-1 text-left text-sm font-bold">
                   <span className="flex items-center gap-2">
                     <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
                     <span className="truncate">{r.name}</span>
                   </span>
                 </th>
+                <td
+                  title={`${r.name}, today: ${formatNumber(r.now.demand)} orders already due to go out. ${STATUS_WORD[r.now.status]}${r.now.extra ? `, ${r.now.extra} more people needed` : ""}`}
+                  className={`h-11 rounded-md font-mono text-[12px] font-bold tabular-nums ring-2 ring-inset ring-accent/50 ${CELL[r.now.status]}`}
+                >
+                  {r.now.demand > 0 ? compact(r.now.demand) : "·"}
+                  <span className="sr-only"> due today, {STATUS_WORD[r.now.status]}</span>
+                </td>
                 {r.days.map((x) => (
                   <td key={x.day} title={`${r.name}, ${formatDate(x.day, d.today)}: ${formatNumber(x.demand)} orders${x.booked > x.orders ? ` (${formatNumber(x.booked)} already booked)` : ""}. ${STATUS_WORD[x.status]}${x.extra ? `, ${x.extra} more people needed` : ""}`} className={`h-11 rounded-md font-mono text-[12px] font-bold tabular-nums ${CELL[x.status]}`}>
                     {x.demand > 0 ? compact(x.demand) : "·"}
@@ -198,7 +215,7 @@ function DemandChart({ d }: { d: TeamData }) {
 export function TeamBoard({ d }: { d: TeamData }) {
   const people = d.people.filter((p) => p.active);
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5 [&>*]:min-w-0">
       <Hero d={d} />
       {d.total.staff === 0 && d.isOwner ? (
         <section className="sp-card p-4 sm:p-5">

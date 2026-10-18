@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { attendanceRate, capacityHeadline, DEFAULT_CAPACITY_SETTINGS, forecastOrders, planWarehouse, shiftDay } from "./capacity.ts";
+import { attendanceRate, capacityHeadline, combinePlans, DEFAULT_CAPACITY_SETTINGS, forecastOrders, planWarehouse, shiftDay } from "./capacity.ts";
 
 const TODAY = "2026-10-18"; // a Sunday
 const S = DEFAULT_CAPACITY_SETTINGS;
@@ -70,8 +70,36 @@ test("with three weeks of history each weekday gets its usual share", () => {
   assert.ok(f.ready);
   const monday = f.days.find((d) => new Date(`${d.day}T00:00:00Z`).getUTCDay() === 1)!;
   const tuesday = f.days.find((d) => new Date(`${d.day}T00:00:00Z`).getUTCDay() === 2)!;
-  // Monday is really double, but a weekday's share is held to +30%, so the forecast says about 1.4x, not 2x
-  assert.ok(monday.orders > tuesday.orders * 1.4, `${monday.orders} vs ${tuesday.orders}`);
+  // Monday is really double, but a weekday's share is held to +30%, so the forecast says about 1.3x, not 2x
+  assert.ok(monday.orders >= Math.round(tuesday.orders * 1.29), `${monday.orders} vs ${tuesday.orders}`);
+  const week = f.days.slice(0, 7).reduce((n, d) => n + d.orders, 0);
+  assert.ok(Math.abs(week - 7 * f.level) < 7 * f.level * 0.01, "the weekday shares move orders between days, not the week's total");
+});
+
+test("a sale that started on a Thursday is not learned as 'Thursdays are busy'", () => {
+  // Four flat weeks at 1000 a day, but two of them had a sale on Thursday and Friday (the real Sept and Oct sales did).
+  const saleDays = new Set([shiftDay(TODAY, -24), shiftDay(TODAY, -23), shiftDay(TODAY, -10), shiftDay(TODAY, -9)]);
+  const h = Object.fromEntries(
+    Array.from({ length: 28 }, (_, i) => {
+      const day = shiftDay(TODAY, -(28 - i));
+      return [day, saleDays.has(day) ? 1500 : 1000];
+    }),
+  );
+  assert.ok([...saleDays].every((d) => new Date(`${d}T00:00:00Z`).getUTCDay() >= 4), "the sale days are a Thursday and Friday");
+  const f = forecastOrders(h, TODAY);
+  assert.ok(f.ready);
+  const byWeekday = new Map(f.days.slice(0, 7).map((d) => [new Date(`${d.day}T00:00:00Z`).getUTCDay(), d.orders]));
+  const spread = Math.max(...byWeekday.values()) / Math.min(...byWeekday.values());
+  assert.ok(spread < 1.05, `every weekday forecasts about the same: ${[...byWeekday.entries()].join(" ")}`);
+});
+
+test("right after a sale, a falling last week is not forecast to rise again", () => {
+  // 14 quiet days at 300, a sale week at 600, then a week falling back toward 350.
+  const f = forecastOrders(hist(28, (i) => (i < 14 ? 300 : i < 21 ? 600 : 450 - (i - 21) * 15)), TODAY);
+  assert.ok(f.ready);
+  assert.ok(f.weeklyChangePct! < 0, `the last week is down: ${f.weeklyChangePct}`);
+  assert.equal(f.slopePerDay, 0, "the two-week line still points up, but the last week says otherwise");
+  assert.ok(f.days.every((d) => d.orders <= Math.round(f.level) + 1), "no rise is forecast");
 });
 
 test("attendance rate: present 1, half 0.5, absent and leave 0; too few marks means unknown", () => {
@@ -130,6 +158,26 @@ test("with no forecast yet, booked orders still show", () => {
   const day = shiftDay(TODAY, 1);
   const p = planWarehouse({ today: TODAY, staff: 1, attendanceRate: null, forecast: f, booked: { [day]: 450 }, settings: S });
   assert.equal(p.days[0].status, "tight");
+});
+
+test("today shows the orders already due to go out today, but does not move the hiring date", () => {
+  const p = planWarehouse({ today: TODAY, staff: 2, attendanceRate: null, forecast: ready(500), booked: { [TODAY]: 900 }, settings: S });
+  assert.equal(p.now.day, TODAY);
+  assert.equal(p.now.demand, 900);
+  assert.equal(p.now.status, "tight");
+  assert.equal(p.firstPressure, null, "hiring is planned from tomorrow on: today cannot be fixed by hiring");
+});
+
+test("all warehouses together add up the rows, against everyone's capacity", () => {
+  const a = planWarehouse({ today: TODAY, staff: 2, attendanceRate: null, forecast: ready(700), booked: { [TODAY]: 300 }, settings: S });
+  const b = planWarehouse({ today: TODAY, staff: 1, attendanceRate: null, forecast: ready(200), booked: { [shiftDay(TODAY, 2)]: 600 }, settings: S });
+  const all = combinePlans([a, b], ready(900), S);
+  assert.equal(all.staff, 3);
+  assert.equal(all.comfortable, a.comfortable + b.comfortable);
+  assert.deepEqual(all.days.map((d) => d.demand), a.days.map((d, i) => d.demand + b.days[i].demand));
+  assert.equal(all.days[1].demand, 700 + 600, "the booked floor in one warehouse is part of the total");
+  assert.equal(all.days[1].status, "tight", "1300 is over 3 people's comfortable 1200");
+  assert.equal(all.now.demand, 300 + 0);
 });
 
 test("a very low attendance rate is held at a floor so one bad week does not wreck the plan", () => {

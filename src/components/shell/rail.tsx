@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DeckIcon, GaugeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { Suspense, useState, type ReactNode } from "react";
+import { BoardIcon, BoxIcon, DeckIcon, GaugeIcon, MoreIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
 
-/** The rail, in order: Command Deck, Work board, Tickets, Flipkart, Forecast, Team (owner and admin), People, Settings (owner). */
+/**
+ * The rail, in order: Command Deck, Work board, Tickets, Flipkart, Forecast, Team (owner and admin), People, Settings (owner).
+ * On a phone it is a bottom bar of five: Deck, Flipkart, Forecast and Team, with the rest under More.
+ */
 function items(isOwner: boolean, isStaff: boolean): Item[] {
   return [
     { key: "deck", href: "/", label: "Command Deck", icon: DeckIcon },
@@ -76,31 +80,91 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
         </nav>
       </aside>
 
+      <BottomBar list={list} active={active} />
+    </>
+  );
+}
+
+/** Short names for the bottom bar, where each slot is a fifth of a phone's width. */
+const SHORT: Record<string, string> = { deck: "Deck", work: "Work", tickets: "Tickets", flipkart: "Flipkart", forecast: "Forecast", team: "Team", people: "People", settings: "Settings" };
+
+/** The places that get a slot of their own on a phone; the rest go under More. Five slots at most. */
+function splitForPhone(list: Item[]): { bar: Item[]; more: Item[] } {
+  if (list.length <= 5) return { bar: list, more: [] };
+  const first = ["deck", "flipkart", "forecast", "team"];
+  const bar = first.map((k) => list.find((i) => i.key === k)).filter((i): i is Item => Boolean(i)).slice(0, 4);
+  return { bar, more: list.filter((i) => !bar.includes(i)) };
+}
+
+function BottomBar({ list, active }: { list: Item[]; active: string }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const { bar, more } = splitForPhone(list);
+  const moreActive = more.some((i) => i.key === active);
+  const slots = bar.length + (more.length ? 1 : 0);
+
+  const slotClass = (on: boolean) =>
+    `focus-ring flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-bold transition ${on ? "text-accent-text" : "text-muted active:text-ink"}`;
+  const pill = (on: boolean) => `flex h-8 w-14 items-center justify-center rounded-full transition ${on ? "bg-accent-soft" : ""}`;
+
+  return (
+    <>
       {/* Bottom bar, 560px and under */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel2/95 pb-[env(safe-area-inset-bottom)] backdrop-blur min-[561px]:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel2/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md min-[561px]:hidden"
       >
-        <ul className="grid" style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }}>
-          {list.map((item) => {
+        <ul className="grid" style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}>
+          {bar.map((item) => {
+            const on = active === item.key;
+            return (
+              <li key={item.key}>
+                <Link prefetch={false} href={item.href} aria-current={on ? "page" : undefined} className={slotClass(on)}>
+                  <span aria-hidden="true" className={pill(on)}>
+                    <item.icon className="h-[22px] w-[22px]" />
+                  </span>
+                  <span className="max-w-full truncate px-0.5">{SHORT[item.key] ?? item.label}</span>
+                </Link>
+              </li>
+            );
+          })}
+          {more.length ? (
+            <li>
+              <button type="button" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className={slotClass(moreActive)}>
+                <span aria-hidden="true" className={pill(moreActive)}>
+                  <MoreIcon className="h-[22px] w-[22px]" />
+                </span>
+                <span>More</span>
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      </nav>
+
+      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
+        <ul className="grid grid-cols-2 gap-2.5 pb-2">
+          {more.map((item) => {
             const on = active === item.key;
             return (
               <li key={item.key}>
                 <Link
                   prefetch={false}
                   href={item.href}
+                  onClick={() => setMoreOpen(false)}
                   aria-current={on ? "page" : undefined}
-                  className={`focus-ring relative flex h-16 min-h-11 flex-col items-center justify-center gap-0.5 text-[10px] font-bold ${on ? "text-accent-text" : "text-muted"}`}
+                  className={`focus-ring flex min-h-[4.5rem] items-center gap-3 rounded-2xl border px-3.5 py-3 text-sm font-bold transition ${
+                    on ? "border-accent/60 bg-accent-soft text-accent-text" : "border-line bg-surface text-ink active:bg-surface2"
+                  }`}
                 >
-                  {on ? <span aria-hidden="true" className="absolute top-0 h-[3px] w-8 rounded-b-full bg-madder" /> : null}
-                  <item.icon className="h-6 w-6" />
-                  <span className="max-w-full truncate px-0.5">{item.label.replace("Command Deck", "Deck").replace("Work board", "Work")}</span>
+                  <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${on ? "bg-accent text-accent-ink" : "bg-surface2 text-muted"}`}>
+                    <item.icon className="h-5 w-5" />
+                  </span>
+                  {item.label}
                 </Link>
               </li>
             );
           })}
         </ul>
-      </nav>
+      </Sheet>
     </>
   );
 }

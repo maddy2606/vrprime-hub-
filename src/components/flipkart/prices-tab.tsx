@@ -55,7 +55,9 @@ export function PricesTab({ rows, today, dropLimit, snapshotDate }: { rows: Pric
       sort: (r) => r.flags.length,
       cell: (r) =>
         r.flags.length ? (
-          <div className="flex min-w-36 flex-wrap gap-1">
+          // A long flag ("Selling price at or above MRP") wraps instead of pushing a phone card past the screen edge.
+          <div className="flex min-w-36 max-w-full flex-wrap gap-1 [&>span]:max-w-full [&>span]:whitespace-normal">
+
             {r.flags.map((f) => (
               <Chip key={f} tone={f === "over_mrp" ? "warn" : "bad"}>
                 {f === "big_drop" ? `Dropped ${r.dropPct}%` : PRICE_FLAG_LABEL[f]}

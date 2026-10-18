@@ -30,6 +30,19 @@ export function CoverValue({ cover }: { cover: number | null }) {
   return <span className={cover < 7 ? "font-bold text-bad" : cover < 14 ? "font-bold text-warn" : ""}>{cover < 10 ? cover.toFixed(1) : n0(cover)}</span>;
 }
 
+/** A phone card's headline: days of cover as a coloured pill (red under a week, amber under two, green after). */
+function CoverPill({ cover }: { cover: number | null }) {
+  if (cover === null) return null;
+  const tone = cover < 7 ? "bg-bad-soft text-bad" : cover < 14 ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok";
+  const value = cover < 10 ? cover.toFixed(1) : n0(cover);
+  return (
+    <span title="Days of cover" className={`mt-px inline-flex shrink-0 items-baseline gap-1 rounded-full px-2.5 py-1 ${tone}`}>
+      <span className="font-mono text-sm font-bold tabular-nums">{value}</span>
+      <span className="text-[11px] font-semibold">{cover === 1 ? "day" : "days"} left</span>
+    </span>
+  );
+}
+
 const NUMBERS: { key: Exclude<MasterSortKey, "product">; label: string; value: (r: ForecastRow) => number | null; cell: (r: ForecastRow) => ReactNode }[] = [
   { key: "stock", label: "Stock now", value: (r) => (r.noStock ? null : r.stock), cell: (r) => (r.noStock ? <span className="text-muted">—</span> : n0(r.stock)) },
   { key: "rate", label: "Avg / day", value: (r) => r.rate, cell: (r) => r.rate.toFixed(1) },
@@ -132,9 +145,10 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
                   {g.kit ? <KitBadge /> : null}
                   {count(g.children.length)}
                 </span>
-                <ChevronDownIcon className={`mt-0.5 h-5 w-5 shrink-0 text-muted transition ${expanded ? "rotate-180" : ""}`} />
+                <CoverPill cover={g.total.cover} />
+                <ChevronDownIcon className={`mt-1 h-5 w-5 shrink-0 text-muted transition ${expanded ? "rotate-180" : ""}`} />
               </button>
-              <Numbers row={g.total} />
+              <Numbers row={g.total} hideCover={g.total.cover !== null} />
               {expanded && g.kit ? <KitNote kit={g.kit} className="mt-3 border-t border-line pt-3" /> : null}
               {expanded && g.children.length ? (
                 <ul className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
@@ -161,8 +175,11 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
               <div className="flex flex-col gap-2">
                 {sortedUnmapped.map((r) => (
                   <article key={r.key} className="sp-card p-3">
-                    {skuLabel(r)}
-                    <Numbers row={r} />
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">{skuLabel(r)}</div>
+                      <CoverPill cover={r.cover} />
+                    </div>
+                    <Numbers row={r} hideCover={r.cover !== null} />
                   </article>
                 ))}
               </div>
@@ -304,11 +321,11 @@ function KitNote({ kit, className = "" }: { kit: KitInfo; className?: string }) 
   );
 }
 
-/** A card's numbers: the six columns as label and value pairs. */
-function Numbers({ row, small = false }: { row: ForecastRow; small?: boolean }) {
+/** A card's numbers: the six columns as label and value pairs (five when the cover is already the card's pill). */
+function Numbers({ row, small = false, hideCover = false }: { row: ForecastRow; small?: boolean; hideCover?: boolean }) {
   return (
     <dl className={`mt-2.5 grid gap-x-4 ${small ? "grid-cols-3 gap-y-1.5" : "grid-cols-3 gap-y-2.5"}`}>
-      {NUMBERS.map((c) => (
+      {NUMBERS.filter((c) => !(hideCover && c.key === "cover")).map((c) => (
         <div key={c.key} className="min-w-0">
           <dt className="text-[11px] font-semibold uppercase leading-tight tracking-wide text-muted">{c.label}</dt>
           <dd className={`mt-0.5 font-mono tabular-nums ${small ? "text-[13px]" : "text-sm font-semibold"}`}>{c.cell(row)}</dd>

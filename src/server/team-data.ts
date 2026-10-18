@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import {
   attendanceRate,
   capacityHeadline,
+  combinePlans,
   DEFAULT_CAPACITY_SETTINGS,
   forecastOrders,
   planWarehouse,
@@ -193,17 +194,13 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
   });
 
   const staffTotal = views.reduce((n, v) => n + v.staff, 0);
-  const effective = views.reduce((n, v) => n + v.plan.effective, 0);
-  const anyRate = views.some((v) => v.plan.attendanceRate !== null);
   const allPlaced = placedBy(null);
-  const total = planWarehouse({
-    today,
-    staff: staffTotal,
-    attendanceRate: anyRate && staffTotal > 0 ? effective / staffTotal : null,
-    forecast: forecastOrders(allPlaced, today),
-    booked: dueBy(null),
+  // The "All warehouses" row adds up the rows above it.
+  const total = combinePlans(
+    views.map((v) => v.plan),
+    forecastOrders(allPlaced, today),
     settings,
-  });
+  );
 
   const headline = capacityHeadline(
     views.map((v) => ({ name: v.name, plan: v.plan })),

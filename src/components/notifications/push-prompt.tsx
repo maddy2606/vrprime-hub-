@@ -47,9 +47,8 @@ export function PushPrompt({ userId }: { userId: string }) {
     <section aria-label="Turn on notifications" className="mb-4 rounded-xl border border-accent bg-accent-soft p-4">
       <p className="text-base font-extrabold text-accent-text">Get alerts on this phone?</p>
       <p className="mt-1 text-sm">
-        We will tell you when work is assigned to you, when someone comments on your post, and when your post is marked
-        done. Each morning at 9:30 we also remind you about overdue work and ticket follow-ups. You can turn this off at
-        any time.
+        We will tell you at once when stock is running out, orders may miss their dispatch time, a sync stops working or
+        there are more orders than people to pack them, and when work is assigned to you. You can turn this off at any time.
       </p>
       {state === "needs-install" ? (
         <p className="mt-2 text-sm font-semibold">

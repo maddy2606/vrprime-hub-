@@ -34,7 +34,7 @@ export default async function NotificationsPage() {
       ) : (
         <EmptyState
           title="No notifications yet"
-          body="You will see it here when work is assigned to you, someone comments on your post, or your post is marked done. Overdue work and ticket follow-ups are listed here every morning at 9:30."
+          body="Alerts (stock running out, orders that may miss dispatch, sync problems, too few people for the orders) and updates on your work show up here."
         />
       )}
     </div>

@@ -9,8 +9,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
   // RLS limits this to the signed-in person's own notifications.
   const supabase = await createClient();
-  const [{ count }, lookups, runs, money] = await Promise.all([
-    supabase.from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+  // The unread count for the bell, and the newest unread ones for the alerts panel that opens with the site.
+  const [{ data: alerts, count }, lookups, runs, money] = await Promise.all([
+    supabase.from("notifications").select("*", { count: "exact" }).is("read_at", null).order("created_at", { ascending: false }).limit(60),
     getLookups(),
     supabase.from("order_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
     user.role === "owner" ? isMoneyEnabled() : Promise.resolve(false),
@@ -18,7 +19,14 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const mine = lookups.warehouses.filter((w) => user.warehouseIds.includes(w.id)).map((w) => w.name);
   const scope = user.role === "warehouse" ? (mine.length ? mine.join(", ") : "No warehouse yet") : "All warehouses";
   return (
-    <AppShell user={user} unread={count ?? 0} money={money} scope={scope} syncedAt={runs.data?.[0]?.finished_at ?? null}>
+    <AppShell
+      user={user}
+      unread={count ?? 0}
+      alerts={alerts ?? []}
+      money={money}
+      scope={scope}
+      syncedAt={runs.data?.[0]?.finished_at ?? null}
+    >
       {children}
     </AppShell>
   );

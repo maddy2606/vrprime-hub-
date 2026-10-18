@@ -23,6 +23,7 @@ const PAGES: (SearchHit & { roles?: Role[]; words: string })[] = [
   { kind: "page", id: "p-forecast", label: "Forecast", sub: "Expected dispatches and days of cover", href: "/flipkart?tab=forecast", words: "forecast cover demand" },
   { kind: "page", id: "p-overfill", label: "Flipkart · Overfill Orders", sub: "Orders waiting where the stock is 0", href: "/flipkart?tab=overfill", words: "overfill orders no stock" },
   { kind: "page", id: "p-notes", label: "Notifications", sub: "Your alerts", href: "/notifications", words: "notifications alerts bell" },
+  { kind: "page", id: "p-team", label: "Team", sub: "Attendance and capacity planning", href: "/team", words: "team staff attendance capacity employees hiring salary", roles: ["owner", "admin"] },
   { kind: "page", id: "p-people", label: "People", sub: "Users and warehouses", href: "/admin/users", words: "people users staff", roles: ["owner"] },
   { kind: "page", id: "p-settings", label: "Settings", sub: "Limits and switches", href: "/admin/settings", words: "settings limits", roles: ["owner"] },
   { kind: "page", id: "p-pw", label: "Change password", sub: "Your account", href: "/change-password", words: "password account" },

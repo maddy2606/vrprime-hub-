@@ -269,3 +269,87 @@ export function PairedRows({ rows, measures, ariaLabel }: { rows: BreakdownRow[]
     </figure>
   );
 }
+
+// --- Demand against capacity -----------------------------------------------------------------------------------------
+
+export type CapacityPoint = { label: string; value: number };
+
+/**
+ * Orders per day: the last days as a solid line, the projection as a dashed one, and two horizontal lines for what the
+ * team packs comfortably and at the limit. Labels are HTML (readable at phone width); only the shapes scale.
+ */
+export function CapacityChart({
+  past,
+  future,
+  comfortable,
+  limit,
+  ariaLabel,
+}: {
+  past: CapacityPoint[];
+  future: CapacityPoint[];
+  comfortable: number;
+  limit: number;
+  ariaLabel: string;
+}) {
+  // Formatted here, not passed in: a function cannot be handed from a server component to a chart.
+  const formatY = (n: number) => (n >= 1000 ? `${formatNumber(Math.round(n / 100) / 10)}k` : formatNumber(Math.round(n)));
+  const all = [...past, ...future];
+  const max = Math.max(...all.map((p) => p.value), limit, 1);
+  const mag = 10 ** Math.floor(Math.log10(max));
+  const top = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((t) => t >= max) ?? max;
+  const ticks = [1, 0.75, 0.5, 0.25, 0].map((f) => top * f);
+  const n = all.length;
+  const x = (i: number) => (n === 1 ? 50 : (i / (n - 1)) * 100);
+  const y = (v: number) => 4 + (1 - v / top) * 92;
+  const line = (from: number, to: number) => all.slice(from, to + 1).map((p, k) => `${k === 0 ? "M" : "L"}${x(from + k)} ${y(p.value)}`).join(" ");
+  const split = past.length - 1;
+  const labelAt = [0, Math.floor((n - 1) / 2), n - 1];
+  return (
+    <figure className="m-0">
+      <div role="img" aria-label={ariaLabel} className="flex gap-2">
+        <div className="relative h-44 w-10 shrink-0 font-mono text-[10px] text-faint sm:h-52" aria-hidden="true">
+          {ticks.map((t, i) => (
+            <span key={i} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: `${y(t)}%` }}>
+              {formatY(t)}
+            </span>
+          ))}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="relative h-44 sm:h-52">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
+              {ticks.map((t, i) => (
+                <line key={i} x1="0" x2="100" y1={y(t)} y2={y(t)} style={{ stroke: i === ticks.length - 1 ? COLOR.line : COLOR.lineSoft }} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              ))}
+              {past.length > 0 ? <line x1={x(split)} x2={x(split)} y1="4" y2="96" style={{ stroke: COLOR.line }} strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
+              <line x1="0" x2="100" y1={y(comfortable)} y2={y(comfortable)} style={{ stroke: COLOR.ok }} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+              <line x1="0" x2="100" y1={y(limit)} y2={y(limit)} style={{ stroke: COLOR.danger }} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+              {past.length > 1 ? <path d={line(0, split)} fill="none" style={{ stroke: COLOR.indigo }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /> : null}
+              {future.length > 0 ? (
+                <path d={line(Math.max(0, split), n - 1)} fill="none" style={{ stroke: COLOR.indigo }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="6 5" vectorEffect="non-scaling-stroke" />
+              ) : null}
+            </svg>
+            <span aria-hidden="true" className="absolute right-0 -translate-y-full rounded bg-surface/80 px-1 text-[10px] font-bold text-muted" style={{ top: `${y(limit)}%` }}>
+              Most: {formatY(limit)}
+            </span>
+            <span aria-hidden="true" className="absolute right-0 -translate-y-full rounded bg-surface/80 px-1 text-[10px] font-bold text-muted" style={{ top: `${y(comfortable)}%` }}>
+              Comfortable: {formatY(comfortable)}
+            </span>
+          </div>
+          <div className="relative mt-1.5 h-4 font-mono text-[10px] text-faint" aria-hidden="true">
+            {labelAt.map((i, k) => (
+              <span key={i} className="absolute whitespace-nowrap" style={{ left: `${x(i)}%`, transform: k === 0 ? "none" : k === 2 ? "translateX(-100%)" : "translateX(-50%)" }}>
+                {all[i]?.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.indigo }} /><span className="font-bold">Orders so far</span></li>
+        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0 w-5 border-t-2 border-dashed" style={{ borderColor: COLOR.indigo }} /><span className="font-bold">Expected</span></li>
+        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.ok }} /><span className="font-bold">Packed comfortably</span></li>
+        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.danger }} /><span className="font-bold">The most the team can pack</span></li>
+      </ul>
+    </figure>
+  );
+}

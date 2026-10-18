@@ -103,6 +103,16 @@ export const SlidersIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** A dial: how full the team is. */
+export const GaugeIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4.5 17a8 8 0 1 1 15 0" />
+    <path d="M12 14l3.5-4.5" />
+    <circle cx="12" cy="14" r="1.4" fill="currentColor" stroke="none" />
+    <path d="M3 20h18" />
+  </Icon>
+);
+
 export const RupeeIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M7 5h10M7 9h10M9 5c4 0 6 1.5 6 4s-2 4-6 4h-1l7 6" />

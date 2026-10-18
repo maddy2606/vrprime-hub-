@@ -36,7 +36,7 @@ export async function AppShell({
   const theme = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
     <div className="min-[561px]:pl-[72px]">
-      <Rail isOwner={user.role === "owner"} />
+      <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} />
       <CommandBar
         user={{ name: user.name, role: user.role, sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}
         unread={unread}

@@ -5,7 +5,7 @@
 // sheet XML is cut into rows as it arrives.
 //
 // Pure TypeScript with relative .ts imports so the tests and the Node import script can run it too.
-import { Unzip, UnzipInflate } from "fflate";
+import { Unzip, UnzipInflate, unzipSync } from "fflate";
 
 /** A row: column letter (A, B, ... AA ...) to the cell's text. Empty cells are left out. */
 export type SheetCells = Record<string, string>;
@@ -211,6 +211,39 @@ export async function* readWorkbook(
   }
   unzip.push(new Uint8Array(0), true);
   yield* drain();
+}
+
+/**
+ * The same rows for an ordinary-sized file already in memory. It does not depend on the order of the parts inside the zip:
+ * some programs write the text table (sharedStrings.xml) after the sheets, which the streaming reader above cannot use
+ * (every name and label would come out empty). Use it for staff, master SKU and inventory files; the huge settlement
+ * reports still stream.
+ */
+export function readWorkbookWhole(bytes: Uint8Array, wanted: (sheetName: string) => boolean = () => true): SheetRow[] {
+  const files = unzipSync(bytes, {
+    filter: (f) => f.name === "xl/workbook.xml" || f.name === "xl/_rels/workbook.xml.rels" || f.name === "xl/sharedStrings.xml" || /^xl\/worksheets\/[^/]+\.xml$/.test(f.name),
+  });
+  const text = (name: string) => (files[name] ? new TextDecoder("utf-8").decode(files[name]) : "");
+  const target = new Map<string, string>();
+  for (const m of text("xl/_rels/workbook.xml.rels").matchAll(/<Relationship\b[^>]*>/g)) {
+    const id = /\bId="([^"]+)"/.exec(m[0])?.[1];
+    const t = /\bTarget="([^"]+)"/.exec(m[0])?.[1];
+    if (id && t) target.set(id, t.startsWith("/") ? t.slice(1) : `xl/${t}`);
+  }
+  const shared = sharedStringsOf(text("xl/sharedStrings.xml"));
+  const rows: SheetRow[] = [];
+  for (const m of text("xl/workbook.xml").matchAll(/<sheet\b[^>]*>/g)) {
+    const name = /\bname="([^"]*)"/.exec(m[0])?.[1];
+    const rid = /\br:id="([^"]+)"/.exec(m[0])?.[1];
+    const path = rid ? target.get(rid) : undefined;
+    if (!name || !path || !files[path]) continue;
+    const sheetName = decodeXml(name);
+    if (!wanted(sheetName)) continue;
+    const splitter = new RowSplitter(sheetName, shared);
+    splitter.push(text(path));
+    rows.push(...splitter.take());
+  }
+  return rows;
 }
 
 // --- CSV ----------------------------------------------------------------------------------------------------------

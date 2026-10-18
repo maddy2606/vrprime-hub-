@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DeckIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BoardIcon, BoxIcon, DeckIcon, GaugeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
 
-/** The rail, in order: Command Deck, Work board, Tickets, Flipkart, Forecast, People, Settings. */
-function items(isOwner: boolean): Item[] {
+/** The rail, in order: Command Deck, Work board, Tickets, Flipkart, Forecast, Team (owner and admin), People, Settings (owner). */
+function items(isOwner: boolean, isStaff: boolean): Item[] {
   return [
     { key: "deck", href: "/", label: "Command Deck", icon: DeckIcon },
     { key: "work", href: "/work", label: "Work board", icon: BoardIcon },
     { key: "tickets", href: "/tickets", label: "Tickets", icon: TicketIcon },
     { key: "flipkart", href: "/flipkart", label: "Flipkart", icon: BoxIcon },
     { key: "forecast", href: "/flipkart?tab=forecast", label: "Forecast", icon: TrendIcon },
+    ...(isStaff ? [{ key: "team", href: "/team", label: "Team", icon: GaugeIcon }] : []),
     ...(isOwner
       ? [
           { key: "people", href: "/admin/users", label: "People", icon: UsersIcon },
@@ -29,16 +30,17 @@ function activeKey(pathname: string, tab: string | null): string {
   if (pathname.startsWith("/flipkart")) return tab === "forecast" ? "forecast" : "flipkart";
   if (pathname === "/work" || pathname === "/all" || pathname.startsWith("/posts")) return "work";
   if (pathname.startsWith("/tickets")) return "tickets";
+  if (pathname.startsWith("/team")) return "team";
   if (pathname.startsWith("/admin/users")) return "people";
   if (pathname.startsWith("/admin/settings")) return "settings";
   return "";
 }
 
-function RailInner({ isOwner }: { isOwner: boolean }) {
+function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean }) {
   const pathname = usePathname();
   const tab = useSearchParams().get("tab");
   const active = activeKey(pathname, tab);
-  const list = items(isOwner);
+  const list = items(isOwner, isStaff);
   return (
     <>
       {/* Slim icon rail, 72px, from 561px up */}
@@ -103,11 +105,11 @@ function RailInner({ isOwner }: { isOwner: boolean }) {
   );
 }
 
-export function Rail({ isOwner }: { isOwner: boolean }) {
+export function Rail({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean }) {
   // useSearchParams needs a boundary; the fallback is the rail with nothing marked yet.
   return (
     <Suspense fallback={null}>
-      <RailInner isOwner={isOwner} />
+      <RailInner isOwner={isOwner} isStaff={isStaff} />
     </Suspense>
   );
 }

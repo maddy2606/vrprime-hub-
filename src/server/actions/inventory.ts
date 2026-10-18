@@ -39,3 +39,17 @@ export async function uploadInventory(fileName: unknown, month: unknown, lines: 
   revalidatePath("/flipkart");
   return { ok: true, message: `Inventory updated: ${d.products ?? 0} products, ${new Intl.NumberFormat("en-IN").format(d.pieces ?? 0)} pieces.` };
 }
+
+/** "Sync now": asks the database to read live stock from the VR Prime API. The answer arrives a few seconds later. */
+export async function syncInventoryNow(): Promise<ActionResult> {
+  const user = await getActiveUser();
+  if (!user) return NOT_SIGNED_IN;
+  if (user.role !== "owner" && user.role !== "admin") return { ok: false, message: "Only the owner or an admin can sync the stock." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("request_inventory_sync" as never);
+  if (error) {
+    if (error.code === "PGRST202") return { ok: false, message: "The live stock sync is not switched on in the database yet. Ask the developer." };
+    return dbError(error, "start the stock sync");
+  }
+  return { ok: true, message: "Syncing live stock from VR Prime. It takes a few seconds." };
+}

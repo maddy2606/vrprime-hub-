@@ -249,6 +249,7 @@ export async function ForecastPanel({ user, sp }: { user: SessionUser; sp: Searc
       kits={masterKits(masters)}
       inventory={stock}
       inventoryUpload={inventory.upload}
+      inventorySync={inventory.sync}
       unmatched={unmatched}
       canUpload={user.role === "owner" || user.role === "admin"}
       allLabel={user.role === "warehouse" ? "All my warehouses" : "All warehouses"}

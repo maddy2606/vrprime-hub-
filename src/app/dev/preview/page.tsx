@@ -391,7 +391,8 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
             { product: "Car Perfume", wid: FAKE_WAREHOUSES[0].id, pieces: 2 },
             { product: "Product only in the warehouse", wid: FAKE_WAREHOUSES[2].id, pieces: 300 },
           ]}
-          inventoryUpload={{ at: `${today}T09:00:00Z`, file: "vrprime-report-2026-10.xlsx", month: "2026-10" }}
+          inventoryUpload={{ at: `${today}T09:00:00Z`, file: "VR Prime API", month: "2026-10" }}
+          inventorySync={{ lastOkAt: `${today}T09:00:00Z`, lastTryAt: `${today}T09:00:00Z`, lastError: null }}
           unmatched={["Wardrobe 12pc", "Fake Chopping Board"]}
           canUpload
           allLabel="All warehouses"
@@ -427,11 +428,11 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
           ]}
           removed={["FAKE-OLD1", "FAKE-OLD-2", "FAKE-DISCONTINUED"]}
           listings={[
-            { sku: "FAKE-LINT3", title: "Fake lint roller" },
-            { sku: "SH_FAKE-LINTR1", title: "Fake lint roller, Shopsy listing" },
-            { sku: "FAKE-CLEAN-KIT", title: "Fake laptop cleaning kit, 500 ml, with microfibre cloth, pack of one" },
-            { sku: "S_FAKE-ALLIN1", title: "Fake all-in-one repellent spray" },
-            { sku: "FAKE-NEW-THING", title: null },
+            { sku: "FAKE-LINT3", title: "Fake lint roller" , status: "ACTIVE" },
+            { sku: "SH_FAKE-LINTR1", title: "Fake lint roller, Shopsy listing" , status: "ACTIVE" },
+            { sku: "FAKE-CLEAN-KIT", title: "Fake laptop cleaning kit, 500 ml, with microfibre cloth, pack of one" , status: "ACTIVE" },
+            { sku: "S_FAKE-ALLIN1", title: "Fake all-in-one repellent spray" , status: "ACTIVE" },
+            { sku: "FAKE-NEW-THING", title: null , status: "ACTIVE" },
           ]}
           sold={{ "SH_FAKE-LINTR1": 66, "FAKE-CLEAN-KIT": 360, "S_FAKE-ALLIN1": 22 }}
           canReplace

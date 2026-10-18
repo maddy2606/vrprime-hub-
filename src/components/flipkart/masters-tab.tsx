@@ -22,7 +22,7 @@ type Props = {
   links: Link[];
   removed: string[];
   /** Every Flipkart listing: SKU and title. */
-  listings: { sku: string; title: string | null }[];
+  listings: { sku: string; title: string | null; status: string }[];
   /** Units dispatched per SKU over the last 14 days. */
   sold: Record<string, number>;
   /** The owner may replace the whole list (Upload CSV). */
@@ -56,7 +56,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
     return m;
   }, [links]);
   const notLinked = useMemo(
-    () => listings.filter((l) => !lookup(l.sku) && !removedSet.has(l.sku)).sort((a, b) => (sold[b.sku] ?? 0) - (sold[a.sku] ?? 0) || a.sku.localeCompare(b.sku)),
+    () => listings.filter((l) => l.status === "ACTIVE" && !lookup(l.sku) && !removedSet.has(l.sku)).sort((a, b) => (sold[b.sku] ?? 0) - (sold[a.sku] ?? 0) || a.sku.localeCompare(b.sku)),
     [listings, lookup, removedSet, sold],
   );
   const byLabel = useMemo(() => new Map(products.flatMap((p) => [[label(p).toLowerCase(), p.id], [p.name.toLowerCase(), p.id], ...(p.code ? [[p.code.toLowerCase(), p.id]] : [])] as [string, string][])), [products]);
@@ -220,7 +220,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
 
       <Section title="Not linked yet" count={shownNotLinked.length}>
         <p className="mb-3 text-xs text-muted">
-          Pick the Master SKU (and how many units one order uses), then Save. Suggestions are filled in from similar SKUs; check them before saving. Remove
+          Only active Flipkart listings are shown. Pick the Master SKU (and how many units one order uses), then Save. Suggestions are filled in from similar SKUs; check them before saving. Remove
           takes a SKU out of the checks and this list. These are left out of the product totals until linked (Forecasting lists them under Unmapped).
         </p>
         {shownNotLinked.length === 0 ? (

@@ -9,7 +9,7 @@ import type { Column } from "@/components/stock/data-table";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
 import { downloadCsv, toCsv, type CsvCell } from "@/lib/csv";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
 import {
   buildMasterGroups,
   buildRows,
@@ -25,7 +25,7 @@ import {
 import { parseInventoryReport, reportMonth } from "@/lib/inventory-report";
 import { masterLookup, type MasterRow } from "@/lib/master-csv";
 import { readSheets } from "@/lib/read-table";
-import { uploadInventory } from "@/server/actions/inventory";
+import { syncInventoryNow, uploadInventory } from "@/server/actions/inventory";
 
 type Props = {
   meta: ForecastMeta;
@@ -43,6 +43,8 @@ type Props = {
   inventory: { product: string; wid: string; pieces: number }[];
   /** The newest inventory report, or null before the first upload. */
   inventoryUpload: { at: string; file: string; month: string | null } | null;
+  /** How the live sync from VR Prime is doing; null when it is not set up or this person may not see it. */
+  inventorySync: { lastOkAt: string | null; lastTryAt: string | null; lastError: string | null } | null;
   /** Report products that match no master SKU (their stock is not counted). */
   unmatched: string[];
   /** Owner and admin may upload the inventory report. */
@@ -55,10 +57,11 @@ type View = "master" | "sku";
 
 const n0 = (v: number) => formatNumber(Math.round(v));
 
-export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, removed, kits, inventory, inventoryUpload, unmatched, canUpload, allLabel }: Props) {
+export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, removed, kits, inventory, inventoryUpload, inventorySync, unmatched, canUpload, allLabel }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [uploading, startUpload] = useTransition();
+  const [syncing, startSync] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<View>("master");
   const [split, setSplit] = useState(false);
@@ -120,7 +123,12 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   const shownUnmapped = needle ? grouped.unmapped.filter(matches) : grouped.unmapped;
   const coveredSkus = grouped.groups.reduce((n, g) => n + g.children.length, 0);
 
-  const stockNote = inventoryUpload
+  const live = inventoryUpload?.file === "VR Prime API";
+  // A fixed time of day (not the clock) so the server and the browser say the same thing.
+  const at = (iso: string) => formatDateTime(iso, new Date(`${meta.today}T12:00:00+05:30`));
+  const stockNote = inventoryUpload && live
+    ? `live stock from VR Prime, updated ${at(inventoryUpload.at)}`
+    : inventoryUpload
     ? `stock from the inventory report${inventoryUpload.month ? ` (${inventoryUpload.month})` : ""}, uploaded ${formatDate(inventoryUpload.at.slice(0, 10), meta.today)}`
     : "no inventory report uploaded yet";
   const scope = meta.days ? `${formatDate(meta.windowStart, meta.today)} to ${formatDate(meta.windowEnd, meta.today)}, ${meta.days} complete days · ${stockNote}` : stockNote;
@@ -229,9 +237,25 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   const warehousePicker =
     warehouses.length > 1 ? <Picker label="Only" value={wh} onChange={setWh} options={[{ value: "", label: allLabel }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))]} /> : null;
 
+  const syncButton = canUpload && inventorySync ? (
+    <button
+      type="button"
+      disabled={syncing}
+      onClick={() =>
+        startSync(async () => {
+          if (toast.result(await syncInventoryNow())) globalThis.setTimeout(() => router.refresh(), 8000);
+        })
+      }
+      className={buttonClass("secondary")}
+    >
+      {syncing ? "Syncing…" : "Sync live stock"}
+    </button>
+  ) : null;
+
   const uploadButton = canUpload ? (
     <>
       <input ref={fileRef} type="file" accept=".xlsx" className="sr-only" aria-label="VR Prime inventory report (.xlsx)" onChange={(e) => onUpload(e.target.files?.[0])} />
+      {syncButton}
       <button type="button" disabled={uploading} onClick={() => fileRef.current?.click()} className={buttonClass("secondary")}>
         {uploading ? "Uploading…" : "Upload inventory report"}
       </button>
@@ -240,6 +264,11 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
 
   return (
     <>
+      {canUpload && inventorySync?.lastError && (!inventorySync.lastOkAt || (inventorySync.lastTryAt ?? "") > inventorySync.lastOkAt) ? (
+        <p role="status" className="mb-4 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+          The latest live stock sync from VR Prime failed: {inventorySync.lastError}. {inventoryUpload ? "Showing the last numbers that were saved." : "No stock has been saved yet."}
+        </p>
+      ) : null}
       {!inventoryUpload ? (
         <p role="status" className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
           Stock comes from the VR Prime inventory report.{" "}

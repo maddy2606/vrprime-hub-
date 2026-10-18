@@ -70,10 +70,10 @@ export async function loadMasterData(supabase: Supabase): Promise<MasterData> {
   }
 }
 
-/** Every Flipkart listing's SKU and title. */
-export async function loadListingTitles(supabase: Supabase): Promise<{ sku: string; title: string | null }[]> {
+/** Every Flipkart listing's SKU, title and status (ACTIVE or INACTIVE, archived ones included in INACTIVE). */
+export async function loadListingTitles(supabase: Supabase): Promise<{ sku: string; title: string | null; status: string }[]> {
   try {
-    return await fetchAll<{ sku: string; title: string | null }>((from, to) => supabase.from("stock_listings").select("sku, title").eq("platform", "flipkart").order("sku").range(from, to));
+    return await fetchAll<{ sku: string; title: string | null; status: string }>((from, to) => supabase.from("stock_listings").select("sku, title, status").eq("platform", "flipkart").order("sku").range(from, to));
   } catch (error) {
     return fail("listing titles", error);
   }
@@ -92,9 +92,22 @@ export type InventoryData = {
   /** The newest upload, or null before the first. */
   upload: { at: string; file: string; month: string | null } | null;
   stock: InventoryLine[];
+  /** How the live sync from VR Prime is doing (owner and admin only; null when not set up or not allowed). */
+  sync: { lastOkAt: string | null; lastTryAt: string | null; lastError: string | null } | null;
 };
 
-/** The stock from the newest VR Prime inventory report (a warehouse user gets only their warehouses). */
+/** The live sync's status. Quietly null when the table is not there yet or the person may not read it. */
+async function loadSyncState(supabase: Supabase): Promise<InventoryData["sync"]> {
+  try {
+    const { data, error } = await (supabase as unknown as { from: (t: string) => any }).from("inventory_sync_state").select("last_try_at, last_ok_at, last_error").maybeSingle(); // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (error || !data) return null;
+    return { lastOkAt: data.last_ok_at ?? null, lastTryAt: data.last_try_at ?? null, lastError: data.last_error ?? null };
+  } catch {
+    return null;
+  }
+}
+
+/** The stock from the newest VR Prime inventory report or live sync (a warehouse user gets only their warehouses). */
 export async function loadInventory(supabase: Supabase): Promise<InventoryData> {
   try {
     const [{ data: up, error }, stock] = await Promise.all([
@@ -105,9 +118,11 @@ export async function loadInventory(supabase: Supabase): Promise<InventoryData> 
     ]);
     if (error) throw new Error(error.message);
     const u = up?.[0];
+    const sync = await loadSyncState(supabase);
     return {
       upload: u ? { at: u.uploaded_at, file: u.file_name, month: u.report_month } : null,
       stock: stock.map((s) => ({ code: s.code, name: s.name, wid: s.warehouse_id, pieces: s.pieces })),
+      sync,
     };
   } catch (error) {
     return fail("inventory stock", error);

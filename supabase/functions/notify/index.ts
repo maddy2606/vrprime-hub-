@@ -179,7 +179,7 @@ function escapeHtml(text: string): string {
 }
 
 /** Your own Gmail (GMAIL_USER + GMAIL_APP_PASSWORD) when set: mail from yourself does not go to Spam. Otherwise Resend. */
-async function emailViaGmail(to: string, n: NotificationRow, link: string): Promise<string> {
+async function emailViaGmail(to: string[], n: NotificationRow, link: string): Promise<string> {
   const user = Deno.env.get("GMAIL_USER")?.trim() ?? "";
   const pass = (Deno.env.get("GMAIL_APP_PASSWORD") ?? "").replace(/\s+/g, "");
   const client = new SMTPClient({
@@ -206,8 +206,14 @@ async function emailUser(db: SupabaseClient, n: NotificationRow): Promise<string
   if (!EMAIL_KINDS.has(n.kind)) return "not an email alert";
   try {
     const { data, error } = await db.auth.admin.getUserById(n.user_id);
-    const to = data?.user?.email;
-    if (error || !to) return "no email address";
+    const own = data?.user?.email;
+    if (error || !own) return "no email address";
+    // Extra addresses (EXTRA_ALERT_EMAILS, comma separated) get the owner's alerts too, so they are not sent twice for admins.
+    const { data: profile } = await db.from("profiles").select("role").eq("id", n.user_id).maybeSingle();
+    const extras = profile?.role === "owner"
+      ? (Deno.env.get("EXTRA_ALERT_EMAILS") ?? "").split(",").map((e) => e.trim()).filter((e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e.toLowerCase() !== own.toLowerCase())
+      : [];
+    const to = [own, ...extras];
     const link = `${APP_URL}${urlFor(n)}`;
     if (gmail) return await emailViaGmail(to, n, link);
     const res = await fetch("https://api.resend.com/emails", {
@@ -215,7 +221,7 @@ async function emailUser(db: SupabaseClient, n: NotificationRow): Promise<string
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: Deno.env.get("EMAIL_FROM")?.trim() || "VR Prime Alerts <onboarding@resend.dev>",
-        to: [to],
+        to: [own], // Resend's test sender only reaches the account's own address; the extras are served by the Gmail route
         subject: n.title,
         html: `<div style="font-family:system-ui,sans-serif;font-size:15px"><p><b>${escapeHtml(n.title)}</b></p><p>${escapeHtml(n.body ?? "")}</p><p><a href="${link}">Open in VR Prime</a></p></div>`,
         text: `${n.title}\n\n${n.body ?? ""}\n\n${link}`,

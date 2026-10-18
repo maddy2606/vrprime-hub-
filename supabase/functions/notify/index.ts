@@ -14,6 +14,7 @@
 
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const SITE_URL = "https://vrprime-ops.vercel.app";
 const APP_URL = (Deno.env.get("APP_URL")?.trim() || SITE_URL).replace(/\/+$/, "");
@@ -28,8 +29,10 @@ function redact(input: unknown): string {
   let text = String(input ?? "");
   const vapid = Deno.env.get("VAPID_PRIVATE_KEY")?.trim();
   if (vapid && vapid.length >= 8) text = text.split(vapid).join("[redacted]");
-  const resend = Deno.env.get("RESEND_API_KEY")?.trim();
-  if (resend && resend.length >= 8) text = text.split(resend).join("[redacted]");
+  for (const name of ["RESEND_API_KEY", "GMAIL_APP_PASSWORD"]) {
+    const secret = (Deno.env.get(name) ?? "").replace(/\s+/g, "");
+    if (secret.length >= 8) text = text.split(secret).join("[redacted]");
+  }
   return text
     .replace(/(["'`])[^"'`\n]*(?:sb_secret_|sb_publishable_|eyJ[\w-]{5,}|Bearer\s)[^"'`\n]*\1/gi, "[redacted]")
     .replace(/Bearer\s+[^\s"'`,;)]+/gi, "[redacted]")
@@ -175,15 +178,38 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/** Your own Gmail (GMAIL_USER + GMAIL_APP_PASSWORD) when set: mail from yourself does not go to Spam. Otherwise Resend. */
+async function emailViaGmail(to: string, n: NotificationRow, link: string): Promise<string> {
+  const user = Deno.env.get("GMAIL_USER")?.trim() ?? "";
+  const pass = (Deno.env.get("GMAIL_APP_PASSWORD") ?? "").replace(/\s+/g, "");
+  const client = new SMTPClient({
+    connection: { hostname: "smtp.gmail.com", port: 465, tls: true, auth: { username: user, password: pass } },
+  });
+  try {
+    await client.send({
+      from: `VR Prime Alerts <${user}>`,
+      to,
+      subject: n.title,
+      content: `${n.title}\n\n${n.body ?? ""}\n\n${link}`,
+      html: `<div style="font-family:system-ui,sans-serif;font-size:15px"><p><b>${escapeHtml(n.title)}</b></p><p>${escapeHtml(n.body ?? "")}</p><p><a href="${link}">Open in VR Prime</a></p></div>`,
+    });
+    return "sent (gmail)";
+  } finally {
+    await client.close().catch(() => undefined);
+  }
+}
+
 async function emailUser(db: SupabaseClient, n: NotificationRow): Promise<string> {
   const key = Deno.env.get("RESEND_API_KEY")?.trim();
-  if (!key) return "not configured";
+  const gmail = Boolean(Deno.env.get("GMAIL_USER")?.trim() && Deno.env.get("GMAIL_APP_PASSWORD")?.trim());
+  if (!key && !gmail) return "not configured";
   if (!EMAIL_KINDS.has(n.kind)) return "not an email alert";
   try {
     const { data, error } = await db.auth.admin.getUserById(n.user_id);
     const to = data?.user?.email;
     if (error || !to) return "no email address";
     const link = `${APP_URL}${urlFor(n)}`;
+    if (gmail) return await emailViaGmail(to, n, link);
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },

@@ -16,6 +16,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
 const SITE_URL = "https://vrprime-ops.vercel.app";
+const APP_URL = (Deno.env.get("APP_URL")?.trim() || SITE_URL).replace(/\/+$/, "");
 const OPEN_STATUSES = ["open", "in_progress", "waiting"];
 const OPEN_TICKET_STATUSES = ["open", "waiting_marketplace"];
 
@@ -27,6 +28,8 @@ function redact(input: unknown): string {
   let text = String(input ?? "");
   const vapid = Deno.env.get("VAPID_PRIVATE_KEY")?.trim();
   if (vapid && vapid.length >= 8) text = text.split(vapid).join("[redacted]");
+  const resend = Deno.env.get("RESEND_API_KEY")?.trim();
+  if (resend && resend.length >= 8) text = text.split(resend).join("[redacted]");
   return text
     .replace(/(["'`])[^"'`\n]*(?:sb_secret_|sb_publishable_|eyJ[\w-]{5,}|Bearer\s)[^"'`\n]*\1/gi, "[redacted]")
     .replace(/Bearer\s+[^\s"'`,;)]+/gi, "[redacted]")
@@ -100,6 +103,8 @@ function urlFor(n: NotificationRow): string {
   if (n.kind === "follow_up") return "/tickets?tab=due";
   if (n.kind === "overdue") return "/";
   if (n.kind === "dispatch_risk") return "/flipkart?tab=orders";
+  if (n.kind === "stock_alert") return "/flipkart?tab=forecast";
+  if (n.kind === "capacity_alert") return "/team";
   if (n.kind === "money_reminder") return "/money?tab=uploads";
   return "/notifications";
 }
@@ -153,8 +158,52 @@ async function pushJob(db: SupabaseClient, notificationId: string): Promise<Reco
     .maybeSingle();
   if (error) throw error;
   if (!n) return { ok: false, error: "notification not found" };
-  if (!configurePush()) return { ok: true, pushed: false, reason: "push is not configured (VAPID keys missing)" };
-  return { ok: true, pushed: true, ...(await pushToUser(db, n.user_id, payloadFor(n))) };
+  // Email goes out whether or not push is set up; each is skipped quietly when its keys are missing.
+  const email = await emailUser(db, n);
+  if (!configurePush()) return { ok: true, pushed: false, email, reason: "push is not configured (VAPID keys missing)" };
+  return { ok: true, pushed: true, email, ...(await pushToUser(db, n.user_id, payloadFor(n))) };
+}
+
+// ---------------------------------------------------------------------------
+// Email (Resend). Only the alerts that need a quick look are emailed, not every comment or assignment.
+// Secrets: RESEND_API_KEY. Optional: EMAIL_FROM (default Resend's test sender), APP_URL (the site's address).
+// ---------------------------------------------------------------------------
+
+const EMAIL_KINDS = new Set(["dispatch_risk", "stock_alert", "capacity_alert", "sync_alert", "money_reminder"]);
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+async function emailUser(db: SupabaseClient, n: NotificationRow): Promise<string> {
+  const key = Deno.env.get("RESEND_API_KEY")?.trim();
+  if (!key) return "not configured";
+  if (!EMAIL_KINDS.has(n.kind)) return "not an email alert";
+  try {
+    const { data, error } = await db.auth.admin.getUserById(n.user_id);
+    const to = data?.user?.email;
+    if (error || !to) return "no email address";
+    const link = `${APP_URL}${urlFor(n)}`;
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: Deno.env.get("EMAIL_FROM")?.trim() || "VR Prime Alerts <onboarding@resend.dev>",
+        to: [to],
+        subject: n.title,
+        html: `<div style="font-family:system-ui,sans-serif;font-size:15px"><p><b>${escapeHtml(n.title)}</b></p><p>${escapeHtml(n.body ?? "")}</p><p><a href="${link}">Open in VR Prime</a></p></div>`,
+        text: `${n.title}\n\n${n.body ?? ""}\n\n${link}`,
+      }),
+    });
+    if (!res.ok) {
+      console.error("Email failed", res.status, redact(await res.text().catch(() => "")));
+      return `failed (HTTP ${res.status})`;
+    }
+    return "sent";
+  } catch (error) {
+    console.error("Email failed:", errorText(error));
+    return "failed";
+  }
 }
 
 // ---------------------------------------------------------------------------

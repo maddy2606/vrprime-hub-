@@ -86,11 +86,18 @@ export async function searchAll(raw: string): Promise<SearchHit[]> {
   return hits.sort((a, b) => SEARCH_KINDS.indexOf(a.kind) - SEARCH_KINDS.indexOf(b.kind));
 }
 
-/** When the orders were last read from Flipkart: what the "Synced Xs ago" label counts from. */
+/** The latest finished sync of any kind (Flipkart orders, Flipkart stock, VR Prime stock): what the "Synced Xs ago" label counts from. */
 export async function lastSyncedAt(): Promise<string | null> {
   const user = await getActiveUser();
   if (!user) return null;
   const supabase = await createClient();
-  const { data } = await supabase.from("order_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1);
-  return data?.[0]?.finished_at ?? null;
+  const [orders, stock, vrprime] = await Promise.all([
+    supabase.from("order_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
+    supabase.from("stock_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
+    supabase.from("inventory_sync_state").select("last_ok_at").limit(1),
+  ]);
+  const times = [orders.data?.[0]?.finished_at, stock.data?.[0]?.finished_at, vrprime.data?.[0]?.last_ok_at]
+    .filter((t): t is string => typeof t === "string")
+    .sort((a, b) => Date.parse(b) - Date.parse(a));
+  return times[0] ?? null;
 }

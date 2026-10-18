@@ -41,11 +41,13 @@ function SyncStatus({ since, scope }: { since: string | null; scope: string }) {
     };
     const every = window.setInterval(poll, 60_000);
     document.addEventListener("visibilitychange", poll);
+    window.addEventListener("vr-sync-check", poll);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(tick);
       window.clearInterval(every);
       document.removeEventListener("visibilitychange", poll);
+      window.removeEventListener("vr-sync-check", poll);
     };
   }, []);
 
@@ -72,18 +74,18 @@ function SyncNowButton() {
   async function run() {
     setState("busy");
     try {
-      // Everything at once: VR Prime stock, Flipkart stock, and Flipkart orders (pending, today's daily, upcoming).
-      const results = await Promise.allSettled([
-        syncInventoryNow(),
-        startStockSync(),
-        startOrdersSync("pending"),
-        startOrdersSync("daily"),
-        startOrdersSync("upcoming"),
-      ]);
+      // VR Prime stock, Flipkart stock and Flipkart orders. Flipkart runs one at a time, so the orders read waits for the
+      // stock read and then starts by itself.
+      const results = await Promise.allSettled([syncInventoryNow(), startStockSync(), startOrdersSync("pending")]);
       const started = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
       setState(started > 0 ? "done" : "failed");
       // The answers arrive a few seconds later; look again then.
-      globalThis.setTimeout(() => router.refresh(), 8000);
+      for (const wait of [8000, 40000, 100000]) {
+        globalThis.setTimeout(() => {
+          router.refresh();
+          window.dispatchEvent(new Event("vr-sync-check"));
+        }, wait);
+      }
     } catch {
       setState("failed");
     }

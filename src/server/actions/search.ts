@@ -94,9 +94,9 @@ export async function lastSyncedAt(): Promise<string | null> {
   const [orders, stock, vrprime] = await Promise.all([
     supabase.from("order_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
     supabase.from("stock_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
-    supabase.from("inventory_sync_state").select("last_ok_at").limit(1),
+    (supabase as unknown as { from: (t: string) => any }).from("inventory_sync_state").select("last_ok_at").maybeSingle() as Promise<{ data: { last_ok_at?: string | null } | null }>, // eslint-disable-line @typescript-eslint/no-explicit-any
   ]);
-  const times = [orders.data?.[0]?.finished_at, stock.data?.[0]?.finished_at, vrprime.data?.[0]?.last_ok_at]
+  const times = [orders.data?.[0]?.finished_at, stock.data?.[0]?.finished_at, vrprime.data?.last_ok_at]
     .filter((t): t is string => typeof t === "string")
     .sort((a, b) => Date.parse(b) - Date.parse(a));
   return times[0] ?? null;

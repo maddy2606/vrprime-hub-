@@ -18,7 +18,7 @@ import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { PricesTab } from "@/components/flipkart/prices-tab";
 import { ReturnsTab } from "@/components/flipkart/returns-tab";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
-import { DispatchChart, Hero, Movers, OrdersByStage, PriorityQueue, Pulses, StockByWarehouse, StockHealth, Warehouses } from "@/components/deck/sections";
+import { DispatchChart, Hero, Movers, OrdersByStage, OrdersTrend, PriorityQueue, Pulses, StockByWarehouse, StockHealth, TodayDispatch, Warehouses } from "@/components/deck/sections";
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
 import { fakeTeam } from "@/lib/dev-fixtures-team";
 import { TeamBoard } from "@/components/team/board";
@@ -152,6 +152,10 @@ export default async function PreviewPage({
 
       {view === "deck" || view === "deckclear" ? (
         <div className="flex flex-col gap-5">
+          <div className="grid gap-5 lg:grid-cols-[1fr_1.15fr]">
+            <TodayDispatch d={fakeDeck(view === "deckclear")} />
+            <OrdersTrend d={fakeDeck(view === "deckclear")} />
+          </div>
           <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
             <Hero d={fakeDeck(view === "deckclear")} />
             <Pulses d={fakeDeck(view === "deckclear")} />

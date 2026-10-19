@@ -9,6 +9,7 @@ import {
   forecastOrders,
   planWarehouse,
   shiftDay,
+  teamCapacity,
   type AttendanceStatus,
   type CapacitySettings,
   type Headline,
@@ -23,7 +24,7 @@ import type { SessionUser } from "@/lib/types";
 // Owner and admin only: everyone else gets "not found". Salaries are owner only, and the database enforces that on its
 // own (staff_pay has a row level policy for the owner alone), so an admin's query returns no pay even if this code asked.
 
-type Loose = {
+export type Loose = {
   rpc: (fn: string, args?: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   from: (table: string) => any;
@@ -89,6 +90,43 @@ export type TeamData = {
   monthLabel: string;
 };
 
+function readSettings(rows: { key: string; value: unknown }[]): CapacitySettings {
+  const settings = { ...DEFAULT_CAPACITY_SETTINGS };
+  for (const s of rows) {
+    if (s.key === "team_orders_per_person_low") settings.low = whole(s.value, settings.low, 50, 5000);
+    if (s.key === "team_orders_per_person_high") settings.high = whole(s.value, settings.high, 50, 5000);
+    if (s.key === "team_hire_lead_days") settings.leadDays = whole(s.value, settings.leadDays, 0, 90);
+  }
+  if (settings.high < settings.low) settings.high = settings.low;
+  return settings;
+}
+
+/**
+ * What the whole team packs comfortably in a day, the same sum the Team page makes: per warehouse, people x recent
+ * attendance x orders a person. Null when nobody is set up, or for a reader who cannot see the team (warehouse users).
+ */
+export async function loadTeamCapacity(db: Loose, today: string): Promise<{ staff: number; comfortable: number } | null> {
+  const [staffRes, markRes, setRes] = await Promise.all([
+    db.from("staff").select("id, warehouse_id").eq("active", true),
+    db.from("attendance").select("staff_id, status").gte("day", shiftDay(today, -14)).lte("day", today),
+    db.from("app_settings").select("key, value").in("key", [...SETTING_KEYS]),
+  ]);
+  if (staffRes.error || markRes.error || setRes.error) {
+    logError("team capacity", staffRes.error ?? markRes.error ?? setRes.error);
+    return null;
+  }
+  const staff = (staffRes.data ?? []) as { id: string; warehouse_id: string }[];
+  if (staff.length === 0) return null;
+  const marks = (markRes.data ?? []) as { staff_id: string; status: AttendanceStatus }[];
+  const settings = readSettings((setRes.data ?? []) as { key: string; value: unknown }[]);
+  let comfortable = 0;
+  for (const wh of new Set(staff.map((s) => s.warehouse_id))) {
+    const ids = new Set(staff.filter((s) => s.warehouse_id === wh).map((s) => s.id));
+    comfortable += teamCapacity(ids.size, attendanceRate(marks.filter((m) => ids.has(m.staff_id))), settings).comfortable;
+  }
+  return { staff: staff.length, comfortable };
+}
+
 const monthStart = (day: string) => `${day.slice(0, 8)}01`;
 const monthEnd = (day: string) => {
   const d = new Date(`${monthStart(day)}T00:00:00Z`);
@@ -119,13 +157,7 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
   }
   if (loadRes.error) fail("order load", loadRes.error);
 
-  const settings = { ...DEFAULT_CAPACITY_SETTINGS };
-  for (const s of (setRes.data ?? []) as { key: string; value: unknown }[]) {
-    if (s.key === "team_orders_per_person_low") settings.low = whole(s.value, settings.low, 50, 5000);
-    if (s.key === "team_orders_per_person_high") settings.high = whole(s.value, settings.high, 50, 5000);
-    if (s.key === "team_hire_lead_days") settings.leadDays = whole(s.value, settings.leadDays, 0, 90);
-  }
-  if (settings.high < settings.low) settings.high = settings.low;
+  const settings = readSettings((setRes.data ?? []) as { key: string; value: unknown }[]);
 
   const warehouses = (whRes.data ?? []) as { id: string; name: string }[];
   const staff = (staffRes.data ?? []) as { id: string; name: string; warehouse_id: string; active: boolean }[];

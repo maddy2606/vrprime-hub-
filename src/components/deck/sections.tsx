@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bar, AreaChart, Gauge, PairedRows, ShareBar, StackedRows } from "@/components/signal/charts";
+import { Bar, AreaChart, Gauge, PairedRows, ShareBar, StackedRows, TrendChart } from "@/components/signal/charts";
 import { CountUp } from "@/components/signal/count-up";
 import { KpiTile } from "@/components/signal/kpi";
 import { Sparkline } from "@/components/signal/charts";
@@ -16,6 +16,137 @@ function CheckIcon({ className = "h-6 w-6" }: { className?: string }) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
       <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
+  );
+}
+
+/** Up or down against the period before, as a coloured tag; "steady" within 2%. */
+function Delta({ pct, against }: { pct: number | null; against: string }) {
+  if (pct === null) return null;
+  if (Math.abs(pct) < 2) return <Chip tone="neutral">steady</Chip>;
+  return (
+    <Chip tone={pct > 0 ? "ok" : "bad"}>
+      {pct > 0 ? "▲" : "▼"} {Math.abs(pct)}%<span className="sr-only"> {pct > 0 ? "up" : "down"} on {against}</span>
+    </Chip>
+  );
+}
+
+function TodayStat({ label, value, change, against }: { label: string; value: number | null; change: number | null; against: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</dt>
+      <dd className="mt-1 font-mono text-xl font-bold leading-none tabular-nums sm:text-2xl">{value === null ? "—" : formatNumber(value)}</dd>
+      <dd className="mt-2 min-h-5">
+        <Delta pct={change} against={against} />
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * The top card: orders still to go out today, how full that makes the team's day, and yesterday, the 7-day average and the
+ * busiest warehouse underneath. The capacity bar is for the owner and admins (they can see the team).
+ */
+export function TodayDispatch({ d }: { d: DeckData }) {
+  const t = d.todayCard;
+  if (!t) return null;
+  const cap = t.capacity;
+  const used = cap && cap.comfortable > 0 ? Math.round((t.due / cap.comfortable) * 100) : null;
+  const tone = used === null ? null : used > 100 ? "bad" : used > 85 ? "warn" : "ok";
+  return (
+    <section className="sp-card sp-card-lg sp-reveal relative overflow-hidden p-5 sm:p-6" style={style(0)} aria-labelledby="today-title">
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full"
+        style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 28%, transparent), transparent 68%)" }}
+      />
+      <div className="relative">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="today-title" className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+            Today · to dispatch
+          </h2>
+          {t.late > 0 ? (
+            <Link prefetch={false} href="/flipkart?tab=orders&view=list" className="focus-ring rounded-full">
+              <Chip tone="bad">{formatNumber(t.late)} late</Chip>
+            </Link>
+          ) : null}
+        </div>
+        <p className="mt-3 bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(100deg, var(--accent-text), var(--madder))" }}>
+          <CountUp value={t.due} className="text-[3.6rem] font-bold leading-none tracking-tight sm:text-7xl" />
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          orders still to go out today
+          {t.warehouses ? ` across ${t.warehouses} ${t.warehouses === 1 ? "warehouse" : "warehouses"}` : ""}
+        </p>
+        {cap && used !== null ? (
+          <div className="mt-5">
+            <div className="h-2.5 overflow-hidden rounded-full bg-surface2" role="img" aria-label={`${used}% of the ${formatNumber(cap.comfortable)} orders the team packs comfortably in a day`}>
+              <div
+                className="sp-bar h-full rounded-full"
+                style={{ width: `${Math.min(100, used)}%`, background: tone === "ok" ? "linear-gradient(90deg, var(--accent), var(--madder))" : tone === "warn" ? "var(--warn-mark)" : "var(--bad)" }}
+              />
+            </div>
+            <p className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted">
+              <span>
+                <b className={`font-bold ${tone === "ok" ? "text-ink" : tone === "warn" ? "text-warn" : "text-bad"}`}>{used}%</b> of what the team packs in a day
+              </span>
+              <span className="font-mono tabular-nums">
+                {formatNumber(cap.comfortable)} a day · {cap.staff} {cap.staff === 1 ? "person" : "people"}
+              </span>
+            </p>
+          </div>
+        ) : null}
+        <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4">
+          <TodayStat label="Yesterday" value={t.yesterday} change={t.yesterdayChange} against="the day before" />
+          <TodayStat label="7-day avg" value={t.avg7} change={t.avg7Change} against="the week before" />
+          <div className="min-w-0">
+            <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Busiest</dt>
+            <dd className="mt-1 font-mono text-xl font-bold leading-none tabular-nums sm:text-2xl">{t.busiest ? formatNumber(t.busiest.orders) : "—"}</dd>
+            {t.busiest ? (
+              <dd className="mt-2 flex min-w-0 items-center gap-1.5 text-xs font-bold">
+                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: t.busiest.color }} />
+                <span className="truncate">{t.busiest.name}</span>
+              </dd>
+            ) : null}
+          </div>
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+/** Orders placed per day, the last 14 full days, with the 7-day average and the latest day picked out. */
+export function OrdersTrend({ d }: { d: DeckData }) {
+  const pts = d.trend;
+  const avg = d.todayCard?.avg7 ?? null;
+  const last = pts[pts.length - 1];
+  const enough = pts.length >= 2 && pts.some((p) => p.orders > 0);
+  return (
+    <section className="sp-card sp-card-lg sp-reveal p-5 sm:p-6" style={style(1)} aria-labelledby="trend-title">
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 id="trend-title" className="font-display text-lg font-semibold">
+            Orders a day
+          </h2>
+          <p className="text-xs text-muted">Placed on Flipkart, last {pts.length} days</p>
+        </div>
+        {last ? (
+          <p className="text-right">
+            <span className="font-mono text-2xl font-bold tabular-nums">{formatNumber(last.orders)}</span>
+            <span className="ml-1.5 text-xs text-muted">yesterday</span>
+          </p>
+        ) : null}
+      </header>
+      {enough ? (
+        <TrendChart
+          data={pts.map((p) => ({ label: p.label, value: p.orders }))}
+          avg={avg}
+          avgLabel={avg === null ? "" : `7-day avg ${formatNumber(avg)}`}
+          ariaLabel={`Orders placed per day, last ${pts.length} days: ${pts.map((p) => `${p.label} ${formatNumber(p.orders)}`).join(", ")}`}
+        />
+      ) : (
+        <p className="py-10 text-center text-sm text-muted">The graph starts once a few days of orders are saved.</p>
+      )}
+    </section>
   );
 }
 

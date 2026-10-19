@@ -45,6 +45,8 @@ export function fakeDeck(clear: boolean): DeckData {
     warehouses: WH.map((w, i) => ({ id: w.id, name: w.name, color: warehouseColor(w.name, i), health: warehouseHealth({ active: w.active, late: clear ? 0 : w.late, nextDue: w.next }, now), active: w.active, late: clear ? 0 : w.late, out: w.out, next: w.next ? "Today 4:00 pm" : null, href: "/flipkart?tab=stock" })),
     whStock: WH.map((w, i) => ({ id: w.id, name: w.name, color: warehouseColor(w.name, i), units: w.units, out: w.out, low: w.low })),
     whStages: WH.map((w, i) => ({ id: w.id, name: w.name, color: warehouseColor(w.name, i), to_accept: w.stages[0], to_pack: w.stages[1], to_dispatch: w.stages[2] })),
+    todayCard: { due: 2900, late: lateTotal, warehouses: 5, busiest: { name: WH[2].name, color: warehouseColor(WH[2].name, 2), orders: 918 }, capacity: { comfortable: 5600, staff: 14 }, yesterday: 3221, yesterdayChange: 32, avg7: 2634, avg7Change: 2 },
+    trend: [1768, 1581, 1576, 3638, 3726, 2812, 2992, 2491, 2370, 2522, 2700, 2687, 2447, 3221].map((orders, i) => ({ day: `2026-10-${String(5 + i).padStart(2, "0")}`, label: `${5 + i} Oct`, orders })),
     dispatch: { points: [["Thu", 812], ["Fri", 905], ["Sat", 1040], ["Sun", 770], ["Mon", 1180], ["Tue", 1295], ["Wed", 1004]].map(([label, value]) => ({ label: label as string, value: value as number })), total: 7006, avg: 1001 },
     kpis: {
       units: 2_468_440,

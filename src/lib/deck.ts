@@ -144,3 +144,68 @@ export function outOfStockSub(dry: Pick<DrySku, "inactive">[]): string {
   if (inactive > 0) parts.push(`${plural(inactive, "inactive listing", "inactive listings")} sold recently`);
   return parts.length > 0 ? parts.join(" · ") : "active listings with no units";
 }
+
+// ---- Today's dispatch and the orders graph (from the team_order_load rows) -------------------------------------------
+
+/** A row of team_order_load: orders placed per day (kind "placed"), or still waiting by their dispatch day ("due"). */
+export type LoadRow = { kind: "placed" | "due"; day: string; warehouse_id: string | null; orders: number };
+
+const shiftDay = (day: string, n: number): string => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/** The change from `before` to `now` in percent, rounded; null when there is nothing to compare with. */
+export function changePct(now: number, before: number): number | null {
+  return before > 0 ? Math.round(((now - before) / before) * 100) : null;
+}
+
+export type DispatchToday = {
+  /** Orders still waiting to go out today (not on hold). */
+  due: number;
+  /** How many warehouses have orders due today, and the one with the most. */
+  warehouses: number;
+  busiest: { id: string; orders: number } | null;
+  /** Orders placed yesterday, and the change from the day before. */
+  yesterday: number | null;
+  yesterdayChange: number | null;
+  /** The average of the last 7 full days, and the change from the 7 before. */
+  avg7: number | null;
+  avg7Change: number | null;
+};
+
+/** The Command Deck's top card: what is left to dispatch today, and how yesterday and the last week went. */
+export function dispatchToday(load: LoadRow[], today: string): DispatchToday {
+  const due = new Map<string, number>();
+  const placed = new Map<string, number>();
+  for (const r of load) {
+    if (r.kind === "due" && r.day === today && r.warehouse_id) due.set(r.warehouse_id, (due.get(r.warehouse_id) ?? 0) + r.orders);
+    if (r.kind === "placed") placed.set(r.day, (placed.get(r.day) ?? 0) + r.orders);
+  }
+  const top = [...due.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+  // Days before the order history began are unknown, not zero, so nothing is compared with them.
+  const earliest = [...placed.keys()].sort()[0] ?? null;
+  const had = (n: number) => earliest !== null && earliest <= shiftDay(today, -n);
+  const day = (n: number) => placed.get(shiftDay(today, -n)) ?? 0;
+  const sum = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => day(from + i)).reduce((a, b) => a + b, 0);
+  return {
+    due: [...due.values()].reduce((a, b) => a + b, 0),
+    warehouses: [...due.values()].filter((n) => n > 0).length,
+    busiest: top && top[1] > 0 ? { id: top[0], orders: top[1] } : null,
+    yesterday: had(1) ? day(1) : null,
+    yesterdayChange: had(2) ? changePct(day(1), day(2)) : null,
+    avg7: had(7) ? Math.round(sum(1, 7) / 7) : null,
+    avg7Change: had(14) ? changePct(sum(1, 7), sum(8, 14)) : null,
+  };
+}
+
+/** Orders placed per day for the last `days` full days (today is not over yet), oldest first, from where the history begins. */
+export function ordersTrend(load: LoadRow[], today: string, days = 14): { day: string; orders: number }[] {
+  const placed = new Map<string, number>();
+  for (const r of load) if (r.kind === "placed") placed.set(r.day, (placed.get(r.day) ?? 0) + r.orders);
+  const earliest = [...placed.keys()].sort()[0];
+  if (!earliest) return [];
+  const out: { day: string; orders: number }[] = [];
+  for (let i = days; i >= 1; i--) {
+    const d = shiftDay(today, -i);
+    if (d >= earliest) out.push({ day: d, orders: placed.get(d) ?? 0 });
+  }
+  return out;
+}

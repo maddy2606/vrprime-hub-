@@ -191,6 +191,12 @@ export type WarehousePlan = {
   extraNeeded: number;
 };
 
+/** What a team packs in a day: people x how often they come in (held to a floor) x orders a person packs. */
+export function teamCapacity(staff: number, attendanceRate: number | null, settings: CapacitySettings): { effective: number; comfortable: number; limit: number } {
+  const effective = staff * usable(attendanceRate);
+  return { effective, comfortable: Math.round(effective * settings.low), limit: Math.round(effective * settings.high) };
+}
+
 export function planWarehouse(input: {
   today: string;
   staff: number;
@@ -204,9 +210,7 @@ export function planWarehouse(input: {
   const { today, staff, forecast, booked, settings } = input;
   const horizon = input.horizon ?? 14;
   const rate = usable(input.attendanceRate);
-  const effective = staff * rate;
-  const comfortable = Math.round(effective * settings.low);
-  const limit = Math.round(effective * settings.high);
+  const { effective, comfortable, limit } = teamCapacity(staff, input.attendanceRate, settings);
 
   const trend = forecast.ready ? new Map(forecast.days.map((d) => [d.day, d.orders])) : new Map<string, number>();
   const dayPlan = (day: string, orders: number, b: number) => judgeDay(day, orders, b, comfortable, limit, settings.low * rate);

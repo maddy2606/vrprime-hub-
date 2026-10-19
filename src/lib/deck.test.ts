@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { dryAndSelling, heroFor, outOfStock, outOfStockSub, rankQueue, SEVERITY, urgentCount, warehouseHealth, type QueueItem } from "./deck.ts";
+import { changePct, dispatchToday, dryAndSelling, heroFor, ordersTrend, outOfStock, outOfStockSub, rankQueue, SEVERITY, urgentCount, warehouseHealth, type LoadRow, type QueueItem } from "./deck.ts";
 import { analyze, type DeskData, type DeskListing } from "./stock-analysis.ts";
 
 const item = (key: string, kind: QueueItem["kind"], deadline: number | null, title = key): QueueItem => ({ key, kind, severity: SEVERITY[kind], deadline, title, detail: "", actions: [] });
@@ -100,4 +100,54 @@ test("the Out of stock tile's line: active sellers, inactive sellers, both or ne
   assert.equal(outOfStockSub([{ inactive: false }, { inactive: false }]), "2 of them selling");
   assert.equal(outOfStockSub([{ inactive: true }]), "1 inactive listing sold recently");
   assert.equal(outOfStockSub([]), "active listings with no units");
+});
+
+// ---- Today's dispatch and the orders graph ---------------------------------------------------------------------------
+
+const TODAY = "2026-10-19";
+const back = (n: number) => new Date(Date.parse(`${TODAY}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+const placed = (n: number, orders: number, wh = "a"): LoadRow => ({ kind: "placed", day: back(n), warehouse_id: wh, orders });
+const due = (day: string, orders: number, wh: string): LoadRow => ({ kind: "due", day, warehouse_id: wh, orders });
+
+test("today's card: orders due today across warehouses, the busiest, yesterday and the 7-day average", () => {
+  const load: LoadRow[] = [
+    // 14 full days: 100 a day the week before, 130 a day last week, 200 yesterday against 120 the day before
+    ...Array.from({ length: 7 }, (_, i) => placed(8 + i, 100)),
+    ...[200, 120, 130, 130, 130, 130, 140].map((n, i) => placed(1 + i, n)),
+    placed(0, 15), // today so far: not counted anywhere
+    due(TODAY, 918, "delhi"),
+    due(TODAY, 412, "bhiwandi"),
+    due(back(-1), 999, "delhi"), // tomorrow: not today's work
+  ];
+  const t = dispatchToday(load, TODAY);
+  assert.equal(t.due, 1330);
+  assert.equal(t.warehouses, 2);
+  assert.deepEqual(t.busiest, { id: "delhi", orders: 918 });
+  assert.equal(t.yesterday, 200);
+  assert.equal(t.yesterdayChange, 67, "200 against 120 the day before");
+  assert.equal(t.avg7, 140, "980 over the last 7 full days");
+  assert.equal(t.avg7Change, 40, "980 against 700 the week before");
+});
+
+test("today's card: no comparison with days before the order history began", () => {
+  const t = dispatchToday([placed(1, 50), placed(2, 40), placed(3, 30)], TODAY);
+  assert.equal(t.yesterday, 50);
+  assert.equal(t.yesterdayChange, 25);
+  assert.equal(t.avg7, null, "fewer than 7 days of history");
+  assert.equal(t.avg7Change, null);
+  assert.equal(t.due, 0);
+  assert.equal(t.busiest, null);
+  assert.deepEqual(dispatchToday([], TODAY), { due: 0, warehouses: 0, busiest: null, yesterday: null, yesterdayChange: null, avg7: null, avg7Change: null });
+});
+
+test("the orders graph: the last 14 full days oldest first, warehouses added up, gaps as zero, today left out", () => {
+  const load = [placed(1, 10, "a"), placed(1, 5, "b"), placed(3, 7), placed(20, 1), placed(0, 99)];
+  const trend = ordersTrend(load, TODAY);
+  assert.equal(trend.length, 14);
+  assert.deepEqual(trend[0], { day: back(14), orders: 0 });
+  assert.deepEqual(trend[13], { day: back(1), orders: 15 });
+  assert.equal(trend[11].orders, 7);
+  assert.deepEqual(ordersTrend([placed(2, 4)], TODAY), [{ day: back(2), orders: 4 }, { day: back(1), orders: 0 }], "starts where the history starts");
+  assert.equal(changePct(150, 100), 50);
+  assert.equal(changePct(5, 0), null);
 });

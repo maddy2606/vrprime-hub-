@@ -131,6 +131,77 @@ export function AreaChart({ data, tone = "cyan", ariaLabel, formatY }: { data: A
   );
 }
 
+/**
+ * The orders graph: a purple-to-red line over a soft purple fill, a dashed line for the average, the busiest day named and
+ * the latest day marked. Shapes scale with the card; every label is HTML so it stays sharp and readable on a phone.
+ */
+export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint[]; avg: number | null; avgLabel: string; ariaLabel: string }) {
+  const id = useId();
+  const values = data.map((d) => d.value);
+  const top = Math.max(...values, avg ?? 0, 1) * 1.18;
+  const p = points(values, 100, 100, 6, top, 0);
+  const line = smooth(p);
+  const last = p[p.length - 1];
+  const peakIndex = values.indexOf(Math.max(...values));
+  const peak = p[peakIndex];
+  const avgY = avg === null ? null : 6 + (1 - avg / top) * 88;
+  const mid = Math.floor((data.length - 1) / 2);
+  return (
+    <div role="img" aria-label={ariaLabel}>
+      <div className="relative h-44 sm:h-52" aria-hidden="true">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="sp-wipe absolute inset-0 h-full w-full">
+          <defs>
+            <linearGradient id={`${id}f`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" style={{ stopColor: COLOR.indigo }} stopOpacity="0.42" />
+              <stop offset="1" style={{ stopColor: COLOR.indigo }} stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id={`${id}l`} x1="0" x2="100" y1="0" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0" style={{ stopColor: COLOR.indigo }} />
+              <stop offset="1" style={{ stopColor: COLOR.madder }} />
+            </linearGradient>
+          </defs>
+          <line x1="0" x2="100" y1="99.5" y2="99.5" style={{ stroke: COLOR.line }} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {avgY !== null ? <line x1="0" x2="100" y1={avgY} y2={avgY} style={{ stroke: COLOR.muted }} strokeOpacity="0.55" strokeWidth="1" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
+          <path d={`${line} L100 100 L0 100 Z`} fill={`url(#${id}f)`} />
+          <path d={line} fill="none" stroke={`url(#${id}l)`} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+        {avgY !== null ? (
+          <span className="absolute left-0 -translate-y-full pb-0.5 font-mono text-[11px] text-muted" style={{ top: `${avgY}%` }}>
+            {avgLabel}
+          </span>
+        ) : null}
+        {peak && peakIndex !== data.length - 1 ? (
+          <span
+            className="sp-fade absolute -translate-x-1/2 -translate-y-full whitespace-nowrap pb-1.5 font-mono text-[11px] font-bold text-ink"
+            style={{ left: `${Math.min(88, Math.max(12, peak[0]))}%`, top: `${peak[1]}%` }}
+          >
+            peak {formatNumber(values[peakIndex])}
+          </span>
+        ) : null}
+        {last ? (
+          <>
+            <span
+              className="sp-fade absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-surface"
+              style={{ left: `${last[0]}%`, top: `${last[1]}%`, background: COLOR.madder, boxShadow: `0 0 0 5px color-mix(in srgb, ${COLOR.madder} 22%, transparent)` }}
+            />
+            <span
+              className="sp-fade absolute right-0 -translate-y-full whitespace-nowrap rounded-full bg-madder px-2 py-0.5 font-mono text-[11px] font-bold text-white"
+              style={{ top: `calc(${last[1]}% - 12px)` }}
+            >
+              {formatNumber(values[values.length - 1])}
+            </span>
+          </>
+        ) : null}
+      </div>
+      <div className="mt-2 flex justify-between font-mono text-[11px] text-faint" aria-hidden="true">
+        <span>{data[0]?.label}</span>
+        <span>{data[mid]?.label}</span>
+        <span>{data[data.length - 1]?.label}</span>
+      </div>
+    </div>
+  );
+}
+
 /** A horizontal bar that fills: a share of 0..1 of the track. */
 export function Bar({ share, tone = "cyan", index = 0 }: { share: number; tone?: SignalTone; index?: number }) {
   const w = Math.max(0, Math.min(1, share));

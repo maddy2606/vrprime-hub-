@@ -1,5 +1,5 @@
 import "server-only";
-import { dryAndSelling, heroFor, KIND_TAG, outOfStock, outOfStockSub, rankQueue, SEVERITY, urgentCount, warehouseHealth, type Health, type Hero, type OutOfStock, type QueueItem } from "@/lib/deck";
+import { dispatchToday, dryAndSelling, heroFor, KIND_TAG, ordersTrend, outOfStock, outOfStockSub, rankQueue, SEVERITY, urgentCount, warehouseHealth, type Health, type Hero, type LoadRow, type OutOfStock, type QueueItem } from "@/lib/deck";
 import { ticketHref } from "@/lib/flipkart-analysis";
 import { buildRows, topMovers } from "@/lib/forecast";
 import { dueLabel, formatDateTime, formatNumber, postNumber, ticketNumber, todayIST } from "@/lib/format";
@@ -13,6 +13,7 @@ import { ACTIVE_STATUSES, type SessionUser } from "@/lib/types";
 import { loadEmpties, warehousesFor } from "@/server/flipkart-data";
 import { loadOrderCounts } from "@/server/orders-view";
 import { loadStockDesk } from "@/server/stock-view";
+import { loadTeamCapacity, type Loose } from "@/server/team-data";
 
 const HOUR = 3_600_000;
 
@@ -24,6 +25,21 @@ export type DeckWarehouse = { id: string; name: string; color: string; health: H
 export type WarehouseStock = { id: string; name: string; color: string; units: number; out: number; low: number };
 /** One warehouse's active orders by Seller Hub stage. */
 export type WarehouseStages = { id: string; name: string; color: string; to_accept: number; to_pack: number; to_dispatch: number };
+
+/** The top card: orders still to go out today, against what the team packs, with yesterday and the last week. */
+export type TodayCard = {
+  due: number;
+  /** Orders already past their dispatch time (the Late dispatch tile's number). */
+  late: number;
+  warehouses: number;
+  busiest: { name: string; color: string; orders: number } | null;
+  /** What the team packs comfortably in a day. Owner and admin only; null when nobody is set up. */
+  capacity: { comfortable: number; staff: number } | null;
+  yesterday: number | null;
+  yesterdayChange: number | null;
+  avg7: number | null;
+  avg7Change: number | null;
+};
 
 export type DeckData = {
   firstName: string;
@@ -38,6 +54,10 @@ export type DeckData = {
   whStock: WarehouseStock[];
   whStages: WarehouseStages[];
   dispatch: { points: { label: string; value: number }[]; total: number; avg: number } | null;
+  /** Null when the orders have not been read yet. */
+  todayCard: TodayCard | null;
+  /** Orders placed per day, the last 14 full days, oldest first. */
+  trend: { day: string; label: string; orders: number }[];
   kpis: {
     units: number | null;
     unitsChange: number | null;
@@ -55,6 +75,7 @@ export type DeckData = {
 };
 
 const weekday = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", weekday: "short" });
+const dayMonth = new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", day: "numeric", month: "short" });
 
 function minutesWord(ms: number): string {
   const m = Math.max(1, Math.round(ms / 60_000));
@@ -75,12 +96,24 @@ async function soft<T>(what: string, fallback: T, run: () => PromiseLike<T>): Pr
 
 const rows = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v.filter((x) => typeof x === "object" && x !== null) as Record<string, unknown>[]) : []);
 
+/** team_order_load's rows, kept only when they have the expected shape. */
+function readLoad(data: unknown): LoadRow[] {
+  return rows(data)
+    .filter((r) => (r.kind === "placed" || r.kind === "due") && typeof r.day === "string" && typeof r.orders === "number")
+    .map((r) => ({
+      kind: r.kind as LoadRow["kind"],
+      day: (r.day as string).slice(0, 10),
+      warehouse_id: typeof r.warehouse_id === "string" ? r.warehouse_id : null,
+      orders: r.orders as number,
+    }));
+}
+
 export async function loadDeck(user: SessionUser): Promise<DeckData> {
   const supabase = await createClient();
   const now = new Date();
   const today = todayIST(now);
 
-  const [warehouses, counts, desk, empties, lineRes, series, dispatchRes, followUps, openTickets, mine] = await Promise.all([
+  const [warehouses, counts, desk, empties, lineRes, series, dispatchRes, followUps, openTickets, mine, load, capacity] = await Promise.all([
     warehousesFor(user),
     soft("order counts", null as unknown, () => loadOrderCounts(supabase)),
     soft("stock", null, () => loadStockDesk(user, defaultStockQuery("out", { hide: true }), 1)),
@@ -95,6 +128,14 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
     supabase.from("tickets").select("id, number, ticket_id, sku, next_follow_up, status").in("status", ["open", "waiting_marketplace"]).lte("next_follow_up", today).order("next_follow_up").limit(12),
     supabase.from("tickets").select("id", { count: "exact", head: true }).in("status", ["open", "waiting_marketplace"]),
     supabase.from("posts").select("id, number, title, priority, priority_rank, status, due_date").eq("assignee_id", user.id).in("status", ACTIVE_STATUSES).order("due_date", { ascending: true, nullsFirst: false }).limit(12),
+    // Orders placed per day (the last 15 days) and still waiting by dispatch day: the top card and the orders graph.
+    soft("order load", [] as LoadRow[], async () => {
+      const { data, error } = await (supabase as unknown as Loose).rpc("team_order_load", { p_days: 15 });
+      if (error) throw error;
+      return readLoad(data);
+    }),
+    // Staff and attendance are owner and admin only; a warehouse user gets the card without the capacity bar.
+    user.role === "warehouse" ? Promise.resolve(null) : soft("team capacity", null, () => loadTeamCapacity(supabase as unknown as Loose, today)),
   ]);
   for (const r of [lineRes, dispatchRes, followUps, openTickets, mine]) if (r.error) logError("deck", r.error);
 
@@ -248,6 +289,23 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
   const disp = rows(dispatchRes.data).map((r) => ({ label: weekday.format(new Date(`${String(r.day).slice(0, 10)}T12:00:00+05:30`)), value: Number(r.units) || 0 }));
   const dispatchTotal = disp.reduce((n, d) => n + d.value, 0);
 
+  // ---- Today's dispatch and the orders graph -------------------------------------------------------------------------
+  const t = dispatchToday(load, today);
+  const todayCard: TodayCard | null = load.length
+    ? {
+        due: t.due,
+        late: lateTotal,
+        warehouses: t.warehouses,
+        busiest: t.busiest ? { name: nameOf(t.busiest.id), color: colorOf(t.busiest.id, nameOf(t.busiest.id)), orders: t.busiest.orders } : null,
+        capacity,
+        yesterday: t.yesterday,
+        yesterdayChange: t.yesterdayChange,
+        avg7: t.avg7,
+        avg7Change: t.avg7Change,
+      }
+    : null;
+  const trend = ordersTrend(load, today).map((p) => ({ ...p, label: dayMonth.format(new Date(`${p.day}T00:00:00Z`)) }));
+
   // ---- Movers -----------------------------------------------------------------------------------------------------
   const moversRows = topMovers(buildRows(forecast, cover?.days ?? 0, false), 5).filter((r) => r.f30 > 0);
   const topF30 = Math.max(...moversRows.map((m) => m.f30), 1);
@@ -267,6 +325,8 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
     whStock,
     whStages,
     dispatch: disp.length ? { points: disp, total: dispatchTotal, avg: Math.round(dispatchTotal / disp.length) } : null,
+    todayCard,
+    trend,
     kpis: {
       units: tiles ? tiles.units : null,
       unitsChange: tiles ? tiles.unitsChange : null,

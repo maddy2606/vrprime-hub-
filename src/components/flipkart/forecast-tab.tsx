@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ListView } from "@/components/flipkart/list-view";
-import { MasterTable, type MasterSort } from "@/components/flipkart/master-table";
+import { MasterTable, RankedList, type MasterSort } from "@/components/flipkart/master-table";
 import { Caption, CsvButton, InfoTip, Picker, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
 import type { Column } from "@/components/stock/data-table";
 import { useToast } from "@/components/toast";
@@ -54,6 +54,8 @@ type Props = {
 };
 
 type View = "master" | "sku";
+/** Where the Ranked or Table choice is remembered in this browser. */
+const LAYOUT_KEY = "vr-forecast-layout";
 
 const n0 = (v: number) => formatNumber(Math.round(v));
 
@@ -68,6 +70,25 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   const [wh, setWh] = useState<string>("");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<MasterSort>({ key: "f30", dir: "desc" });
+  // Ranked (bars, like the Deck's top movers) or the table; remembered in this browser.
+  const [layout, setLayout] = useState<"ranked" | "table">("ranked");
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      try {
+        if (localStorage.getItem(LAYOUT_KEY) === "table") setLayout("table");
+      } catch {
+        // No storage: the ranked list it is.
+      }
+    });
+  }, []);
+  const pickLayout = (next: "ranked" | "table") => {
+    setLayout(next);
+    try {
+      localStorage.setItem(LAYOUT_KEY, next);
+    } catch {
+      // Not remembered; it still switches.
+    }
+  };
   const nameOf = (id: string | null) => warehouses.find((w) => w.id === id)?.name ?? "Unknown warehouse";
   const masterOf = useMemo(() => masterLookup(masters), [masters]);
   // Removed SKUs are out of every list on this tab.
@@ -306,6 +327,15 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
         <>
           <Toolbar>
             {viewSwitch}
+            <Segmented<"ranked" | "table">
+              label="Layout"
+              value={layout}
+              onChange={pickLayout}
+              options={[
+                { key: "ranked", label: "Ranked" },
+                { key: "table", label: "Table" },
+              ]}
+            />
             {windowSwitch}
             {warehousePicker}
             <SearchField value={q} onChange={setQ} placeholder="Search product or SKU" />
@@ -318,7 +348,11 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
             {formatNumber(grouped.unmapped.length)} unmapped {grouped.unmapped.length === 1 ? "SKU" : "SKUs"}
             {scope ? ` · ${scope}` : ""}
           </Caption>
-          <MasterTable groups={shownGroups} unmapped={shownUnmapped} unmappedTotal={grouped.unmapped.length} sort={sort} onSort={setSort} autoOpen={childHit} searching={needle !== ""} />
+          {layout === "ranked" ? (
+            <RankedList groups={shownGroups} unmapped={shownUnmapped} unmappedTotal={grouped.unmapped.length} sort={sort} onSort={setSort} autoOpen={childHit} searching={needle !== ""} />
+          ) : (
+            <MasterTable groups={shownGroups} unmapped={shownUnmapped} unmappedTotal={grouped.unmapped.length} sort={sort} onSort={setSort} autoOpen={childHit} searching={needle !== ""} />
+          )}
         </>
       ) : (
         <ListView

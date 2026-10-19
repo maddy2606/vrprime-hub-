@@ -3,7 +3,8 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDownIcon } from "@/components/icons";
 import { Picker } from "@/components/flipkart/kit";
-import { EmptyState } from "@/components/ui";
+import { Bar } from "@/components/signal/charts";
+import { Chip, EmptyState } from "@/components/ui";
 import { formatNumber } from "@/lib/format";
 import type { ForecastRow, KitInfo, MasterChild, MasterGroup } from "@/lib/forecast";
 
@@ -119,22 +120,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
     <div>
       {/* Phone: cards */}
       <div className="flex flex-col gap-2 min-[481px]:hidden">
-        <div className="flex items-center gap-2">
-          <Picker
-            label="Sort by"
-            value={sort.key}
-            onChange={(k) => onSort({ key: k as MasterSortKey, dir: k === "product" ? "asc" : "desc" })}
-            options={[{ value: "product", label: "Product" }, ...NUMBERS.map((c) => ({ value: c.key, label: c.label }))]}
-          />
-          <button
-            type="button"
-            onClick={() => onSort({ ...sort, dir: sort.dir === "asc" ? "desc" : "asc" })}
-            aria-label={sort.dir === "asc" ? "Ascending: tap to reverse" : "Descending: tap to reverse"}
-            className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-line bg-surface text-sm font-bold text-ink"
-          >
-            {sort.dir === "asc" ? "▲" : "▼"}
-          </button>
-        </div>
+        <SortControls sort={sort} onSort={onSort} />
         {sortedGroups.map((g) => {
           const expanded = isOpen(g.key);
           return (
@@ -268,6 +254,194 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/** "Sort by" and the direction button, for the phone cards and the ranked list. */
+function SortControls({ sort, onSort }: { sort: MasterSort; onSort: (sort: MasterSort) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Picker
+        label="Sort by"
+        value={sort.key}
+        onChange={(k) => onSort({ key: k as MasterSortKey, dir: k === "product" ? "asc" : "desc" })}
+        options={[{ value: "product", label: "Product" }, ...NUMBERS.map((c) => ({ value: c.key, label: c.label }))]}
+      />
+      <button
+        type="button"
+        onClick={() => onSort({ ...sort, dir: sort.dir === "asc" ? "desc" : "asc" })}
+        aria-label={sort.dir === "asc" ? "Ascending: tap to reverse" : "Descending: tap to reverse"}
+        className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-line bg-surface text-sm font-bold text-ink"
+      >
+        {sort.dir === "asc" ? "▲" : "▼"}
+      </button>
+    </div>
+  );
+}
+
+const coverTone = (cover: number | null): "neutral" | "bad" | "warn" | "ok" => (cover === null ? "neutral" : cover < 7 ? "bad" : cover < 14 ? "warn" : "ok");
+const coverText = (r: ForecastRow): string =>
+  r.noStock
+    ? "No stock data"
+    : r.cover === null
+      ? r.stock > 0
+        ? "No recent sales"
+        : "Out of stock"
+      : r.cover <= 0
+        ? "Out of stock"
+        : `${r.cover < 10 ? r.cover.toFixed(1) : n0(r.cover)} ${r.cover === 1 ? "day" : "days"} left`;
+const perDay = (rate: number) => (rate < 10 ? rate.toFixed(1) : n0(rate));
+
+/** One row of the ranked list: rank, name, the 30-day forecast with its bar, and days of stock left as a coloured tag. */
+function RankedRow({
+  rank,
+  title,
+  mono = false,
+  sub,
+  badge,
+  row,
+  share,
+  expanded,
+  onToggle,
+  children,
+}: {
+  rank: number;
+  title: string;
+  mono?: boolean;
+  sub: string | null;
+  badge?: ReactNode;
+  row: ForecastRow;
+  share: number;
+  expanded?: boolean;
+  onToggle?: () => void;
+  children?: ReactNode;
+}) {
+  const name = <span className={`min-w-0 truncate ${mono ? "font-mono text-[13px]" : "text-[15px]"} font-bold`}>{title}</span>;
+  return (
+    <li>
+      <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3.5">
+        <span className="font-mono text-xs tabular-nums text-faint">{rank}</span>
+        <span className="min-w-0">
+          {onToggle ? (
+            <button type="button" aria-expanded={expanded} onClick={onToggle} className="focus-ring flex max-w-full min-w-0 items-center gap-1.5 rounded text-left">
+              {name}
+              {badge}
+              <ChevronDownIcon className={`h-4 w-4 shrink-0 text-muted transition ${expanded ? "rotate-180" : ""}`} />
+            </button>
+          ) : (
+            <span className="flex min-w-0 items-center gap-1.5">
+              {name}
+              {badge}
+            </span>
+          )}
+          {sub ? <span className="block truncate text-xs text-muted">{sub}</span> : null}
+        </span>
+        <span className="text-right">
+          <span className="block font-mono text-base font-bold tabular-nums">{n0(row.f30)}</span>
+          <span className="block text-[11px] text-muted">{perDay(row.rate)} a day</span>
+        </span>
+        <span />
+        <Bar share={share} tone="cyan" index={Math.min(rank - 1, 12)} />
+        <span className="text-right">
+          <Chip tone={coverTone(row.noStock ? null : row.cover)}>{coverText(row)}</Chip>
+        </span>
+      </div>
+      {expanded ? children : null}
+    </li>
+  );
+}
+
+/**
+ * Every product as a ranked list, the way the Command Deck shows its top movers: the 30-day forecast as a bar against the
+ * biggest one, and days of stock left as a red, amber or green tag. Tap a product to see its Flipkart SKUs. It follows the
+ * same sort as the table.
+ */
+export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, autoOpen, searching }: Props) {
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [unmappedOpen, setUnmappedOpen] = useState(false);
+  const isOpen = (key: string) => open.has(key) || autoOpen.has(key);
+  const toggle = (key: string) =>
+    setOpen((current) => {
+      const next = new Set(current);
+      if (next.has(key) || autoOpen.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  if (!groups.length && !unmapped.length) {
+    return (
+      <EmptyState
+        title={searching ? "Nothing matches your search" : "Nothing to forecast"}
+        body={searching ? "Try a shorter part of the product name or SKU, or clear the search." : "No SKU has dispatched, or has stock, in the places you can see."}
+      />
+    );
+  }
+
+  const max = Math.max(1, ...groups.map((g) => g.total.f30), ...unmapped.map((r) => r.f30));
+  const sorted = sortRows(groups, sort, (g) => g.total, (g) => g.name);
+  const sortedUnmapped = sortRows(unmapped, sort, (r) => r, (r) => r.sku);
+  const skuCount = (n: number) => `${n} ${n === 1 ? "SKU" : "SKUs"}`;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <SortControls sort={sort} onSort={onSort} />
+      {sorted.length ? (
+        <ol className="sp-card divide-y divide-line-soft overflow-hidden">
+          {sorted.map((g, i) => (
+            <RankedRow
+              key={g.key}
+              rank={i + 1}
+              title={g.name}
+              sub={`${skuCount(g.children.length)}${g.total.noStock ? "" : ` · ${n0(g.total.stock)} in stock`}`}
+              badge={g.kit ? <KitBadge /> : undefined}
+              row={g.total}
+              share={g.total.f30 / max}
+              expanded={isOpen(g.key)}
+              onToggle={() => toggle(g.key)}
+            >
+              <div className="border-t border-line-soft bg-canvas/40 px-4 py-2.5">
+                {g.kit ? <KitNote kit={g.kit} className="mb-2 pl-10" /> : null}
+                {g.children.length ? (
+                  <ul className="flex flex-col">
+                    {sortRows(g.children, sort, (r) => r, (r) => r.sku).map((c) => (
+                      <li key={c.key} className="flex items-center justify-between gap-3 py-1.5 pl-10 text-xs">
+                        <span className="min-w-0 truncate">
+                          <span className="font-mono font-bold">{c.sku}</span>
+                          {c.units > 1 ? <span className="ml-1 font-mono text-accent-text">×{c.units}</span> : null}
+                          {c.title ? <span className="text-muted"> · {c.title}</span> : null}
+                        </span>
+                        <span className="shrink-0 font-mono tabular-nums">
+                          {n0(c.f30)} <span className="text-muted">· {perDay(c.rate)} a day</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="py-1 pl-10 text-xs text-muted">No Flipkart SKU is linked yet.</p>
+                )}
+              </div>
+            </RankedRow>
+          ))}
+        </ol>
+      ) : null}
+      {unmapped.length ? (
+        <section>
+          <button type="button" aria-expanded={unmappedOpen} onClick={() => setUnmappedOpen((v) => !v)} className="focus-ring mb-2 flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-left">
+            <span className="text-sm font-bold">Unmapped</span>
+            <span className="inline-flex shrink-0 items-center rounded-full bg-surface2 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted">{skuCount(searching ? unmapped.length : unmappedTotal)}</span>
+            <span className="text-xs text-muted">no product yet</span>
+            <ChevronDownIcon className={`ml-auto h-5 w-5 text-muted transition ${unmappedOpen ? "rotate-180" : ""}`} />
+          </button>
+          {unmappedOpen ? (
+            <ol className="sp-card divide-y divide-line-soft overflow-hidden">
+              {sortedUnmapped.map((r, i) => (
+                <RankedRow key={r.key} rank={i + 1} title={r.sku} mono sub={r.title} row={r} share={r.f30 / max} />
+              ))}
+            </ol>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }

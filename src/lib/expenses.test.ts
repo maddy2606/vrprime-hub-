@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildExpenses, categoryFor, cleanNote, counts, isTally, monthOf, monthSummary, noteAmount, pickAmount, readReceipt, type GroupMessage } from "./expenses.ts";
+import { buildExpenses, categoryFor, cleanNote, counts, isTally, monthOf, monthSummary, noteAmount, pickAmount, readReceipt, settleAmount, type GroupMessage } from "./expenses.ts";
 
 // Times in minutes after 10:00 IST on 15 Oct 2026. "me" is the linked phone (the owner); "j" is Jigar.
 const at = (min: number) => new Date(Date.UTC(2026, 9, 15, 4, 30) + min * 60_000).toISOString();
@@ -40,7 +40,7 @@ test("tallies are recognised, and notes are cleaned of @mentions and stars", () 
 
 test("a payment screenshot is read as a payment; a QR to scan is not", () => {
   const gpay = "Paid to\nSHREE GANESH PACKAGING\n₹1,250\nCompleted\n19 Oct 2026, 10:32 am\nUPI transaction ID\n429316843210";
-  assert.deepEqual(readReceipt(gpay), { amount: 1250, paidTo: "SHREE GANESH PACKAGING", reference: "429316843210", payment: true });
+  assert.deepEqual(readReceipt(gpay), { amount: 1250, alt: null, paidTo: "SHREE GANESH PACKAGING", reference: "429316843210", payment: true });
   const phonepe = "Transaction Successful\n10:32 am on 19 Oct 2026\nPaid to\nRamesh Tempo\n500\nUTR: 6123456789012";
   assert.equal(readReceipt(phonepe).payment, true);
   assert.equal(readReceipt(phonepe).amount, 500);
@@ -108,4 +108,23 @@ test("the amount used: typed, else the screenshot, else the note; and months in 
   assert.deepEqual(pickAmount({ read: 90, text: 80 }), { amount: 90, from: "screenshot" });
   assert.deepEqual(pickAmount({ read: null, text: 80 }), { amount: 80, from: "note" });
   assert.equal(monthOf("2026-10-31T20:00:00Z"), "2026-11");
+});
+
+test("a ₹ sign read as a 3 is caught: no comma means it was a misread, a comma is settled by the note (real Google Pay screenshots)", () => {
+  const gpay = (amount: string, who: string) => `${amount}
+Paid to ${who}
+Banking name: ${who}
+8 October 2026, 3:09 pm`;
+  assert.equal(readReceipt(gpay("3350", "AMJAD ANSAR AHMAD")).amount, 350, "₹350 read as 3350: apps write 3,350 with a comma");
+  assert.equal(readReceipt(gpay("3650", "Yaashica Zubin Madiyar")).amount, 650);
+  assert.equal(readReceipt(gpay("3340", "MAHESHBHAI JAYANTIBHAI JOSHI")).amount, 340);
+  assert.equal(readReceipt(gpay("1,407", "Zareena Bi Mubarak Khan")).amount, 1407, "a real ₹1,407 stays");
+  const five = readReceipt(gpay("35,000", "Sumit Kumar Singh"));
+  assert.deepEqual([five.amount, five.alt], [35000, 5000], "₹35,000 or a misread ₹5,000: both kept");
+  assert.equal(settleAmount(five.amount, five.alt, 5000), 5000, "the note (5000 daldo) settles it");
+  assert.equal(settleAmount(five.amount, five.alt, null), 35000, "with no note it stays, to be checked");
+  assert.equal(settleAmount(350, null, 50), 50, "₹50 read as 350, and the note says 50");
+  assert.equal(settleAmount(1250, null, 1250), 1250);
+  assert.equal(readReceipt("% 1,050\nPaid to DIPENJAY PRASAD").amount, 1050, "a ₹ read as %");
+  assert.equal(readReceipt("3 1,050\nPaid to DIPENJAY PRASAD").amount, 1050, "a ₹ read as 3 with a space");
 });

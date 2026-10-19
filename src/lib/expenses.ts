@@ -84,7 +84,53 @@ export function cleanNote(text: string | null | undefined): string {
     .trim();
 }
 
-export type Receipt = { amount: number | null; paidTo: string | null; reference: string | null; payment: boolean };
+export type Receipt = {
+  amount: number | null;
+  /** The amount if the first digit was really a misread ₹ ("35,000" may be ₹5,000); a note can settle it. */
+  alt: number | null;
+  paidTo: string | null;
+  reference: string | null;
+  payment: boolean;
+};
+
+const INDIAN = /^\d{1,2}(?:,\d{2})*,\d{3}$|^\d{1,3}$/;
+
+/**
+ * The big amount line of a payment app. Text recognition often reads the ₹ sign as a "3" (or "2", "%", "¥"), so "₹350"
+ * comes out as "3350" and "₹5,000" as "35,000". The apps always write ₹1,000 and more with commas, so a 4+ digit number
+ * with no comma that starts with 3 or 2 is a misread ₹ plus the amount. With a comma it could be either, so the other
+ * reading is kept as `alt` for a note to settle.
+ */
+function amountLine(line: string): { amount: number; alt: number | null } | null {
+  const l = line.trim();
+  let m = /^(?:₹|rs\.?|inr)\s*([\d,]+(?:\.\d{1,2})?)$/i.exec(l) ?? /^[%¥?]\s*([\d,]+(?:\.\d{1,2})?)$/.exec(l) ?? /^[23]\s+([\d,]+(?:\.\d{1,2})?)$/.exec(l);
+  if (m) {
+    const n = toNumber(m[1]);
+    return n === null ? null : { amount: n, alt: null };
+  }
+  m = /^([\d,]+)(\.\d{1,2})?$/.exec(l);
+  if (!m) return null;
+  const digits = m[1];
+  const n = toNumber(digits + (m[2] ?? ""));
+  if (n === null) return null;
+  if (!digits.includes(",") && digits.length >= 4 && /^[23]/.test(digits)) return { amount: toNumber(digits.slice(1) + (m[2] ?? "")) ?? n, alt: null };
+  if (digits.includes(",") && /^[23]/.test(digits)) {
+    const rest = digits.slice(1).replace(/^,/, "");
+    if (INDIAN.test(rest)) return { amount: n, alt: toNumber(rest + (m[2] ?? "")) };
+  }
+  return { amount: n, alt: null };
+}
+
+/** The amount to trust from a screenshot, given the note's amount: the note settles a possibly misread ₹. */
+export function settleAmount(read: number | null, alt: number | null, note: number | null): number | null {
+  if (read === null) return null;
+  if (note !== null) {
+    if (alt !== null && Math.abs(alt - note) < 0.5) return alt;
+    const s = String(read);
+    if (/^[23]/.test(s) && s.length > 1 && Math.abs(Number(s.slice(1)) - note) < 0.5) return note;
+  }
+  return read;
+}
 
 /**
  * What a screenshot says, from its recognised text (Google Pay, PhonePe, Paytm, BHIM, a bank app), and whether it is a
@@ -99,15 +145,17 @@ export function readReceipt(text: string | null | undefined): Receipt {
     .map((l) => l.trim())
     .filter(Boolean);
   let amount: number | null = null;
+  let alt: number | null = null;
   const marked = /(?:₹|\brs\.?|\binr)\s*([\d,]+(?:\.\d{1,2})?)/i.exec(t);
   if (marked) amount = toNumber(marked[1]);
   if (amount === null) {
-    // A line that is just an amount, like "1,250" or "500.00", near the top where the apps print it big.
+    // The line that is just an amount, near the top where the apps print it big.
     for (const l of lines.slice(0, 14)) {
-      const m = /^[^\w\d]{0,2}\s*([\d]{1,3}(?:,\d{2,3})*(?:\.\d{1,2})?|\d{2,6}(?:\.\d{1,2})?)$/.exec(l);
-      if (m) {
-        amount = toNumber(m[1]);
-        if (amount !== null) break;
+      const a = amountLine(l);
+      if (a) {
+        amount = a.amount;
+        alt = a.alt;
+        break;
       }
     }
   }
@@ -117,6 +165,7 @@ export function readReceipt(text: string | null | undefined): Receipt {
   const scanOnly = /\bscan\b/i.test(t) && !/\b(paid|successful|completed|debited|sent)\b/i.test(t);
   return {
     amount,
+    alt,
     paidTo: to ? to[1].trim().replace(/\s+/g, " ") : null,
     reference: ref ? ref[1] : null,
     payment: amount !== null && done && !scanOnly,

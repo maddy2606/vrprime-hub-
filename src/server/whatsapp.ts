@@ -18,7 +18,7 @@ import pino from "pino";
 import jsQR from "jsqr";
 import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildExpenses, categoryFor, pickAmount, readReceipt, type GroupMessage } from "@/lib/expenses";
+import { buildExpenses, categoryFor, pickAmount, readReceipt, settleAmount, type GroupMessage } from "@/lib/expenses";
 import { logError, redactSecrets } from "@/lib/redact";
 import { serverDb } from "@/server/service-db";
 
@@ -329,11 +329,12 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
       // A screenshot already read: decide from what was read, without reading it again.
       const r = e.read_done && e.read_text ? readReceipt(e.read_text) : null;
       const verdict = e.verdict !== "pending" ? e.verdict : r ? (r.payment ? "payment" : "not_payment") : lost.has(d.imageMessageId) ? "not_payment" : "pending";
-      const { amount, from: source } = pickAmount({ read: r ? r.amount : e.read_amount, text: d.textAmount });
+      const read = r ? settleAmount(r.amount, r.alt, d.textAmount) : e.read_amount;
+      const { amount, from: source } = pickAmount({ read, text: d.textAmount });
       const category = d.category === "Other" && r?.paidTo ? categoryFor(r.paidTo) : d.category;
       await db
         .from("expenses")
-        .update({ text_message_id: d.textMessageId, reason: d.reason, category, text_amount: d.textAmount, read_amount: r ? r.amount : e.read_amount, paid_to: r?.paidTo ?? null, reference: r?.reference ?? null, amount, amount_from: source, verdict, image_path: image, thumb_path: thumb, updated_at: now })
+        .update({ text_message_id: d.textMessageId, reason: d.reason, category, text_amount: d.textAmount, read_amount: read, paid_to: r?.paidTo ?? null, reference: r?.reference ?? null, amount, amount_from: source, verdict, image_path: image, thumb_path: thumb, updated_at: now })
         .eq("id", e.id);
     }
   }

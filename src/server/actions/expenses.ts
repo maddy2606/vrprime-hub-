@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getActiveUser } from "@/lib/auth";
-import { categoryFor, EXPENSE_CATEGORIES, pickAmount, readReceipt } from "@/lib/expenses";
+import { categoryFor, EXPENSE_CATEGORIES, pickAmount, readReceipt, settleAmount } from "@/lib/expenses";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
@@ -37,9 +37,11 @@ export async function saveScreenshotReading(id: unknown, text: unknown): Promise
   const update: Record<string, unknown> = { read_text: parsed.data.text.slice(0, 4000), read_done: true, updated_at: new Date().toISOString() };
   if (!e.edited) {
     // Only a "payment done" screenshot counts; anything else (a QR code, a bill, a photo) is kept but not counted.
-    const { amount, from } = e.amount_from === "typed" ? { amount: e.amount, from: "typed" } : pickAmount({ read: r.amount, text: e.text_amount });
+    // A ₹ sign read as a digit is settled by the amount in the note.
+    const read = settleAmount(r.amount, r.alt, e.text_amount === null ? null : Number(e.text_amount));
+    const { amount, from } = e.amount_from === "typed" ? { amount: e.amount, from: "typed" } : pickAmount({ read, text: e.text_amount });
     const category = e.category === "Other" && r.paidTo ? categoryFor(r.paidTo) : e.category;
-    Object.assign(update, { read_amount: r.amount, paid_to: r.paidTo, reference: r.reference, amount, amount_from: from, category, verdict: r.payment ? "payment" : "not_payment" });
+    Object.assign(update, { read_amount: read, paid_to: r.paidTo, reference: r.reference, amount, amount_from: from, category, verdict: r.payment ? "payment" : "not_payment" });
   }
   const { error: upErr } = await me.db.from("expenses").update(update).eq("id", parsed.data.id);
   if (upErr) return dbError(upErr, "save the screenshot reading");

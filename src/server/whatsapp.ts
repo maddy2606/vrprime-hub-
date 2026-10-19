@@ -231,7 +231,7 @@ async function isQrImage(file: Buffer): Promise<boolean> {
 
 /** Downloads the screenshots not saved yet (newest first), checks each for a QR code, and stores a small and a full-size copy. */
 async function saveScreenshots(db: Db, until: number): Promise<{ saved: number; left: number; failed: number }> {
-  const { data, error } = await db.from("expense_messages").select("id, kind, media").not("media", "is", null).is("image_path", null).eq("deleted", false).order("sent_at", { ascending: false }).limit(200);
+  const { data, error } = await db.from("expense_messages").select("id, kind, media").not("media", "is", null).is("image_path", null).eq("deleted", false).eq("media_expired", false).order("sent_at", { ascending: false }).limit(200);
   if (error) throw new Error(`Could not list the screenshots: ${error.message}`);
   let saved = 0;
   let failed = 0;
@@ -266,14 +266,59 @@ async function saveScreenshots(db: Db, until: number): Promise<{ saved: number; 
       saved++;
     } catch (e) {
       failed++;
-      logError("whatsapp screenshot", e);
-      // WhatsApp no longer has it (too old): keep the message, stop trying.
-      const gone = /404|410|expired|forbidden/i.test(String((e as Error)?.message ?? e));
-      if (gone) await db.from("expense_messages").update({ media: null }).eq("id", r.id);
+      // WhatsApp no longer has it on its servers (about a month old): the next fetch asks the phone to upload it again.
+      const msg = String((e as Error)?.message ?? e);
+      if (/status code 4(03|04|10)|forbidden|expired/i.test(msg)) await db.from("expense_messages").update({ media_expired: true }).eq("id", r.id);
+      else logError("whatsapp screenshot", e);
     }
   }
   const { count } = await db.from("expense_messages").select("id", { count: "exact", head: true }).not("media", "is", null).is("image_path", null).eq("deleted", false);
   return { saved, left: count ?? 0, failed };
+}
+
+/**
+ * Asks the phone to upload again the screenshots WhatsApp's servers no longer have (older than about a month), while the
+ * site is connected. The phone answers with a fresh link; the screenshot is then downloaded like a new one. Two tries
+ * that get nothing (the phone deleted it) and it is given up on. Returns how many came back.
+ */
+async function refreshExpired(sock: WASocket, db: Db, groupId: string, until: number): Promise<number> {
+  const { data } = await db.from("expense_messages").select("id, sender_id, media, media_tries").eq("group_id", groupId).eq("media_expired", true).not("media", "is", null).order("sent_at", { ascending: false }).limit(40);
+  if (!data?.length) return 0;
+  // Older messages were saved before the sender was kept: the person the owner tags in the group (who posts the expenses)
+  // is the best guess at who sent them.
+  let tagged: string | null = null;
+  if (data.some((r) => !r.sender_id || r.sender_id === "member")) {
+    const { data: notes } = await db.from("expense_messages").select("body").eq("group_id", groupId).eq("sender_id", "me").like("body", "%@%").limit(500);
+    const hits = new Map<string, number>();
+    for (const n of notes ?? []) for (const m of String(n.body).matchAll(/@(\d{6,})/g)) hits.set(m[1], (hits.get(m[1]) ?? 0) + 1);
+    const top = [...hits.entries()].sort((a, b) => b[1] - a[1])[0];
+    tagged = top ? `${top[0]}@lid` : null;
+  }
+  let back = 0;
+  for (const r of data) {
+    if (Date.now() > until) break;
+    const media = fromJson<{ type: "image" | "document"; mediaKey: Uint8Array; directPath: string; url: string; mimetype?: string }>(r.media);
+    const fromMe = r.sender_id === "me";
+    const participant = fromMe ? undefined : r.sender_id && r.sender_id !== "member" ? r.sender_id : (tagged ?? undefined);
+    const part = { mediaKey: media.mediaKey, directPath: media.directPath, url: media.url, mimetype: media.mimetype };
+    const message = media.type === "image" ? { imageMessage: part } : { documentMessage: part };
+    let fresh: { directPath?: string | null; url?: string | null } | null = null;
+    try {
+      const updated = await Promise.race([sock.updateMediaMessage({ key: { remoteJid: groupId, id: r.id, fromMe, participant }, message }), wait(12_000).then(() => null)]);
+      fresh = updated?.message?.imageMessage ?? updated?.message?.documentMessage ?? null;
+    } catch {
+      fresh = null;
+    }
+    if (fresh?.directPath) {
+      await db.from("expense_messages").update({ media: toJson({ ...media, directPath: fresh.directPath, url: fresh.url ?? media.url }), media_expired: false, media_tries: (r.media_tries ?? 0) + 1 }).eq("id", r.id);
+      back++;
+    } else if ((r.media_tries ?? 0) + 1 >= 2) {
+      await db.from("expense_messages").update({ media: null, media_expired: false, media_tries: (r.media_tries ?? 0) + 1 }).eq("id", r.id);
+    } else {
+      await db.from("expense_messages").update({ media_tries: (r.media_tries ?? 0) + 1 }).eq("id", r.id);
+    }
+  }
+  return back;
 }
 
 /** Checks screenshots saved before QR checking existed (or left unchecked) for a QR code, from the saved copy. */
@@ -519,9 +564,12 @@ export async function fetchWhatsApp(deadline: number): Promise<{ ok: boolean; te
       quiet = held.length === last ? quiet + 1 : 0;
       last = held.length;
     }
+    // Older screenshots WhatsApp's servers dropped: ask the phone for them while still connected.
+    const refreshed = await refreshExpired(sock, db, st.group_id, Math.min(deadline - 45_000, Date.now() + 30_000));
     sock.end(undefined);
     await session.flush();
-    const text = await store(db, st.group_id, held, sock.user?.name ?? null, deadline);
+    const stored = await store(db, st.group_id, held, sock.user?.name ?? null, deadline);
+    const text = refreshed ? `${stored} ${refreshed} older ${refreshed === 1 ? "screenshot" : "screenshots"} fetched again from the phone.` : stored;
     await release(db, { last_fetch_at: new Date().toISOString(), last_result: text, last_error: null });
     return { ok: true, text };
   } catch (e) {

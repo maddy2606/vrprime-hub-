@@ -340,7 +340,9 @@ function EditSheet({ row, onClose }: { row: ExpenseRow | null; onClose: () => vo
         <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
           {row.verdict === "pending"
             ? "This screenshot has not been read yet, so it does not count yet."
-            : "This does not look like a payment done screenshot (it may be a QR code, a bill or a photo), so it does not count. If it is a payment, fill in the amount and press Count it and save."}
+            : !row.imageUrl && !row.manual
+              ? "WhatsApp no longer has this screenshot (it is older than about a month), so it could not be checked. If it was a payment, type the amount and press Count it and save."
+              : "This does not look like a payment done screenshot (it may be a QR code, a bill or a photo), so it does not count. If it is a payment, fill in the amount and press Count it and save."}
         </p>
       ) : null}
       {row.imageUrl && !row.isPdf ? (
@@ -662,7 +664,7 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
                         <span className="mt-1 flex flex-wrap items-center gap-1.5">
                           <Chip tone="accent">{e.category}</Chip>
                           {e.verdict === "pending" && e.status !== "ignored" ? <Chip tone="info">Being read</Chip> : null}
-                          {e.verdict === "not_payment" ? <Chip>Not a payment</Chip> : null}
+                          {e.verdict === "not_payment" ? <Chip>{e.thumbUrl ? "Not a payment" : "No screenshot"}</Chip> : null}
                           {counts(e) && e.status === "new" ? <Chip tone="warn">Check</Chip> : null}
                           {e.status === "ignored" ? <Chip>Not counted</Chip> : null}
                           <span className="text-[11px] text-muted">

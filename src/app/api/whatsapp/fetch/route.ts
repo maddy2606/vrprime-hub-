@@ -1,7 +1,7 @@
 import { fetchWhatsApp } from "@/server/whatsapp";
 import { ownerOnly } from "@/server/whatsapp-route";
 
-export const maxDuration = 120;
+export const maxDuration = 90;
 
 /** The Fetch from WhatsApp button: reads what arrived in the expenses group since last time. */
 export async function POST(request: Request) {

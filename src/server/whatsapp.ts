@@ -266,59 +266,14 @@ async function saveScreenshots(db: Db, until: number): Promise<{ saved: number; 
       saved++;
     } catch (e) {
       failed++;
-      // WhatsApp no longer has it on its servers (about a month old): the next fetch asks the phone to upload it again.
+      // WhatsApp no longer has it on its servers (older than about a month): it cannot be downloaded any more.
       const msg = String((e as Error)?.message ?? e);
-      if (/status code 4(03|04|10)|forbidden|expired/i.test(msg)) await db.from("expense_messages").update({ media_expired: true }).eq("id", r.id);
+      if (/status code 4(03|04|10)|forbidden|expired/i.test(msg)) await db.from("expense_messages").update({ media: null, media_expired: true }).eq("id", r.id);
       else logError("whatsapp screenshot", e);
     }
   }
   const { count } = await db.from("expense_messages").select("id", { count: "exact", head: true }).not("media", "is", null).is("image_path", null).eq("deleted", false);
   return { saved, left: count ?? 0, failed };
-}
-
-/**
- * Asks the phone to upload again the screenshots WhatsApp's servers no longer have (older than about a month), while the
- * site is connected. The phone answers with a fresh link; the screenshot is then downloaded like a new one. Two tries
- * that get nothing (the phone deleted it) and it is given up on. Returns how many came back.
- */
-async function refreshExpired(sock: WASocket, db: Db, groupId: string, until: number): Promise<number> {
-  const { data } = await db.from("expense_messages").select("id, sender_id, media, media_tries").eq("group_id", groupId).eq("media_expired", true).not("media", "is", null).order("sent_at", { ascending: false }).limit(40);
-  if (!data?.length) return 0;
-  // Older messages were saved before the sender was kept: the person the owner tags in the group (who posts the expenses)
-  // is the best guess at who sent them.
-  let tagged: string | null = null;
-  if (data.some((r) => !r.sender_id || r.sender_id === "member")) {
-    const { data: notes } = await db.from("expense_messages").select("body").eq("group_id", groupId).eq("sender_id", "me").like("body", "%@%").limit(500);
-    const hits = new Map<string, number>();
-    for (const n of notes ?? []) for (const m of String(n.body).matchAll(/@(\d{6,})/g)) hits.set(m[1], (hits.get(m[1]) ?? 0) + 1);
-    const top = [...hits.entries()].sort((a, b) => b[1] - a[1])[0];
-    tagged = top ? `${top[0]}@lid` : null;
-  }
-  let back = 0;
-  for (const r of data) {
-    if (Date.now() > until) break;
-    const media = fromJson<{ type: "image" | "document"; mediaKey: Uint8Array; directPath: string; url: string; mimetype?: string }>(r.media);
-    const fromMe = r.sender_id === "me";
-    const participant = fromMe ? undefined : r.sender_id && r.sender_id !== "member" ? r.sender_id : (tagged ?? undefined);
-    const part = { mediaKey: media.mediaKey, directPath: media.directPath, url: media.url, mimetype: media.mimetype };
-    const message = media.type === "image" ? { imageMessage: part } : { documentMessage: part };
-    let fresh: { directPath?: string | null; url?: string | null } | null = null;
-    try {
-      const updated = await Promise.race([sock.updateMediaMessage({ key: { remoteJid: groupId, id: r.id, fromMe, participant }, message }), wait(12_000).then(() => null)]);
-      fresh = updated?.message?.imageMessage ?? updated?.message?.documentMessage ?? null;
-    } catch {
-      fresh = null;
-    }
-    if (fresh?.directPath) {
-      await db.from("expense_messages").update({ media: toJson({ ...media, directPath: fresh.directPath, url: fresh.url ?? media.url }), media_expired: false, media_tries: (r.media_tries ?? 0) + 1 }).eq("id", r.id);
-      back++;
-    } else if ((r.media_tries ?? 0) + 1 >= 2) {
-      await db.from("expense_messages").update({ media: null, media_expired: false, media_tries: (r.media_tries ?? 0) + 1 }).eq("id", r.id);
-    } else {
-      await db.from("expense_messages").update({ media_tries: (r.media_tries ?? 0) + 1 }).eq("id", r.id);
-    }
-  }
-  return back;
 }
 
 /** Checks screenshots saved before QR checking existed (or left unchecked) for a QR code, from the saved copy. */
@@ -345,13 +300,14 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
   const since = new Date(Date.now() - RESORT_DAYS * 86_400_000).toISOString();
   const msgs: Record<string, any>[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await db.from("expense_messages").select("id, sent_at, sender, sender_id, kind, body, deleted, image_path, is_qr").eq("group_id", groupId).gte("sent_at", since).order("sent_at").range(from, from + 999);
+    const { data, error } = await db.from("expense_messages").select("id, sent_at, sender, sender_id, kind, body, deleted, image_path, is_qr, media_expired").eq("group_id", groupId).gte("sent_at", since).order("sent_at").range(from, from + 999);
     if (error) throw new Error(`Could not read the messages: ${error.message}`);
     msgs.push(...(data ?? []));
     if (!data || data.length < 1000) break;
   }
   const list: GroupMessage[] = msgs.map((m) => ({ id: m.id, sentAt: m.sent_at, sender: m.sender, senderId: m.sender_id, kind: m.kind, body: m.body, deleted: m.deleted, isQr: m.is_qr }));
   const images = new Map(msgs.map((m) => [m.id as string, m.image_path as string | null]));
+  const lost = new Set(msgs.filter((m) => m.media_expired && !m.image_path).map((m) => m.id as string));
   const derived = buildExpenses(list);
   const existing = new Map<string, { id: string; key: string; edited: boolean; read_amount: number | null; read_text: string | null; read_done: boolean; verdict: string; status: string }>();
   for (let from = 0; ; from += 1000) {
@@ -368,11 +324,11 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
     const thumb = image && image.endsWith(".webp") ? image.replace(/\.webp$/, "-t.webp") : null;
     if (!e) {
       const { amount, from: source } = pickAmount({ read: null, text: d.textAmount });
-      inserts.push({ key: d.key, image_message_id: d.imageMessageId, text_message_id: d.textMessageId, spent_at: d.spentAt, sender: d.sender, reason: d.reason, category: d.category, text_amount: d.textAmount, amount, amount_from: source, image_path: image, thumb_path: thumb, verdict: image && image.endsWith(".pdf") ? "not_payment" : "pending" });
+      inserts.push({ key: d.key, image_message_id: d.imageMessageId, text_message_id: d.textMessageId, spent_at: d.spentAt, sender: d.sender, reason: d.reason, category: d.category, text_amount: d.textAmount, amount, amount_from: source, image_path: image, thumb_path: thumb, verdict: lost.has(d.imageMessageId) || (image && image.endsWith(".pdf")) ? "not_payment" : "pending" });
     } else if (!e.edited) {
       // A screenshot already read: decide from what was read, without reading it again.
       const r = e.read_done && e.read_text ? readReceipt(e.read_text) : null;
-      const verdict = e.verdict !== "pending" ? e.verdict : r ? (r.payment ? "payment" : "not_payment") : "pending";
+      const verdict = e.verdict !== "pending" ? e.verdict : r ? (r.payment ? "payment" : "not_payment") : lost.has(d.imageMessageId) ? "not_payment" : "pending";
       const { amount, from: source } = pickAmount({ read: r ? r.amount : e.read_amount, text: d.textAmount });
       const category = d.category === "Other" && r?.paidTo ? categoryFor(r.paidTo) : d.category;
       await db
@@ -564,12 +520,9 @@ export async function fetchWhatsApp(deadline: number): Promise<{ ok: boolean; te
       quiet = held.length === last ? quiet + 1 : 0;
       last = held.length;
     }
-    // Older screenshots WhatsApp's servers dropped: ask the phone for them while still connected.
-    const refreshed = await refreshExpired(sock, db, st.group_id, Math.min(deadline - 45_000, Date.now() + 30_000));
     sock.end(undefined);
     await session.flush();
-    const stored = await store(db, st.group_id, held, sock.user?.name ?? null, deadline);
-    const text = refreshed ? `${stored} ${refreshed} older ${refreshed === 1 ? "screenshot" : "screenshots"} fetched again from the phone.` : stored;
+    const text = await store(db, st.group_id, held, sock.user?.name ?? null, deadline);
     await release(db, { last_fetch_at: new Date().toISOString(), last_result: text, last_error: null });
     return { ok: true, text };
   } catch (e) {

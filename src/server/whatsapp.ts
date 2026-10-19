@@ -482,8 +482,11 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
   return `${parts.join(", ")}.`;
 }
 
-/** The Fetch button: connects with the saved link, reads what arrived for the group since last time, and saves it. */
-export async function fetchWhatsApp(deadline: number): Promise<{ ok: boolean; text: string }> {
+/**
+ * The Fetch button, and the automatic fetch every 12 hours (auto): connects with the saved link, reads what arrived for
+ * the group since last time, and saves it.
+ */
+export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ ok: boolean; text: string }> {
   const db = serverDb();
   if (!db) return { ok: false, text: "The server is missing its Supabase secret key." };
   const st = await readState(db);
@@ -528,7 +531,7 @@ export async function fetchWhatsApp(deadline: number): Promise<{ ok: boolean; te
     sock.end(undefined);
     await session.flush();
     const text = await store(db, st.group_id, held, sock.user?.name ?? null, deadline);
-    await release(db, { last_fetch_at: new Date().toISOString(), last_result: text, last_error: null });
+    await release(db, { last_fetch_at: new Date().toISOString(), last_result: auto ? `Automatic fetch: ${text}` : text, last_error: null });
     return { ok: true, text };
   } catch (e) {
     logError("whatsapp fetch", e);

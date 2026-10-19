@@ -83,4 +83,5 @@ test("each new alert opens the right page", () => {
   assert.equal(notificationUrl({ ...base, kind: "sync_alert", title: "Flipkart orders have not been read for 3 hours" }), "/flipkart?tab=orders");
   assert.equal(notificationUrl({ ...base, kind: "sync_alert", title: "Flipkart stock sync is not working" }), "/flipkart?tab=stock");
   assert.equal(notificationUrl({ ...base, kind: "sync_alert", title: "VR Prime stock sync is not working" }), "/flipkart?tab=forecast");
+  assert.equal(notificationUrl({ ...base, kind: "sync_alert", title: "WhatsApp expenses are not being fetched" }), "/expenses");
 });

@@ -191,6 +191,7 @@ function WhatsAppBar({ wa }: { wa: WhatsAppState }) {
             {linked ? `Linked as ${wa.linkedAs} · last fetched ${ago(wa.lastFetchAt)}${wa.lastResult ? ` · ${wa.lastResult}` : ""}` : "Link once with a QR code, then press Fetch whenever you want the latest expenses."}
           </p>
           {wa.lastError ? <p className="mt-0.5 text-xs font-semibold text-bad">{wa.lastError}</p> : null}
+          {linked && wa.groupId ? <p className="mt-0.5 text-xs text-muted">Fetches by itself at 9 am and 9 pm. Amounts are read from new screenshots when you open this page.</p> : null}
         </div>
         <div className="flex w-full flex-wrap gap-2 sm:w-auto">
           {linked && wa.groupId ? (

@@ -109,8 +109,9 @@ function urlFor(n: NotificationRow): string {
   if (n.kind === "stock_alert") return "/flipkart?tab=forecast";
   if (n.kind === "capacity_alert") return "/team";
   if (n.kind === "sync_alert") {
-    // Which sync: the title says ("Flipkart orders…", "Flipkart stock…", "VR Prime stock…").
+    // Which sync: the title says ("WhatsApp expenses…", "Flipkart orders…", "Flipkart stock…", "VR Prime stock…").
     const t = n.title.toLowerCase();
+    if (t.includes("whatsapp")) return "/expenses";
     if (t.includes("orders")) return "/flipkart?tab=orders";
     if (t.startsWith("flipkart stock")) return "/flipkart?tab=stock";
     return "/flipkart?tab=forecast";

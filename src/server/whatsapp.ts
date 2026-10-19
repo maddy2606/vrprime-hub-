@@ -8,6 +8,7 @@ import {
   initAuthCreds,
   makeWASocket,
   proto,
+  toNumber,
   type AuthenticationCreds,
   type SignalDataSet,
   type SignalDataTypeMap,
@@ -183,7 +184,8 @@ function readMessage(m: WAMessage, groupId: string, me: string | null): { row?: 
     if (text) return { change: { kind: "edited", id: p.key.id, body: text } };
     return {};
   }
-  const ts = Number(m.messageTimestamp ?? 0) * 1000 || Date.now();
+  // Baileys 7 gives the time as a Long object, not a number.
+  const ts = toNumber(m.messageTimestamp) * 1000 || Date.now();
   // In a group the sender is the participant; messages from history carry it on the message rather than its key.
   const participant = m.key.participant || m.participant || "";
   const senderId = m.key.fromMe ? "me" : participant || "member";
@@ -212,6 +214,16 @@ async function saveMessages(db: Db, rows: MessageRow[], changes: Change[]): Prom
     const { data, error } = await db.from("expense_messages").upsert(rows.slice(i, i + 200), { onConflict: "id", ignoreDuplicates: true }).select("id");
     if (error) throw new Error(`Could not save the messages: ${error.message}`);
     added += data?.length ?? 0;
+  }
+  // A message saved with the wrong time (Baileys 7 times were misread as the fetch time) gets its real time when
+  // WhatsApp sends it again, from the phone's history.
+  for (let i = 0; i < rows.length; i += 200) {
+    const batch = rows.slice(i, i + 200);
+    const { data: saved } = await db.from("expense_messages").select("id, sent_at").in("id", batch.map((r) => r.id));
+    for (const old of (saved ?? []) as { id: string; sent_at: string }[]) {
+      const row = batch.find((r) => r.id === old.id);
+      if (row && Math.abs(Date.parse(row.sent_at) - Date.parse(old.sent_at)) > 60_000) await db.from("expense_messages").update({ sent_at: row.sent_at }).eq("id", old.id);
+    }
   }
   for (const ch of changes) {
     if (ch.kind === "deleted") await db.from("expense_messages").update({ deleted: true }).eq("id", ch.id);
@@ -338,7 +350,7 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
       const category = d.category === "Other" && r?.paidTo ? categoryFor(r.paidTo) : d.category;
       await db
         .from("expenses")
-        .update({ text_message_id: d.textMessageId, reason: d.reason, warehouse_id: warehouseFor(d.reason, warehouses), category, text_amount: d.textAmount, read_amount: read, paid_to: r?.paidTo ?? null, reference: r?.reference ?? null, amount, amount_from: source, verdict, image_path: image, thumb_path: thumb, updated_at: now })
+        .update({ spent_at: d.spentAt, text_message_id: d.textMessageId, reason: d.reason, warehouse_id: warehouseFor(d.reason, warehouses), category, text_amount: d.textAmount, read_amount: read, paid_to: r?.paidTo ?? null, reference: r?.reference ?? null, amount, amount_from: source, verdict, image_path: image, thumb_path: thumb, updated_at: now })
         .eq("id", e.id);
     }
   }
@@ -493,7 +505,7 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
   if (seen) {
     // What came for the group, for checking a message that went missing: the time span and the kinds.
     const group = held.filter((m) => m.key.remoteJid === groupId);
-    const times = group.map((m) => Number(m.messageTimestamp ?? 0) * 1000).filter((t) => t > 0);
+    const times = group.map((m) => toNumber(m.messageTimestamp) * 1000).filter((t) => t > 0);
     const hhmm = (t: number) => new Date(t).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
     const kinds = new Map<string, number>();
     for (const m of group) {
@@ -543,31 +555,48 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
       await release(db, { last_error: "Could not connect to WhatsApp." });
       return { ok: false, text: "Could not connect to WhatsApp just now. Try again in a minute." };
     }
-    // Fills gaps: asks the phone for the group's 50 messages before the newest one saved here, so a message this
-    // device missed or could not decrypt comes again (ones already saved are skipped). Needs the phone online.
-    let askedPhone = false;
-    const { data: newest } = await db.from("expense_messages").select("id, sender_id, sent_at").eq("group_id", st.group_id).order("sent_at", { ascending: false }).limit(1).maybeSingle();
-    if (newest) {
-      const fromMe = newest.sender_id === "me";
-      const participant = !fromMe && String(newest.sender_id).includes("@") ? newest.sender_id : undefined;
-      askedPhone = await sock
-        .fetchMessageHistory(50, { remoteJid: st.group_id, id: newest.id, fromMe, participant }, Date.parse(newest.sent_at))
-        .then(() => true)
-        .catch(() => false);
-    }
-    const askedAt = Date.now();
-    // Messages that arrived while the site was away come first; then wait until they stop.
+    // Messages that arrived while the site was away come first; then wait until they stop. A group message that could
+    // not be decrypted is asked for again, so give WhatsApp time to send it once more.
+    const listenUntil = Math.min(deadline - 20_000, Date.now() + 45_000);
+    const locked = () => held.some((m) => m.key.remoteJid === st.group_id && !m.message && m.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT);
     let last = -1;
     let quiet = 0;
-    const listenUntil = Math.min(deadline - 20_000, Date.now() + 45_000);
-    // A group message that could not be decrypted is asked for again; give WhatsApp time to send it once more. The
-    // phone's answer with the recent messages takes a few seconds too.
-    const locked = () => held.some((m) => m.key.remoteJid === st.group_id && !m.message && m.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT);
-    const waitingOnPhone = () => askedPhone && Date.now() - askedAt < 15_000;
-    while (Date.now() < listenUntil && (quiet < (locked() ? 15 : 3) || !pendingDone || waitingOnPhone()) && quiet < 20) {
+    while (Date.now() < listenUntil && (quiet < (locked() ? 15 : 3) || !pendingDone) && quiet < 20) {
       await wait(1000);
       quiet = held.length === last ? quiet + 1 : 0;
       last = held.length;
+    }
+    // Then fills gaps: asks the phone for the group's 50 messages before the newest one (just arrived, or saved here), so
+    // a message this device missed or could not decrypt comes again; ones already saved are skipped. Needs the phone online.
+    const arrived = held
+      .filter((m) => m.key.remoteJid === st.group_id && m.key.id && m.message && toNumber(m.messageTimestamp) > 0)
+      .sort((a, b) => toNumber(b.messageTimestamp) - toNumber(a.messageTimestamp))[0];
+    let anchor: { id: string; fromMe: boolean; participant?: string; at: number } | null = arrived
+      ? { id: arrived.key.id!, fromMe: Boolean(arrived.key.fromMe), participant: arrived.key.participant ?? undefined, at: toNumber(arrived.messageTimestamp) * 1000 }
+      : null;
+    if (!anchor) {
+      const { data: newest } = await db.from("expense_messages").select("id, sender_id, sent_at").eq("group_id", st.group_id).order("sent_at", { ascending: false }).limit(1).maybeSingle();
+      if (newest) {
+        const fromMe = newest.sender_id === "me";
+        anchor = { id: newest.id, fromMe, participant: !fromMe && String(newest.sender_id).includes("@") ? newest.sender_id : undefined, at: Date.parse(newest.sent_at) };
+      }
+    }
+    if (anchor && Date.now() < listenUntil - 5_000) {
+      const asked = await sock
+        .fetchMessageHistory(50, { remoteJid: st.group_id, id: anchor.id, fromMe: anchor.fromMe, participant: anchor.participant }, anchor.at)
+        .then(() => true)
+        .catch(() => false);
+      if (asked) {
+        // The phone's answer takes a few seconds: wait for it, up to 15 seconds.
+        const before = held.length;
+        const askedAt = Date.now();
+        while (Date.now() < listenUntil && Date.now() - askedAt < 15_000) {
+          const size = held.length;
+          await wait(1000);
+          // The answer comes in one go: once it has come and a second passes with nothing more, stop.
+          if (held.length > before && held.length === size && Date.now() - askedAt > 3_000) break;
+        }
+      }
     }
     sock.end(undefined);
     await session.flush();

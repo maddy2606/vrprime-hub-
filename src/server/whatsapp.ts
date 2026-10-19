@@ -490,6 +490,19 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
   let note = `${parts.join(", ")}.`;
   if (locked.size) note += ` ${locked.size} could not be decrypted (${[...new Set(locked.values())].join("; ").slice(0, 120)}).`;
   else if (!added) note += seen ? ` WhatsApp sent ${seen} already saved.` : " WhatsApp sent nothing new for the group.";
+  if (seen) {
+    // What came for the group, for checking a message that went missing: the time span and the kinds.
+    const group = held.filter((m) => m.key.remoteJid === groupId);
+    const times = group.map((m) => Number(m.messageTimestamp ?? 0) * 1000).filter((t) => t > 0);
+    const hhmm = (t: number) => new Date(t).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    const kinds = new Map<string, number>();
+    for (const m of group) {
+      const c = m.message ? extractMessageContent(m.message) : null;
+      const k = !m.message ? `empty${m.messageStubType ? `-${m.messageStubType}` : ""}` : c?.imageMessage ? "image" : c?.conversation || c?.extendedTextMessage ? "text" : Object.keys(c ?? {})[0] ?? "other";
+      kinds.set(k, (kinds.get(k) ?? 0) + 1);
+    }
+    if (times.length) note += ` [${hhmm(Math.min(...times))} to ${hhmm(Math.max(...times))}: ${[...kinds].map(([k, n]) => `${n} ${k}`).join(", ")}]`;
+  }
   return note;
 }
 

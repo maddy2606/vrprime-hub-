@@ -22,6 +22,8 @@ import { DispatchChart, Hero, Movers, OrdersByStage, OrdersTrend, PriorityQueue,
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
 import { fakeTeam } from "@/lib/dev-fixtures-team";
 import { TeamBoard } from "@/components/team/board";
+import { ExpensesBoard } from "@/components/expenses/expenses-board";
+import { FAKE_EXPENSE_MONTHS, FAKE_EXPENSES, FAKE_WHATSAPP } from "@/lib/dev-fixtures-expenses";
 import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { MarkAllReadButton, NotificationList } from "@/components/notifications/notification-list";
@@ -256,6 +258,9 @@ export default async function PreviewPage({
         </div>
       ) : null}
       {view === "team" ? <TeamBoard d={fakeTeam()} /> : null}
+      {view === "expenses" ? (
+        <ExpensesBoard month="2026-10" months={FAKE_EXPENSE_MONTHS} previous={FAKE_EXPENSE_MONTHS[1]} expenses={FAKE_EXPENSES} whatsapp={sp.wa === "none" ? { ...FAKE_WHATSAPP, linkedAs: null, groupId: null, groupName: null } : FAKE_WHATSAPP} today={today} />
+      ) : null}
       {view === "notifications" ? (
         <div className="mx-auto max-w-2xl">
           <PageTitle title="Notifications" sub="3 unread" action={<MarkAllReadButton />} />

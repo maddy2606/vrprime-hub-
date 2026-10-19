@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/api/whatsapp/ping"];
 
 // Keeps the Supabase session fresh and sends signed-out visitors to /login.
 // This is a convenience only: real access control is RLS in Postgres plus the

@@ -165,6 +165,14 @@ export const GaugeIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** A bill with lines: expenses. */
+export const ReceiptIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3z" />
+    <path d="M9 8h6M9 11.5h6M9 15h3.5" />
+  </Icon>
+);
+
 export const RupeeIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M7 5h10M7 9h10M9 5c4 0 6 1.5 6 4s-2 4-6 4h-1l7 6" />

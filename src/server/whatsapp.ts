@@ -530,13 +530,28 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
       await release(db, { last_error: "Could not connect to WhatsApp." });
       return { ok: false, text: "Could not connect to WhatsApp just now. Try again in a minute." };
     }
+    // Fills gaps: asks the phone for the group's 50 messages before the newest one saved here, so a message this
+    // device missed or could not decrypt comes again (ones already saved are skipped). Needs the phone online.
+    let askedPhone = false;
+    const { data: newest } = await db.from("expense_messages").select("id, sender_id, sent_at").eq("group_id", st.group_id).order("sent_at", { ascending: false }).limit(1).maybeSingle();
+    if (newest) {
+      const fromMe = newest.sender_id === "me";
+      const participant = !fromMe && String(newest.sender_id).includes("@") ? newest.sender_id : undefined;
+      askedPhone = await sock
+        .fetchMessageHistory(50, { remoteJid: st.group_id, id: newest.id, fromMe, participant }, Date.parse(newest.sent_at))
+        .then(() => true)
+        .catch(() => false);
+    }
+    const askedAt = Date.now();
     // Messages that arrived while the site was away come first; then wait until they stop.
     let last = -1;
     let quiet = 0;
     const listenUntil = Math.min(deadline - 20_000, Date.now() + 45_000);
-    // A group message that could not be decrypted is asked for again; give WhatsApp time to send it once more.
+    // A group message that could not be decrypted is asked for again; give WhatsApp time to send it once more. The
+    // phone's answer with the recent messages takes a few seconds too.
     const locked = () => held.some((m) => m.key.remoteJid === st.group_id && !m.message && m.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT);
-    while (Date.now() < listenUntil && (quiet < (locked() ? 15 : 3) || !pendingDone) && quiet < 20) {
+    const waitingOnPhone = () => askedPhone && Date.now() - askedAt < 15_000;
+    while (Date.now() < listenUntil && (quiet < (locked() ? 15 : 3) || !pendingDone || waitingOnPhone()) && quiet < 20) {
       await wait(1000);
       quiet = held.length === last ? quiet + 1 : 0;
       last = held.length;

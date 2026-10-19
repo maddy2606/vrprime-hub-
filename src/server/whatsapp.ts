@@ -18,6 +18,7 @@ import pino from "pino";
 import jsQR from "jsqr";
 import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { warehouseFor } from "@/lib/budget";
 import { buildExpenses, categoryFor, pickAmount, readReceipt, settleAmount, type GroupMessage } from "@/lib/expenses";
 import { logError, redactSecrets } from "@/lib/redact";
 import { serverDb } from "@/server/service-db";
@@ -309,6 +310,9 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
   const images = new Map(msgs.map((m) => [m.id as string, m.image_path as string | null]));
   const lost = new Set(msgs.filter((m) => m.media_expired && !m.image_path).map((m) => m.id as string));
   const derived = buildExpenses(list);
+  // Which warehouse each expense was for, from its note ("Delhi k liye", "Lucknow boxes").
+  const { data: whs } = await db.from("warehouses").select("id, name");
+  const warehouses = (whs ?? []) as { id: string; name: string }[];
   const existing = new Map<string, { id: string; key: string; edited: boolean; read_amount: number | null; read_text: string | null; read_done: boolean; verdict: string; status: string }>();
   for (let from = 0; ; from += 1000) {
     const { data } = await db.from("expenses").select("id, key, edited, read_amount, read_text, read_done, verdict, status").not("key", "is", null).gte("spent_at", since).range(from, from + 999);
@@ -324,7 +328,7 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
     const thumb = image && image.endsWith(".webp") ? image.replace(/\.webp$/, "-t.webp") : null;
     if (!e) {
       const { amount, from: source } = pickAmount({ read: null, text: d.textAmount });
-      inserts.push({ key: d.key, image_message_id: d.imageMessageId, text_message_id: d.textMessageId, spent_at: d.spentAt, sender: d.sender, reason: d.reason, category: d.category, text_amount: d.textAmount, amount, amount_from: source, image_path: image, thumb_path: thumb, verdict: lost.has(d.imageMessageId) || (image && image.endsWith(".pdf")) ? "not_payment" : "pending" });
+      inserts.push({ key: d.key, warehouse_id: warehouseFor(d.reason, warehouses), image_message_id: d.imageMessageId, text_message_id: d.textMessageId, spent_at: d.spentAt, sender: d.sender, reason: d.reason, category: d.category, text_amount: d.textAmount, amount, amount_from: source, image_path: image, thumb_path: thumb, verdict: lost.has(d.imageMessageId) || (image && image.endsWith(".pdf")) ? "not_payment" : "pending" });
     } else if (!e.edited) {
       // A screenshot already read: decide from what was read, without reading it again.
       const r = e.read_done && e.read_text ? readReceipt(e.read_text) : null;
@@ -334,7 +338,7 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
       const category = d.category === "Other" && r?.paidTo ? categoryFor(r.paidTo) : d.category;
       await db
         .from("expenses")
-        .update({ text_message_id: d.textMessageId, reason: d.reason, category, text_amount: d.textAmount, read_amount: read, paid_to: r?.paidTo ?? null, reference: r?.reference ?? null, amount, amount_from: source, verdict, image_path: image, thumb_path: thumb, updated_at: now })
+        .update({ text_message_id: d.textMessageId, reason: d.reason, warehouse_id: warehouseFor(d.reason, warehouses), category, text_amount: d.textAmount, read_amount: read, paid_to: r?.paidTo ?? null, reference: r?.reference ?? null, amount, amount_from: source, verdict, image_path: image, thumb_path: thumb, updated_at: now })
         .eq("id", e.id);
     }
   }

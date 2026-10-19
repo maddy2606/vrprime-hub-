@@ -8,9 +8,11 @@ import { Sheet } from "@/components/shell/sheet";
 import { Bar } from "@/components/signal/charts";
 import { useToast } from "@/components/toast";
 import { buttonClass, Chip } from "@/components/ui";
+import { warehouseFor } from "@/lib/budget";
 import { counts, EXPENSE_CATEGORIES, monthSummary } from "@/lib/expenses";
 import { formatINR, formatNumber } from "@/lib/format";
 import { addExpense, chooseExpenseGroup, deleteExpense, saveScreenshotReading, updateExpense } from "@/server/actions/expenses";
+import { BudgetSection, GENERAL, type BudgetPlan, type BudgetWarehouse } from "./budget";
 
 export type ExpenseRow = {
   id: string;
@@ -27,6 +29,8 @@ export type ExpenseRow = {
   status: "new" | "checked" | "ignored";
   /** pending: not read yet; payment: a "payment done" screenshot (counts); not_payment: a QR, a bill, a photo (does not). */
   verdict: "pending" | "payment" | "not_payment";
+  /** The warehouse it was for (from the note, or set by the owner); null = general. */
+  warehouseId: string | null;
   manual: boolean;
   readDone: boolean;
   isPdf: boolean;
@@ -302,19 +306,61 @@ function ScreenshotReader({ rows }: { rows: ExpenseRow[] }) {
 
 // ---- Editing -------------------------------------------------------------------------------------------------------------
 
-function EditSheet({ row, onClose }: { row: ExpenseRow | null; onClose: () => void }) {
+/** Which warehouse an expense was for; "" is general (not tied to one warehouse). */
+function WarehouseField({ value, onChange, warehouses }: { value: string; onChange: (id: string) => void; warehouses: BudgetWarehouse[] }) {
+  return (
+    <label className="flex flex-col gap-1.5 text-sm font-semibold">
+      Warehouse
+      <select className="input" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">General (not one warehouse)</option>
+        {warehouses.map((w) => (
+          <option key={w.id} value={w.id}>
+            {w.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** The note and the warehouse together: until the warehouse is picked by hand, it follows a warehouse the note names. */
+function useNoteAndWarehouse(warehouses: BudgetWarehouse[]) {
+  const [reason, setReason] = useState("");
+  const [warehouse, setWarehouse] = useState("");
+  const [picked, setPicked] = useState(false);
+  return {
+    reason,
+    warehouse,
+    reset: (note: string, id: string | null) => {
+      setReason(note);
+      setWarehouse(id ?? "");
+      setPicked(false);
+    },
+    note: (text: string) => {
+      setReason(text);
+      const named = picked ? null : warehouseFor(text, warehouses);
+      if (named) setWarehouse(named);
+    },
+    pick: (id: string) => {
+      setWarehouse(id);
+      setPicked(true);
+    },
+  };
+}
+
+function EditSheet({ row, onClose, warehouses }: { row: ExpenseRow | null; onClose: () => void; warehouses: BudgetWarehouse[] }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Other");
-  const [reason, setReason] = useState("");
+  const form = useNoteAndWarehouse(warehouses);
   const [prevId, setPrevId] = useState<string | null>(null);
   if (row && row.id !== prevId) {
     setPrevId(row.id);
     setAmount(row.amount === null ? "" : String(row.amount));
     setCategory(row.category);
-    setReason(row.reason ?? "");
+    form.reset(row.reason ?? "", row.warehouseId);
   }
   if (!row) return null;
 
@@ -331,7 +377,7 @@ function EditSheet({ row, onClose }: { row: ExpenseRow | null; onClose: () => vo
       toast.result({ ok: false, message: "The amount should be a number." });
       return;
     }
-    run({ amount: n, category, reason, status: "checked", verdict: "payment" });
+    run({ amount: n, category, reason: form.reason, warehouseId: form.warehouse || null, status: "checked", verdict: "payment" });
   };
 
   return (
@@ -377,9 +423,10 @@ function EditSheet({ row, onClose }: { row: ExpenseRow | null; onClose: () => vo
             ))}
           </select>
         </label>
+        <WarehouseField value={form.warehouse} onChange={form.pick} warehouses={warehouses} />
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           What it was for
-          <textarea className="input min-h-20" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <textarea className="input min-h-20" value={form.reason} onChange={(e) => form.note(e.target.value)} />
         </label>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
@@ -414,14 +461,14 @@ function EditSheet({ row, onClose }: { row: ExpenseRow | null; onClose: () => vo
   );
 }
 
-function AddSheet({ open, onClose, today }: { open: boolean; onClose: () => void; today: string }) {
+function AddSheet({ open, onClose, today, warehouses }: { open: boolean; onClose: () => void; today: string; warehouses: BudgetWarehouse[] }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [day, setDay] = useState(today);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string>("Other");
-  const [reason, setReason] = useState("");
+  const form = useNoteAndWarehouse(warehouses);
   return (
     <Sheet open={open} onClose={onClose} title="Add an expense" subtitle="For one that is not in the WhatsApp group, like cash.">
       <div className="grid gap-3">
@@ -445,17 +492,18 @@ function AddSheet({ open, onClose, today }: { open: boolean; onClose: () => void
         </label>
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           What it was for
-          <textarea className="input min-h-20" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Tempo to Bhiwandi" />
+          <textarea className="input min-h-20" value={form.reason} onChange={(e) => form.note(e.target.value)} placeholder="Tempo to Bhiwandi" />
         </label>
+        <WarehouseField value={form.warehouse} onChange={form.pick} warehouses={warehouses} />
       </div>
       <button
         type="button"
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
-            if (toast.result(await addExpense({ day, amount: Number(amount.replace(/,/g, "")), category, reason }))) {
+            if (toast.result(await addExpense({ day, amount: Number(amount.replace(/,/g, "")), category, reason: form.reason, warehouseId: form.warehouse || null }))) {
               setAmount("");
-              setReason("");
+              form.reset("", null);
               router.refresh();
               onClose();
             }
@@ -472,14 +520,15 @@ function AddSheet({ open, onClose, today }: { open: boolean; onClose: () => void
 
 // ---- The page ------------------------------------------------------------------------------------------------------------
 
-function downloadCsv(month: string, rows: ExpenseRow[]) {
+function downloadCsv(month: string, rows: ExpenseRow[], names: Map<string, string>) {
   const q = (v: unknown) => {
     const s = v === null || v === undefined ? "" : String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const lines = [["Date", "Time", "Amount", "Type", "What it was for", "Paid to", "UPI reference", "Sent by", "Status", "Amount from"].join(",")];
+  const lines = [["Date", "Time", "Amount", "Type", "Warehouse", "What it was for", "Paid to", "UPI reference", "Sent by", "Status", "Amount from"].join(",")];
   for (const r of [...rows].sort((a, b) => a.spentAt.localeCompare(b.spentAt))) {
-    lines.push([istDay(r.spentAt), time.format(new Date(r.spentAt)), r.amount ?? "", r.category, r.reason, r.paidTo, r.reference, r.sender, r.status, r.amountFrom].map(q).join(","));
+    const where = r.warehouseId ? (names.get(r.warehouseId) ?? "") : "General";
+    lines.push([istDay(r.spentAt), time.format(new Date(r.spentAt)), r.amount ?? "", r.category, where, r.reason, r.paidTo, r.reference, r.sender, r.status, r.amountFrom].map(q).join(","));
   }
   const blob = new Blob([`﻿${lines.join("\r\n")}\r\n`], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
@@ -489,20 +538,31 @@ function downloadCsv(month: string, rows: ExpenseRow[]) {
   URL.revokeObjectURL(a.href);
 }
 
-export function ExpensesBoard({ month, months, previous, expenses, whatsapp, today }: { month: string; months: MonthTotal[]; previous: MonthTotal | null; expenses: ExpenseRow[]; whatsapp: WhatsAppState; today: string }) {
+const isReading = (e: ExpenseRow) => e.verdict === "pending" && e.status !== "ignored";
+
+export function ExpensesBoard({ month, months, previous, expenses, whatsapp, today, plan }: { month: string; months: MonthTotal[]; previous: MonthTotal | null; expenses: ExpenseRow[]; whatsapp: WhatsAppState; today: string; plan: BudgetPlan }) {
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [adding, setAdding] = useState(false);
   const [show, setShow] = useState<"payments" | "check" | "reading" | "not">("payments");
+  // One warehouse's expenses only (picked on its budget card); GENERAL for those not tied to one.
+  const [place, setPlace] = useState<string | null>(null);
+  const byId = new Map(plan.warehouses.map((w) => [w.id, w]));
+  const names = new Map(plan.warehouses.map((w) => [w.id, w.name]));
   // Only "payment done" screenshots (and ones added by hand) count; a QR code, a bill or a photo never does.
   const counted = expenses.filter(counts);
-  const reading = expenses.filter((e) => e.verdict === "pending" && e.status !== "ignored");
-  const notCounted = expenses.filter((e) => !counts(e) && !(e.verdict === "pending" && e.status !== "ignored"));
   const s = monthSummary(counted.map((e) => ({ amount: e.amount, category: e.category, status: e.status })));
   const label = months.find((m) => m.month === month)?.label ?? month;
   const change = previous && previous.total > 0 ? Math.round(((s.total - previous.total) / previous.total) * 100) : null;
   const top = s.byCategory[0];
   const maxCat = Math.max(1, ...s.byCategory.map((c) => c.total));
-  const shown = show === "payments" ? counted : show === "check" ? counted.filter((e) => e.status === "new") : show === "reading" ? reading : notCounted;
+  // The list below: everything, or one warehouse's.
+  const here = place === null ? expenses : expenses.filter((e) => (e.warehouseId ?? GENERAL) === place);
+  const placeName = place === null ? null : place === GENERAL ? "General" : (names.get(place) ?? "That warehouse");
+  const hereCounted = here.filter(counts);
+  const hereCheck = hereCounted.filter((e) => e.status === "new");
+  const reading = here.filter(isReading);
+  const notCounted = here.filter((e) => !counts(e) && !isReading(e));
+  const shown = show === "payments" ? hereCounted : show === "check" ? hereCheck : show === "reading" ? reading : notCounted;
   const days = new Map<string, ExpenseRow[]>();
   for (const e of shown) days.set(istDay(e.spentAt), [...(days.get(istDay(e.spentAt)) ?? []), e]);
 
@@ -514,7 +574,7 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
           <p className="mt-0.5 text-sm text-muted">Warehouse spending from the WhatsApp group, month by month</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => downloadCsv(month, expenses)} disabled={!expenses.length} className={buttonClass("secondary")}>
+          <button type="button" onClick={() => downloadCsv(month, expenses, names)} disabled={!expenses.length} className={buttonClass("secondary")}>
             CSV
           </button>
           <button type="button" onClick={() => setAdding(true)} className={buttonClass("secondary")}>
@@ -606,13 +666,22 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
         </section>
       </div>
 
-      <div className="mb-3 mt-6 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-lg font-semibold">Every expense</h2>
+      <BudgetSection plan={plan} expenses={counted} today={today} picked={place} onPick={setPlace} />
+
+      <div id="exp-list" className="mb-3 mt-6 flex scroll-mt-20 flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="font-display text-lg font-semibold">{placeName ? `${placeName} expenses` : "Every expense"}</h2>
+          {placeName ? (
+            <button type="button" onClick={() => setPlace(null)} className={buttonClass("ghost")}>
+              Show all
+            </button>
+          ) : null}
+        </div>
         <div role="group" aria-label="Show" className="inline-flex rounded-xl border border-line bg-panel2 p-0.5">
           {(
             [
-              ["payments", `Payments ${counted.length}`],
-              ["check", `To check ${s.toCheck}`],
+              ["payments", `Payments ${hereCounted.length}`],
+              ["check", `To check ${hereCheck.length}`],
               ...(reading.length ? ([["reading", `Being read ${reading.length}`]] as const) : []),
               ["not", `Not counted ${notCounted.length}`],
             ] as const
@@ -635,7 +704,7 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface2 text-muted">
             <ReceiptIcon className="h-6 w-6" />
           </span>
-          <p className="mt-3 text-base font-bold">{show === "check" ? "Nothing left to check" : `No expenses in ${label} yet`}</p>
+          <p className="mt-3 text-base font-bold">{show === "check" ? "Nothing left to check" : placeName ? `No ${placeName} expenses in ${label}` : `No expenses in ${label} yet`}</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted">{whatsapp.linkedAs ? "Press Fetch from WhatsApp to bring in the latest from the group." : "Link WhatsApp above, or add one by hand."}</p>
         </div>
       ) : (
@@ -663,6 +732,12 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
                         <span className="block truncate text-sm font-bold">{e.reason || (e.paidTo ? `Paid to ${e.paidTo}` : "No note")}</span>
                         <span className="mt-1 flex flex-wrap items-center gap-1.5">
                           <Chip tone="accent">{e.category}</Chip>
+                          {e.warehouseId && byId.has(e.warehouseId) ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold">
+                              <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: byId.get(e.warehouseId)!.color }} />
+                              {byId.get(e.warehouseId)!.name}
+                            </span>
+                          ) : null}
                           {e.verdict === "pending" && e.status !== "ignored" ? <Chip tone="info">Being read</Chip> : null}
                           {e.verdict === "not_payment" ? <Chip>{e.thumbUrl ? "Not a payment" : "No screenshot"}</Chip> : null}
                           {counts(e) && e.status === "new" ? <Chip tone="warn">Check</Chip> : null}
@@ -686,8 +761,8 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
         </div>
       )}
 
-      <EditSheet row={editing} onClose={() => setEditing(null)} />
-      <AddSheet open={adding} onClose={() => setAdding(false)} today={today} />
+      <EditSheet row={editing} onClose={() => setEditing(null)} warehouses={plan.warehouses} />
+      <AddSheet open={adding} onClose={() => setAdding(false)} today={today} warehouses={plan.warehouses} />
     </div>
   );
 }

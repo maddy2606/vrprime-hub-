@@ -55,6 +55,8 @@ const editSchema = z.object({
   reason: z.string().max(2000).nullable().optional(),
   status: z.enum(["new", "checked", "ignored"]).optional(),
   verdict: z.enum(["payment", "not_payment"]).optional(),
+  /** The warehouse it was for; null = general. */
+  warehouseId: z.uuid().nullable().optional(),
 });
 
 /** A correction from the owner: the amount, the type, the note, or checked / set aside. Fetching never undoes it. */
@@ -63,8 +65,9 @@ export async function updateExpense(input: unknown): Promise<ActionResult> {
   if (!me.ok) return me.result;
   const parsed = editSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Check the amount and try again." };
-  const { id, amount, category, reason, status, verdict } = parsed.data;
+  const { id, amount, category, reason, status, verdict, warehouseId } = parsed.data;
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (warehouseId !== undefined) Object.assign(update, { warehouse_id: warehouseId, edited: true });
   if (amount !== undefined) Object.assign(update, { amount, amount_from: amount === null ? null : "typed", edited: true });
   if (category !== undefined) Object.assign(update, { category, edited: true });
   if (reason !== undefined) Object.assign(update, { reason: reason?.trim() || null, edited: true });
@@ -80,6 +83,7 @@ const addSchema = z.object({
   amount: z.number().positive().max(100_000_000),
   category: z.enum(EXPENSE_CATEGORIES),
   reason: z.string().trim().min(1).max(2000),
+  warehouseId: z.uuid().nullable().optional(),
 });
 
 /** An expense not in the WhatsApp group (cash, say), added by hand. */
@@ -88,9 +92,10 @@ export async function addExpense(input: unknown): Promise<ActionResult> {
   if (!me.ok) return me.result;
   const parsed = addSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Fill in the date, amount, type and what it was for." };
-  const { day, amount, category, reason } = parsed.data;
+  const { day, amount, category, reason, warehouseId } = parsed.data;
   const { error } = await me.db.from("expenses").insert({
     spent_at: `${day}T12:00:00+05:30`,
+    warehouse_id: warehouseId ?? null,
     amount,
     amount_from: "typed",
     category,
@@ -129,4 +134,38 @@ export async function chooseExpenseGroup(groupId: unknown): Promise<ActionResult
   const { error } = await db.from("whatsapp_state").update({ group_id: group.id, group_name: group.name, updated_at: new Date().toISOString() }).eq("id", true);
   if (error) return dbError(error, "choose the group");
   return done(`Following "${group.name}". Press Fetch from WhatsApp.`);
+}
+
+const budgetSchema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
+  lines: z
+    .array(
+      z.object({
+        warehouseId: z.uuid().nullable(),
+        labour: z.number().min(0).max(100_000_000),
+        running: z.number().min(0).max(100_000_000),
+      }),
+    )
+    .max(50),
+});
+
+/** The month's budget per warehouse (labour, and running costs), set at the start of the month. Replaces that month's plan. */
+export async function saveBudget(input: unknown): Promise<ActionResult> {
+  const me = await owner();
+  if (!me.ok) return me.result;
+  const parsed = budgetSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Check the amounts: each should be a number of rupees." };
+  const { month, lines } = parsed.data;
+  const ids = lines.map((l) => l.warehouseId ?? "general");
+  if (new Set(ids).size !== ids.length) return { ok: false, message: "A warehouse is in the plan twice." };
+  const { error: delErr } = await me.db.from("expense_budgets").delete().eq("month", month);
+  if (delErr) return dbError(delErr, "save the budget");
+  const rows = lines
+    .filter((l) => l.labour > 0 || l.running > 0)
+    .map((l) => ({ month, warehouse_id: l.warehouseId, labour: l.labour, running: l.running, updated_by: me.userId }));
+  if (rows.length) {
+    const { error } = await me.db.from("expense_budgets").insert(rows);
+    if (error) return dbError(error, "save the budget");
+  }
+  return done("Budget saved");
 }

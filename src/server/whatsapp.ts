@@ -472,6 +472,13 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
     if (change) changes.push(change);
   }
   const added = await saveMessages(db, [...rows.values()], changes);
+  // Group messages WhatsApp delivered but this device could not decrypt (and that were not sent again readable).
+  const locked = new Map<string, string>();
+  for (const m of held) {
+    if (m.key.remoteJid !== groupId || !m.key.id || m.message || m.messageStubType !== proto.WebMessageInfo.StubType.CIPHERTEXT || rows.has(m.key.id)) continue;
+    locked.set(m.key.id, String(m.messageStubParameters?.[0] ?? "unknown"));
+  }
+  if (locked.size) logError("whatsapp undecryptable", new Error([...new Set(locked.values())].join("; ")));
   // Screenshots first (each is checked for a QR code as it is saved), then everything is sorted into expenses again.
   const shots = await saveScreenshots(db, deadline - 9000);
   await checkSavedForQr(db, deadline - 7000);
@@ -479,7 +486,11 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
   const parts = [`${added} new ${added === 1 ? "message" : "messages"}, ${expenses} new ${expenses === 1 ? "payment" : "payments"} to read`];
   if (shots.saved) parts.push(`${shots.saved} ${shots.saved === 1 ? "screenshot" : "screenshots"} saved`);
   if (shots.left) parts.push(`${shots.left} still to download (press Fetch again)`);
-  return `${parts.join(", ")}.`;
+  const seen = held.filter((m) => m.key.remoteJid === groupId).length;
+  let note = `${parts.join(", ")}.`;
+  if (locked.size) note += ` ${locked.size} could not be decrypted (${[...new Set(locked.values())].join("; ").slice(0, 120)}).`;
+  else if (!added) note += seen ? ` WhatsApp sent ${seen} already saved.` : " WhatsApp sent nothing new for the group.";
+  return note;
 }
 
 /**
@@ -523,7 +534,9 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
     let last = -1;
     let quiet = 0;
     const listenUntil = Math.min(deadline - 20_000, Date.now() + 45_000);
-    while (Date.now() < listenUntil && (quiet < 3 || !pendingDone) && quiet < 10) {
+    // A group message that could not be decrypted is asked for again; give WhatsApp time to send it once more.
+    const locked = () => held.some((m) => m.key.remoteJid === st.group_id && !m.message && m.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT);
+    while (Date.now() < listenUntil && (quiet < (locked() ? 15 : 3) || !pendingDone) && quiet < 20) {
       await wait(1000);
       quiet = held.length === last ? quiet + 1 : 0;
       last = held.length;

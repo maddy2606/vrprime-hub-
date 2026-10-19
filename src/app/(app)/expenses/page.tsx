@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ExpensesBoard, type ExpenseRow, type MonthTotal, type WhatsAppState } from "@/components/expenses/expenses-board";
 import { requireUser } from "@/lib/auth";
-import { monthOf } from "@/lib/expenses";
+import { counts, monthOf } from "@/lib/expenses";
 import { todayIST } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,7 +24,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
     db.from("whatsapp_state").select("linked_as, group_id, group_name, groups, last_fetch_at, last_result, last_error, busy_until").maybeSingle(),
     db
       .from("expenses")
-      .select("id, key, spent_at, sender, reason, category, amount, amount_from, text_amount, read_amount, paid_to, reference, status, edited, read_done, image_path, thumb_path")
+      .select("id, key, spent_at, sender, reason, category, amount, amount_from, text_amount, read_amount, paid_to, reference, status, verdict, edited, read_done, image_path, thumb_path")
       .order("spent_at", { ascending: false })
       .limit(10000),
   ]);
@@ -34,7 +34,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   for (const e of all) {
     const m = monthOf(e.spent_at);
     const t = byMonth.get(m) ?? { month: m, label: monthLabel(m), total: 0, count: 0 };
-    if (e.status !== "ignored") {
+    if (counts({ status: String(e.status), verdict: String(e.verdict) })) {
       t.total += Number(e.amount ?? 0);
       t.count += 1;
     }
@@ -68,6 +68,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
     paidTo: e.paid_to,
     reference: e.reference,
     status: e.status,
+    verdict: e.verdict,
     manual: e.key === null,
     readDone: e.read_done,
     isPdf: typeof e.image_path === "string" && e.image_path.endsWith(".pdf"),

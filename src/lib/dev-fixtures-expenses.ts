@@ -15,6 +15,7 @@ const row = (id: number, day: number, hour: number, amount: number | null, categ
   paidTo: null,
   reference: null,
   status: "checked",
+  verdict: "payment",
   manual: false,
   readDone: true,
   isPdf: false,
@@ -27,9 +28,9 @@ export const FAKE_EXPENSES: ExpenseRow[] = [
   row(1, 19, 11, 1250, "Packing material", "Brown tape 10 rolls", { paidTo: "Fake Packaging Co", reference: "429316843210" }),
   row(2, 19, 10, 800, "Transport and courier", "Tempo bhada to Bhiwandi", { status: "new", amountFrom: "note", readAmount: null, textAmount: 800 }),
   row(3, 18, 17, 240, "Food and tea", "Chai and biscuits for the team"),
-  row(4, 18, 12, null, "Other", "Fake shop", { status: "new", amountFrom: null }),
+  row(4, 18, 12, null, "Other", "Fake shop QR", { status: "new", amountFrom: null, verdict: "not_payment" }),
   row(5, 17, 9, 2300, "Rent and utilities", "Light bill October", { paidTo: "Fake Electricity Board" }),
-  row(6, 16, 15, 560, "Fuel", "Petrol for delivery bike", { status: "ignored" }),
+  row(6, 16, 15, 560, "Fuel", "Petrol for delivery bike", { verdict: "pending", status: "new" }),
   row(7, 15, 13, 4500, "Staff and labour", "Loading labour, 3 people", { manual: true, amountFrom: "typed" }),
 ];
 

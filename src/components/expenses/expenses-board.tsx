@@ -8,7 +8,7 @@ import { Sheet } from "@/components/shell/sheet";
 import { Bar } from "@/components/signal/charts";
 import { useToast } from "@/components/toast";
 import { buttonClass, Chip } from "@/components/ui";
-import { EXPENSE_CATEGORIES, monthSummary } from "@/lib/expenses";
+import { counts, EXPENSE_CATEGORIES, monthSummary } from "@/lib/expenses";
 import { formatINR, formatNumber } from "@/lib/format";
 import { addExpense, chooseExpenseGroup, deleteExpense, saveScreenshotReading, updateExpense } from "@/server/actions/expenses";
 
@@ -25,6 +25,8 @@ export type ExpenseRow = {
   paidTo: string | null;
   reference: string | null;
   status: "new" | "checked" | "ignored";
+  /** pending: not read yet; payment: a "payment done" screenshot (counts); not_payment: a QR, a bill, a photo (does not). */
+  verdict: "pending" | "payment" | "not_payment";
   manual: boolean;
   readDone: boolean;
   isPdf: boolean;
@@ -246,7 +248,7 @@ function WhatsAppBar({ wa }: { wa: WhatsAppState }) {
 /** Reads the amount, payee and UPI reference from screenshots not read yet, a few at a time, then refreshes the page. */
 function ScreenshotReader({ rows }: { rows: ExpenseRow[] }) {
   const router = useRouter();
-  const todo = rows.filter((r) => !r.readDone && r.imageUrl && !r.isPdf);
+  const todo = rows.filter((r) => r.verdict === "pending" && r.imageUrl && !r.isPdf);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const started = useRef(false);
   const key = todo.map((r) => r.id).join(",");
@@ -329,14 +331,23 @@ function EditSheet({ row, onClose }: { row: ExpenseRow | null; onClose: () => vo
       toast.result({ ok: false, message: "The amount should be a number." });
       return;
     }
-    run({ amount: n, category, reason, status: "checked" });
+    run({ amount: n, category, reason, status: "checked", verdict: "payment" });
   };
 
   return (
     <Sheet open={Boolean(row)} onClose={onClose} title="Expense" subtitle={`${dayHead.format(new Date(row.spentAt))}, ${time.format(new Date(row.spentAt))}${row.sender ? ` · ${row.sender}` : ""}`}>
+      {row.verdict !== "payment" ? (
+        <p className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
+          {row.verdict === "pending"
+            ? "This screenshot has not been read yet, so it does not count yet."
+            : "This does not look like a payment done screenshot (it may be a QR code, a bill or a photo), so it does not count. If it is a payment, fill in the amount and press Count it and save."}
+        </p>
+      ) : null}
       {row.imageUrl && !row.isPdf ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={row.imageUrl} alt="Payment screenshot" className="mb-4 max-h-[50vh] w-full rounded-xl border border-line bg-surface2 object-contain" />
+        <a href={row.imageUrl} target="_blank" rel="noreferrer" className="mb-4 block" aria-label="Open the screenshot full size">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={row.imageUrl} alt="Payment screenshot" className="max-h-[55vh] w-full rounded-xl border border-line bg-surface2 object-contain" />
+        </a>
       ) : null}
       {row.isPdf && row.imageUrl ? (
         <a href={row.imageUrl} target="_blank" rel="noreferrer" className={buttonClass("secondary", "mb-4 w-full")}>
@@ -372,17 +383,13 @@ function EditSheet({ row, onClose }: { row: ExpenseRow | null; onClose: () => vo
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" disabled={pending} onClick={save} className={buttonClass("primary", "flex-1")}>
           <CheckIcon className="h-4 w-4" />
-          Save and mark checked
+          {row.verdict === "payment" && row.status !== "ignored" ? "Save and mark checked" : "Count it and save"}
         </button>
-        {row.status === "ignored" ? (
-          <button type="button" disabled={pending} onClick={() => run({ status: "new" })} className={buttonClass("secondary")}>
-            Count it again
+        {row.verdict === "payment" && row.status !== "ignored" ? (
+          <button type="button" disabled={pending} onClick={() => run({ verdict: "not_payment", status: "new" })} className={buttonClass("secondary")}>
+            Not a payment
           </button>
-        ) : (
-          <button type="button" disabled={pending} onClick={() => run({ status: "ignored" })} className={buttonClass("secondary")}>
-            Not an expense
-          </button>
-        )}
+        ) : null}
         {row.manual ? (
           <button
             type="button"
@@ -483,13 +490,17 @@ function downloadCsv(month: string, rows: ExpenseRow[]) {
 export function ExpensesBoard({ month, months, previous, expenses, whatsapp, today }: { month: string; months: MonthTotal[]; previous: MonthTotal | null; expenses: ExpenseRow[]; whatsapp: WhatsAppState; today: string }) {
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [adding, setAdding] = useState(false);
-  const [show, setShow] = useState<"all" | "check">("all");
-  const s = monthSummary(expenses.map((e) => ({ amount: e.amount, category: e.category, status: e.status })));
+  const [show, setShow] = useState<"payments" | "check" | "reading" | "not">("payments");
+  // Only "payment done" screenshots (and ones added by hand) count; a QR code, a bill or a photo never does.
+  const counted = expenses.filter(counts);
+  const reading = expenses.filter((e) => e.verdict === "pending" && e.status !== "ignored");
+  const notCounted = expenses.filter((e) => !counts(e) && !(e.verdict === "pending" && e.status !== "ignored"));
+  const s = monthSummary(counted.map((e) => ({ amount: e.amount, category: e.category, status: e.status })));
   const label = months.find((m) => m.month === month)?.label ?? month;
   const change = previous && previous.total > 0 ? Math.round(((s.total - previous.total) / previous.total) * 100) : null;
   const top = s.byCategory[0];
   const maxCat = Math.max(1, ...s.byCategory.map((c) => c.total));
-  const shown = expenses.filter((e) => (show === "check" ? e.status === "new" : true));
+  const shown = show === "payments" ? counted : show === "check" ? counted.filter((e) => e.status === "new") : show === "reading" ? reading : notCounted;
   const days = new Map<string, ExpenseRow[]>();
   for (const e of shown) days.set(istDay(e.spentAt), [...(days.get(istDay(e.spentAt)) ?? []), e]);
 
@@ -598,8 +609,10 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
         <div role="group" aria-label="Show" className="inline-flex rounded-xl border border-line bg-panel2 p-0.5">
           {(
             [
-              ["all", `All ${expenses.length}`],
+              ["payments", `Payments ${counted.length}`],
               ["check", `To check ${s.toCheck}`],
+              ...(reading.length ? ([["reading", `Being read ${reading.length}`]] as const) : []),
+              ["not", `Not counted ${notCounted.length}`],
             ] as const
           ).map(([k, text]) => (
             <button
@@ -629,16 +642,17 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
             <section key={day} aria-label={day}>
               <h3 className="mb-2 flex items-baseline justify-between px-1 text-sm font-bold">
                 <span>{dayHead.format(new Date(`${day}T12:00:00+05:30`))}</span>
-                <span className="font-mono text-xs text-muted tabular-nums">{formatINR(list.filter((e) => e.status !== "ignored").reduce((n, e) => n + (e.amount ?? 0), 0))}</span>
+                <span className="font-mono text-xs text-muted tabular-nums">{formatINR(list.filter(counts).reduce((n, e) => n + (e.amount ?? 0), 0))}</span>
               </h3>
               <ul className="sp-card divide-y divide-line-soft overflow-hidden">
                 {list.map((e) => (
                   <li key={e.id}>
-                    <button type="button" onClick={() => setEditing(e)} className={`focus-ring flex w-full items-center gap-3 px-3 py-3 text-left transition hover:bg-surface2/60 sm:px-4 ${e.status === "ignored" ? "opacity-50" : ""}`}>
-                      <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-surface2 text-muted">
+                    <button type="button" onClick={() => setEditing(e)} className={`focus-ring flex w-full items-center gap-3 px-3 py-3 text-left transition hover:bg-surface2/60 sm:px-4 ${counts(e) ? "" : "opacity-60"}`}>
+                      {/* The whole screenshot, small (phone screenshots are tall). */}
+                      <span className="flex h-[4.5rem] w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-surface2 text-muted">
                         {e.thumbUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={e.thumbUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          <img src={e.thumbUrl} alt="" className="h-full w-full object-contain" loading="lazy" />
                         ) : (
                           <ReceiptIcon className="h-6 w-6" />
                         )}
@@ -647,7 +661,9 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
                         <span className="block truncate text-sm font-bold">{e.reason || (e.paidTo ? `Paid to ${e.paidTo}` : "No note")}</span>
                         <span className="mt-1 flex flex-wrap items-center gap-1.5">
                           <Chip tone="accent">{e.category}</Chip>
-                          {e.status === "new" ? <Chip tone="warn">Check</Chip> : null}
+                          {e.verdict === "pending" && e.status !== "ignored" ? <Chip tone="info">Being read</Chip> : null}
+                          {e.verdict === "not_payment" ? <Chip>Not a payment</Chip> : null}
+                          {counts(e) && e.status === "new" ? <Chip tone="warn">Check</Chip> : null}
                           {e.status === "ignored" ? <Chip>Not counted</Chip> : null}
                           <span className="text-[11px] text-muted">
                             {time.format(new Date(e.spentAt))}

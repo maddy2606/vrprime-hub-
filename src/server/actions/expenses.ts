@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getActiveUser } from "@/lib/auth";
-import { EXPENSE_CATEGORIES, pickAmount, readReceipt } from "@/lib/expenses";
+import { categoryFor, EXPENSE_CATEGORIES, pickAmount, readReceipt } from "@/lib/expenses";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
@@ -31,13 +31,15 @@ export async function saveScreenshotReading(id: unknown, text: unknown): Promise
   if (!me.ok) return me.result;
   const parsed = z.object({ id: z.uuid(), text: z.string().max(20_000) }).safeParse({ id, text });
   if (!parsed.success) return { ok: false, message: "That reading could not be saved." };
-  const { data: e, error } = await me.db.from("expenses").select("edited, text_amount, amount_from, amount").eq("id", parsed.data.id).maybeSingle();
+  const { data: e, error } = await me.db.from("expenses").select("edited, text_amount, amount_from, amount, category, verdict").eq("id", parsed.data.id).maybeSingle();
   if (error || !e) return dbError(error ?? { message: "not found" }, "save the screenshot reading");
   const r = readReceipt(parsed.data.text);
   const update: Record<string, unknown> = { read_text: parsed.data.text.slice(0, 4000), read_done: true, updated_at: new Date().toISOString() };
   if (!e.edited) {
+    // Only a "payment done" screenshot counts; anything else (a QR code, a bill, a photo) is kept but not counted.
     const { amount, from } = e.amount_from === "typed" ? { amount: e.amount, from: "typed" } : pickAmount({ read: r.amount, text: e.text_amount });
-    Object.assign(update, { read_amount: r.amount, paid_to: r.paidTo, reference: r.reference, amount, amount_from: from });
+    const category = e.category === "Other" && r.paidTo ? categoryFor(r.paidTo) : e.category;
+    Object.assign(update, { read_amount: r.amount, paid_to: r.paidTo, reference: r.reference, amount, amount_from: from, category, verdict: r.payment ? "payment" : "not_payment" });
   }
   const { error: upErr } = await me.db.from("expenses").update(update).eq("id", parsed.data.id);
   if (upErr) return dbError(upErr, "save the screenshot reading");
@@ -50,6 +52,7 @@ const editSchema = z.object({
   category: z.enum(EXPENSE_CATEGORIES).optional(),
   reason: z.string().max(2000).nullable().optional(),
   status: z.enum(["new", "checked", "ignored"]).optional(),
+  verdict: z.enum(["payment", "not_payment"]).optional(),
 });
 
 /** A correction from the owner: the amount, the type, the note, or checked / set aside. Fetching never undoes it. */
@@ -58,15 +61,16 @@ export async function updateExpense(input: unknown): Promise<ActionResult> {
   if (!me.ok) return me.result;
   const parsed = editSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Check the amount and try again." };
-  const { id, amount, category, reason, status } = parsed.data;
+  const { id, amount, category, reason, status, verdict } = parsed.data;
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (amount !== undefined) Object.assign(update, { amount, amount_from: amount === null ? null : "typed", edited: true });
   if (category !== undefined) Object.assign(update, { category, edited: true });
   if (reason !== undefined) Object.assign(update, { reason: reason?.trim() || null, edited: true });
   if (status !== undefined) update.status = status;
+  if (verdict !== undefined) Object.assign(update, { verdict, edited: true });
   const { error } = await me.db.from("expenses").update(update).eq("id", id);
   if (error) return dbError(error, "save the expense");
-  return done(status === "checked" ? "Marked checked" : status === "ignored" ? "Set aside" : "Saved");
+  return done(verdict === "payment" ? "Counted as an expense" : verdict === "not_payment" ? "Not counted" : status === "checked" ? "Marked checked" : status === "ignored" ? "Set aside" : "Saved");
 }
 
 const addSchema = z.object({
@@ -90,6 +94,7 @@ export async function addExpense(input: unknown): Promise<ActionResult> {
     category,
     reason,
     status: "checked",
+    verdict: "payment",
     edited: true,
     created_by: me.userId,
   });

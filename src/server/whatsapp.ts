@@ -15,9 +15,10 @@ import {
   type WASocket,
 } from "@whiskeysockets/baileys";
 import pino from "pino";
+import jsQR from "jsqr";
 import sharp from "sharp";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildExpenses, pickAmount, type GroupMessage } from "@/lib/expenses";
+import { buildExpenses, categoryFor, pickAmount, readReceipt, type GroupMessage } from "@/lib/expenses";
 import { logError, redactSecrets } from "@/lib/redact";
 import { serverDb } from "@/server/service-db";
 
@@ -166,7 +167,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ---- Messages to rows ----------------------------------------------------------------------------------------------------
 
-type MessageRow = { id: string; group_id: string; sent_at: string; sender: string | null; kind: "text" | "image" | "document"; body: string | null; media: unknown };
+type MessageRow = { id: string; group_id: string; sent_at: string; sender: string | null; sender_id: string; kind: "text" | "image" | "document"; body: string | null; media: unknown };
 type Change = { kind: "deleted"; id: string } | { kind: "edited"; id: string; body: string };
 
 function readMessage(m: WAMessage, groupId: string, me: string | null): { row?: MessageRow; change?: Change } {
@@ -182,8 +183,11 @@ function readMessage(m: WAMessage, groupId: string, me: string | null): { row?: 
     return {};
   }
   const ts = Number(m.messageTimestamp ?? 0) * 1000 || Date.now();
-  const sender = m.key.fromMe ? (me ?? "You") : (m.pushName ?? (m.key.participant ?? "").split("@")[0] ?? null);
-  const base = { id: m.key.id, group_id: groupId, sent_at: new Date(ts).toISOString(), sender: sender || null };
+  // In a group the sender is the participant; messages from history carry it on the message rather than its key.
+  const participant = m.key.participant || m.participant || "";
+  const senderId = m.key.fromMe ? "me" : participant || "member";
+  const sender = m.key.fromMe ? (me ?? "You") : (m.pushName ?? null);
+  const base = { id: m.key.id, group_id: groupId, sent_at: new Date(ts).toISOString(), sender, sender_id: senderId };
   if (c.imageMessage) {
     const i = c.imageMessage;
     return { row: { ...base, kind: "image", body: i.caption ?? null, media: toJson({ type: "image", mediaKey: i.mediaKey, directPath: i.directPath, url: i.url, mimetype: i.mimetype }) } };
@@ -215,14 +219,23 @@ async function saveMessages(db: Db, rows: MessageRow[], changes: Change[]): Prom
   return added;
 }
 
-/** Downloads the screenshots not saved yet (newest first) and stores a small and a full-size copy. Stops at `until`. */
+/** Whether an image is a QR code (a "scanner" posted to be paid): never an expense. */
+async function isQrImage(file: Buffer): Promise<boolean> {
+  try {
+    const { data, info } = await sharp(file).resize({ width: 900, height: 900, fit: "inside", withoutEnlargement: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    return jsQR(new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength), info.width, info.height, { inversionAttempts: "attemptBoth" }) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/** Downloads the screenshots not saved yet (newest first), checks each for a QR code, and stores a small and a full-size copy. */
 async function saveScreenshots(db: Db, until: number): Promise<{ saved: number; left: number; failed: number }> {
   const { data, error } = await db.from("expense_messages").select("id, kind, media").not("media", "is", null).is("image_path", null).eq("deleted", false).order("sent_at", { ascending: false }).limit(200);
   if (error) throw new Error(`Could not list the screenshots: ${error.message}`);
   let saved = 0;
   let failed = 0;
-  const rows = data ?? [];
-  for (const r of rows) {
+  for (const r of data ?? []) {
     if (Date.now() > until) break;
     try {
       const media = fromJson<{ type: "image" | "document"; mediaKey: Uint8Array; directPath: string; url: string; mimetype?: string }>(r.media);
@@ -232,21 +245,23 @@ async function saveScreenshots(db: Db, until: number): Promise<{ saved: number; 
       const file = Buffer.concat(chunks);
       let path: string;
       let thumb: string | null = null;
+      let qr = false;
       if (media.mimetype === "application/pdf") {
         path = `wa/${r.id}.pdf`;
         const up = await db.storage.from(BUCKET).upload(path, file, { contentType: "application/pdf", upsert: true });
         if (up.error) throw up.error;
       } else {
+        qr = await isQrImage(file);
         path = `wa/${r.id}.webp`;
         thumb = `wa/${r.id}-t.webp`;
         const full = await sharp(file).rotate().resize({ width: 1280, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
-        const small = await sharp(file).rotate().resize({ width: 320, withoutEnlargement: true }).webp({ quality: 60 }).toBuffer();
+        const small = await sharp(file).rotate().resize({ width: 360, withoutEnlargement: true }).webp({ quality: 62 }).toBuffer();
         const a = await db.storage.from(BUCKET).upload(path, full, { contentType: "image/webp", upsert: true });
         if (a.error) throw a.error;
         const b = await db.storage.from(BUCKET).upload(thumb, small, { contentType: "image/webp", upsert: true });
         if (b.error) throw b.error;
       }
-      await db.from("expense_messages").update({ image_path: path, media: null }).eq("id", r.id);
+      await db.from("expense_messages").update({ image_path: path, media: null, is_qr: qr }).eq("id", r.id);
       await db.from("expenses").update({ image_path: path, thumb_path: thumb }).eq("image_message_id", r.id);
       saved++;
     } catch (e) {
@@ -261,49 +276,64 @@ async function saveScreenshots(db: Db, until: number): Promise<{ saved: number; 
   return { saved, left: count ?? 0, failed };
 }
 
-/**
- * Turns the group's messages around the new ones into expenses: new ones are added, ones the owner has not touched are
- * brought up to date (a later note, an edit), a note that turned out to belong to a screenshot stops being an expense of
- * its own, and a deleted message's expense is set aside.
- */
-async function updateExpenses(db: Db, groupId: string, from: string, to: string): Promise<number> {
-  const lo = new Date(Date.parse(from) - 86_400_000).toISOString();
-  const hi = new Date(Date.parse(to) + 86_400_000).toISOString();
-  const { data: msgs, error } = await db.from("expense_messages").select("id, sent_at, sender, kind, body, deleted, image_path").eq("group_id", groupId).gte("sent_at", lo).lte("sent_at", hi).order("sent_at");
-  if (error) throw new Error(`Could not read the messages: ${error.message}`);
-  const list: GroupMessage[] = (msgs ?? []).map((m) => ({ id: m.id, sentAt: m.sent_at, sender: m.sender, kind: m.kind, body: m.body, deleted: m.deleted }));
-  const images = new Map((msgs ?? []).map((m) => [m.id as string, m.image_path as string | null]));
-  const derived = buildExpenses(list);
-  const ids = list.map((m) => m.id);
-  const existing = new Map<string, { id: string; key: string; edited: boolean; read_amount: number | null; text_message_id: string | null; image_message_id: string | null; status: string }>();
-  for (let i = 0; i < ids.length; i += 300) {
-    const { data } = await db.from("expenses").select("id, key, edited, read_amount, text_message_id, image_message_id, status").in("key", ids.slice(i, i + 300));
-    for (const e of data ?? []) existing.set(e.key, e);
+/** Checks screenshots saved before QR checking existed (or left unchecked) for a QR code, from the saved copy. */
+async function checkSavedForQr(db: Db, until: number): Promise<void> {
+  const { data } = await db.from("expense_messages").select("id, image_path").not("image_path", "is", null).is("is_qr", null).like("image_path", "%.webp").limit(200);
+  for (const r of data ?? []) {
+    if (Date.now() > until) break;
+    const { data: blob } = await db.storage.from(BUCKET).download(r.image_path);
+    if (!blob) continue;
+    const qr = await isQrImage(Buffer.from(await blob.arrayBuffer()));
+    await db.from("expense_messages").update({ is_qr: qr }).eq("id", r.id);
   }
+}
+
+/** How far back the group's messages are sorted into expenses again on every fetch, so better rules reach old ones too. */
+const RESORT_DAYS = 400;
+
+/**
+ * Sorts the group's messages into expenses: one per payment screenshot (never a QR code, never chat), with its reason.
+ * New ones are added; ones the owner has not touched are brought up to date (a later note, an edit, better rules); one
+ * that is no longer an expense (a QR code, chat, a deleted message) goes, unless the owner checked or corrected it.
+ */
+async function updateExpenses(db: Db, groupId: string): Promise<number> {
+  const since = new Date(Date.now() - RESORT_DAYS * 86_400_000).toISOString();
+  const msgs: Record<string, any>[] = []; // eslint-disable-line @typescript-eslint/no-explicit-any
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db.from("expense_messages").select("id, sent_at, sender, sender_id, kind, body, deleted, image_path, is_qr").eq("group_id", groupId).gte("sent_at", since).order("sent_at").range(from, from + 999);
+    if (error) throw new Error(`Could not read the messages: ${error.message}`);
+    msgs.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+  const list: GroupMessage[] = msgs.map((m) => ({ id: m.id, sentAt: m.sent_at, sender: m.sender, senderId: m.sender_id, kind: m.kind, body: m.body, deleted: m.deleted, isQr: m.is_qr }));
+  const images = new Map(msgs.map((m) => [m.id as string, m.image_path as string | null]));
+  const derived = buildExpenses(list);
+  const existing = new Map<string, { id: string; key: string; edited: boolean; read_amount: number | null; read_text: string | null; read_done: boolean; verdict: string; status: string }>();
+  for (let from = 0; ; from += 1000) {
+    const { data } = await db.from("expenses").select("id, key, edited, read_amount, read_text, read_done, verdict, status").not("key", "is", null).gte("spent_at", since).range(from, from + 999);
+    for (const e of data ?? []) existing.set(e.key, e);
+    if (!data || data.length < 1000) break;
+  }
+  const now = new Date().toISOString();
   let added = 0;
   const inserts = [];
   for (const d of derived) {
     const e = existing.get(d.key);
-    const image = d.imageMessageId ? (images.get(d.imageMessageId) ?? null) : null;
+    const image = images.get(d.imageMessageId) ?? null;
+    const thumb = image && image.endsWith(".webp") ? image.replace(/\.webp$/, "-t.webp") : null;
     if (!e) {
       const { amount, from: source } = pickAmount({ read: null, text: d.textAmount });
-      inserts.push({
-        key: d.key,
-        image_message_id: d.imageMessageId,
-        text_message_id: d.textMessageId,
-        spent_at: d.spentAt,
-        sender: d.sender,
-        reason: d.reason,
-        category: d.category,
-        text_amount: d.textAmount,
-        amount,
-        amount_from: source,
-        image_path: image,
-        thumb_path: image && image.endsWith(".webp") ? image.replace(/\.webp$/, "-t.webp") : null,
-      });
+      inserts.push({ key: d.key, image_message_id: d.imageMessageId, text_message_id: d.textMessageId, spent_at: d.spentAt, sender: d.sender, reason: d.reason, category: d.category, text_amount: d.textAmount, amount, amount_from: source, image_path: image, thumb_path: thumb, verdict: image && image.endsWith(".pdf") ? "not_payment" : "pending" });
     } else if (!e.edited) {
-      const { amount, from: source } = pickAmount({ read: e.read_amount, text: d.textAmount });
-      await db.from("expenses").update({ text_message_id: d.textMessageId, reason: d.reason, category: d.category, text_amount: d.textAmount, amount, amount_from: source, updated_at: new Date().toISOString() }).eq("id", e.id);
+      // A screenshot already read: decide from what was read, without reading it again.
+      const r = e.read_done && e.read_text ? readReceipt(e.read_text) : null;
+      const verdict = e.verdict !== "pending" ? e.verdict : r ? (r.payment ? "payment" : "not_payment") : "pending";
+      const { amount, from: source } = pickAmount({ read: r ? r.amount : e.read_amount, text: d.textAmount });
+      const category = d.category === "Other" && r?.paidTo ? categoryFor(r.paidTo) : d.category;
+      await db
+        .from("expenses")
+        .update({ text_message_id: d.textMessageId, reason: d.reason, category, text_amount: d.textAmount, read_amount: r ? r.amount : e.read_amount, paid_to: r?.paidTo ?? null, reference: r?.reference ?? null, amount, amount_from: source, verdict, image_path: image, thumb_path: thumb, updated_at: now })
+        .eq("id", e.id);
     }
   }
   for (let i = 0; i < inserts.length; i += 200) {
@@ -311,11 +341,9 @@ async function updateExpenses(db: Db, groupId: string, from: string, to: string)
     if (insErr) throw new Error(`Could not save the expenses: ${insErr.message}`);
     added += data?.length ?? 0;
   }
-  // A note-only expense whose note now belongs to a screenshot, or whose message was deleted: set aside unless corrected.
   const wanted = new Set(derived.map((d) => d.key));
-  for (const e of existing.values()) {
-    if (!wanted.has(e.key) && !e.edited && e.status !== "ignored") await db.from("expenses").update({ status: "ignored", updated_at: new Date().toISOString() }).eq("id", e.id);
-  }
+  const gone = [...existing.values()].filter((e) => !wanted.has(e.key) && !e.edited && e.status !== "checked").map((e) => e.id);
+  for (let i = 0; i < gone.length; i += 200) await db.from("expenses").delete().in("id", gone.slice(i, i + 200));
   return added;
 }
 
@@ -437,17 +465,12 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
     if (row) rows.set(row.id, row);
     if (change) changes.push(change);
   }
-  const list = [...rows.values()];
-  const added = await saveMessages(db, list, changes);
-  let expenses = 0;
-  if (list.length || changes.length) {
-    const times = list.map((r) => r.sent_at).sort();
-    const from = times[0] ?? new Date().toISOString();
-    const to = times[times.length - 1] ?? from;
-    expenses = await updateExpenses(db, groupId, from, to);
-  }
-  const shots = await saveScreenshots(db, deadline - 4000);
-  const parts = [`${added} new ${added === 1 ? "message" : "messages"}, ${expenses} new ${expenses === 1 ? "expense" : "expenses"}`];
+  const added = await saveMessages(db, [...rows.values()], changes);
+  // Screenshots first (each is checked for a QR code as it is saved), then everything is sorted into expenses again.
+  const shots = await saveScreenshots(db, deadline - 9000);
+  await checkSavedForQr(db, deadline - 7000);
+  const expenses = await updateExpenses(db, groupId);
+  const parts = [`${added} new ${added === 1 ? "message" : "messages"}, ${expenses} new ${expenses === 1 ? "payment" : "payments"} to read`];
   if (shots.saved) parts.push(`${shots.saved} ${shots.saved === 1 ? "screenshot" : "screenshots"} saved`);
   if (shots.left) parts.push(`${shots.left} still to download (press Fetch again)`);
   return `${parts.join(", ")}.`;

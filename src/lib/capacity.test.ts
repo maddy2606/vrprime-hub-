@@ -102,6 +102,20 @@ test("right after a sale, a falling last week is not forecast to rise again", ()
   assert.ok(f.days.every((d) => d.orders <= Math.round(f.level) + 1), "no rise is forecast");
 });
 
+test("one sale day does not lift the level or start a trend", () => {
+  // Three steady weeks at 700 with small ups and downs, a sale day of 1,050 two days ago, then a quiet day.
+  const f = forecastOrders(hist(28, (i) => (i === 26 ? 1050 : i === 27 ? 450 : 700 + ((i % 3) - 1) * 20)), TODAY);
+  assert.ok(f.ready);
+  assert.ok(Math.abs(f.level - 700) < 25, `the level stays near 700: ${f.level}`);
+  assert.ok(f.days.every((d) => d.orders < 800), `no climb after the sale: ${f.days.map((d) => d.orders).join(" ")}`);
+});
+
+test("a trend moves the forecast by at most a fifth of the level", () => {
+  const f = forecastOrders(hist(28, (i) => 400 + i * 40), TODAY);
+  assert.ok(f.ready);
+  assert.ok(f.days[13].orders <= Math.round(f.level * 1.2) + 1, `day 14 ${f.days[13].orders} vs level ${f.level}`);
+});
+
 test("attendance rate: present 1, half 0.5, absent and leave 0; too few marks means unknown", () => {
   assert.equal(attendanceRate([{ status: "present" }, { status: "present" }]), null);
   const marks = (["present", "present", "half", "absent", "present", "leave"] as const).map((status) => ({ status }));

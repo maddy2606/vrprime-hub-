@@ -40,6 +40,14 @@ const WINDOW_DAYS = 28;
 const DAMPING = 0.9;
 /** How far from the days around it a weekday must be, every week, to count as a habit (5%). */
 const HABIT = 0.05;
+/** The most a trend may move the forecast over the whole horizon, as a share of the level (20%). */
+const MAX_TREND_SHARE = 0.2;
+
+/** The average of a week without its highest and lowest day, so one sale day (or one dead day) does not move it. */
+function steady(xs: number[]): number {
+  if (xs.length < 5) return mean(xs);
+  return mean([...xs].sort((a, b) => a - b).slice(1, -1));
+}
 
 export type OrdersForecast =
   | { ready: false; haveDays: number; needDays: number }
@@ -60,8 +68,10 @@ export type OrdersForecast =
  * Orders per day for the next `horizon` days. `history` is orders placed per day (a day with no row had no orders, but days
  * before the first row are unknown, not zero). Today is left out of the history: it is not finished.
  *
- * It takes the 7-day average as the level, fits a straight line to the last two weeks of that average for the trend, damps
- * the trend, and (with 3+ weeks of history) applies each weekday's usual share.
+ * It takes the last 7 days without their highest and lowest as the level (so one sale day does not lift every day after
+ * it), fits a straight line to the last two weeks of the 7-day average for the trend, keeps the trend only when the last
+ * week and the last three days agree with it, damps it and holds its total effect to 20% of the level, and (with 3+
+ * weeks of history) applies each weekday's usual share.
  */
 export function forecastOrders(history: Record<string, number>, today: string, horizon = 14): OrdersForecast {
   const known = Object.keys(history).filter((d) => d < today && history[d] >= 0).sort();
@@ -78,7 +88,7 @@ export function forecastOrders(history: Record<string, number>, today: string, h
 
   const avg7: number[] = [];
   for (let i = 6; i < n; i++) avg7.push(mean(series.slice(i - 6, i + 1)));
-  const level = avg7[avg7.length - 1];
+  const level = steady(series.slice(-7));
 
   // Least-squares slope of the last (up to) 14 points of the 7-day average.
   const tail = avg7.slice(-14);
@@ -102,6 +112,14 @@ export function forecastOrders(history: Record<string, number>, today: string, h
   // The trend must agree with the last week. Right after a sale the two-week line can still point up while orders are
   // already falling back (or the other way round); then no trend is carried forward, only the level.
   if (weeklyChangePct !== null && Math.sign(weeklyChangePct) !== Math.sign(slope) && Math.abs(weeklyChangePct) >= 1) slope = 0;
+  // And the last three days must agree too: a rise is only carried on while orders are still above the level.
+  const last3 = mean(series.slice(-3));
+  if ((slope > 0 && last3 < level) || (slope < 0 && last3 > level)) slope = 0;
+  // A trend may move the forecast by at most 20% of the level over the whole horizon.
+  let carriedMax = 0;
+  for (let h = 1; h <= horizon; h++) carriedMax += DAMPING ** h;
+  const cap = level > 0 ? (MAX_TREND_SHARE * level) / (carriedMax + 3) : 0;
+  slope = Math.max(-cap, Math.min(cap, slope));
 
   // A weekday's own share of the average day, measured against the 7 days centred on it (so a trend is not mistaken for a
   // weekday habit), leaving out that week's highest and lowest day (so a sale day nearby does not drag its neighbours

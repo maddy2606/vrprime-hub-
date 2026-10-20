@@ -8,9 +8,11 @@ import { useToast } from "@/components/toast";
 import { buttonClass, Chip } from "@/components/ui";
 import { masterUnitCost, skuCost, type MasterInfo, type PnlLine } from "@/lib/costing";
 import { formatINR, formatNumber } from "@/lib/format";
+import { linkSku } from "@/server/actions/masters";
 import { saveMasterCosts } from "@/server/actions/pnl";
 
-export type MonthPnl = { month: string; label: string; from: string | null; to: string | null; total: PnlLine; byMaster: (PnlLine & { id: string; name: string })[] };
+export type UnlinkedSku = { sku: string; title: string | null; units: number; sales: number };
+export type MonthPnl = { month: string; label: string; from: string | null; to: string | null; total: PnlLine; byMaster: (PnlLine & { id: string; name: string })[]; unlinked: UnlinkedSku[] };
 export type CostingRow = { id: string; name: string; cost: number | null; kitParts: { id: string; name: string; qty: number }[]; skus: { sku: string; units: number }[] };
 
 const day = (d: string) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
@@ -29,7 +31,75 @@ function ProfitText({ value, className = "" }: { value: number; className?: stri
 
 // ---- Profit and loss by month -------------------------------------------------------------------------------------
 
-function MonthView({ m, feePct }: { m: MonthPnl; feePct: number }) {
+/** Flipkart SKUs sold in the month that belong to no master SKU, so they have no cost: link each to its master here. */
+function Unlinked({ m, masters }: { m: MonthPnl; masters: { id: string; name: string }[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  const [pick, setPick] = useState<Record<string, { master: string; units: string }>>({});
+  const units = m.unlinked.reduce((n, r) => n + r.units, 0);
+  const sales = m.unlinked.reduce((n, r) => n + r.sales, 0);
+  const link = (sku: string) =>
+    startTransition(async () => {
+      const p = pick[sku];
+      const n = Number(p?.units || "1");
+      if (toast.result(await linkSku(sku, p?.master ?? "", n))) router.refresh();
+    });
+  return (
+    <section id="unlinked" className="sp-card mt-5 scroll-mt-20 overflow-hidden" aria-labelledby="unlinked-title">
+      <div className="px-5 pt-5 sm:px-6">
+        <h2 id="unlinked-title" className="font-display text-lg font-semibold">
+          Not linked to a master, {m.label}
+        </h2>
+        <p className="pb-3 text-xs text-muted">
+          {m.unlinked.length} Flipkart {m.unlinked.length === 1 ? "SKU" : "SKUs"}, {formatNumber(units)} units, {money(sales)} of sales with no cost. Pick each one&apos;s master SKU and how many
+          units one order has (2 for a pack of 2), then press Link; its cost then counts here and on the Master SKU sheet.
+        </p>
+      </div>
+      <ul className="divide-y divide-line-soft border-t border-line">
+        {m.unlinked.map((r) => {
+          const p = pick[r.sku] ?? { master: "", units: "1" };
+          const set = (v: Partial<typeof p>) => setPick((x) => ({ ...x, [r.sku]: { ...p, ...v } }));
+          return (
+            <li key={r.sku} className="grid gap-2 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
+              <div className="min-w-0">
+                <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className="font-mono text-sm font-bold">{r.sku}</span>
+                  <span className="font-mono text-xs text-muted tabular-nums">
+                    {formatNumber(r.units)} units · {money(r.sales)}
+                  </span>
+                </p>
+                {r.title ? <p className="truncate text-xs text-muted">{r.title}</p> : null}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="min-w-0 flex-1 sm:w-56 sm:flex-none">
+                  <span className="sr-only">Master SKU for {r.sku}</span>
+                  <select className="input w-full" value={p.master} onChange={(e) => set({ master: e.target.value })}>
+                    <option value="">Master SKU…</option>
+                    {masters.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-muted">
+                  Units
+                  <input className="input w-16 font-mono" inputMode="numeric" value={p.units} onChange={(e) => set({ units: e.target.value.replace(/[^0-9]/g, "") })} aria-label={`Units per order for ${r.sku}`} />
+                </label>
+                <button type="button" disabled={pending || !p.master} onClick={() => link(r.sku)} className={buttonClass("primary")}>
+                  Link
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; masters: { id: string; name: string }[] }) {
   const t = m.total;
   const mg = margin(t);
   return (
@@ -88,7 +158,13 @@ function MonthView({ m, feePct }: { m: MonthPnl; feePct: number }) {
               {m.byMaster.map((r) => (
                 <tr key={r.id}>
                   <td className="max-w-[16rem] truncate px-5 py-2.5 font-semibold sm:px-6">
-                    {r.name}
+                    {r.id === "unlinked" ? (
+                      <a href="#unlinked" className="text-accent-text underline underline-offset-2">
+                        {r.name}
+                      </a>
+                    ) : (
+                      r.name
+                    )}
                     {r.uncostedSales > 0 ? <span className="ml-2 text-[11px] font-bold text-warn">no cost</span> : null}
                   </td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums">{formatNumber(r.units)}</td>
@@ -103,6 +179,7 @@ function MonthView({ m, feePct }: { m: MonthPnl; feePct: number }) {
           </table>
         </div>
       </section>
+      {m.unlinked.length ? <Unlinked m={m} masters={masters} /> : null}
     </>
   );
 }
@@ -296,7 +373,7 @@ export function PnlBoard({ months, month, costing, feePct, error }: { months: Mo
         </nav>
       ) : null}
 
-      {m ? <MonthView m={m} feePct={feePct} /> : <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">No orders yet to work out a profit from.</p>}
+      {m ? <MonthView m={m} feePct={feePct} masters={costing.map((c) => ({ id: c.id, name: c.name }))} /> : <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">No orders yet to work out a profit from.</p>}
 
       <p className="mt-4 text-xs text-muted">
         How it is worked out: units sold are orders dispatched in the month, less those returned (by the customer or by the courier). Sales use each SKU&apos;s selling price on

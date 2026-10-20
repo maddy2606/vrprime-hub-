@@ -30,6 +30,7 @@ function failed(error: { message: string; code?: string }, what: string): Action
 
 function done(message: string): ActionResult {
   revalidatePath("/flipkart");
+  revalidatePath("/pnl");
   return { ok: true, message };
 }
 

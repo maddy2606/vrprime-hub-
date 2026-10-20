@@ -228,7 +228,7 @@ test("suggestions come from what happened: late orders, overloaded days, room to
     { name: "Delhi", staff: 0, comfortable: 0, limit: 0, days: steady(700), late: 0, attendanceRate: null },
   ]);
   const text = s.map((x) => x.text).join("\n");
-  assert.match(s[0].text, /Bhiwandi: 34 orders are past their dispatch time/, "late orders first");
+  assert.match(s[0].text, /34 orders are past their dispatch time at Bhiwandi/, "late orders first");
   assert.match(text, /Kolkata went past the most its team can pack \(500 a day\) on 2 of the last 7 days/);
   assert.match(text, /Kolkata orders are up \d+% on the week before/);
   assert.match(text, /Bangalore averages 300 orders a day against 800/);

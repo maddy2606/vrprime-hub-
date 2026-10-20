@@ -350,11 +350,17 @@ const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.le
  */
 export function teamSuggestions(rows: SuggestionInput[]): Suggestion[] {
   const out: { rank: number; s: Suggestion }[] = [];
+  // Late orders in one line, the warehouse with the most first.
+  const late = rows.filter((r) => r.late > 0).sort((a, b) => b.late - a.late);
+  const lateTotal = late.reduce((n, r) => n + r.late, 0);
+  if (lateTotal > 0) {
+    const where = late.length === 1 ? ` at ${late[0].name}` : `: ${late.map((r) => `${r.name} ${r.late}`).join(", ")}`;
+    out.push({ rank: 0, s: { tone: "bad", text: `${lateTotal} ${lateTotal === 1 ? "order is" : "orders are"} past their dispatch time${where}. Clear ${lateTotal === 1 ? "it" : "them"} first.` } });
+  }
   for (const r of rows) {
     const last7 = r.days.slice(-7);
     const prev7 = r.days.slice(-14, -7);
     const a7 = Math.round(avg(last7));
-    if (r.late > 0) out.push({ rank: 0, s: { tone: "bad", text: `${r.name}: ${r.late} ${r.late === 1 ? "order is" : "orders are"} past their dispatch time. Clear ${r.late === 1 ? "it" : "them"} first.` } });
     if (r.staff === 0) {
       if (a7 > 0) out.push({ rank: 3, s: { tone: "info", text: `${r.name}: about ${a7} orders a day but no people added on the Team page, so its load cannot be checked.` } });
       continue;

@@ -35,3 +35,34 @@ test("refuses other files and reports that span two months", () => {
 test("CSV fields may hold commas, quotes and a byte order mark", () => {
   assert.deepEqual(csvRows('﻿a,"b, c","say ""hi"""\r\n1,2,3'), [["a", "b, c", 'say "hi"'], ["1", "2", "3"]]);
 });
+
+test("the Ads tracker keeps each SKU and campaign apart, for any period up to 92 days", async () => {
+  const { readAdsCampaignReport } = await import("./ads-report.ts");
+  const r = readAdsCampaignReport(
+    report("2026-10-13", "2026-10-19", [
+      `aaa111,Rat Auto,G1,"Home, Cleaning",fake-rat1,"Fake Rat Spray, 250ml",1000,50,5,1,1200.0000,0.1,3.2,300.5000`,
+      `AAA111,Rat Auto,G2,Home,FAKE-RAT1,Fake Rat Spray,500,10,1,0,200.0000,0.1,3.2,99.5000`,
+      `BBB222,Kickstart,G1,Home,FAKE-RAT1,Fake Rat Spray,100,2,0,0,0,0,0,10`,
+      `BBB222,Kickstart,G1,Home,FAKE-LIZ1,Fake Lizard Spray,100,2,1,0,150,0,0,20`,
+    ]),
+  );
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.equal(r.report.days, 7);
+  assert.equal(r.report.rows.length, 3);
+  const rat = r.report.rows.find((x) => x.sku === "FAKE-RAT1" && x.campaign_id === "AAA111");
+  assert.deepEqual(rat, { sku: "FAKE-RAT1", campaign_id: "AAA111", campaign_name: "Rat Auto", spend: 400, views: 1500, clicks: 60, units: 7, revenue: 1400 });
+  assert.equal(r.report.spend, 430);
+  const long = readAdsCampaignReport(report("2026-01-01", "2026-06-30", []));
+  assert.equal(long.ok, false);
+});
+
+test("days a campaign ran inside a scan's period", async () => {
+  const { daysActive, daysBetween } = await import("./ads-report.ts");
+  assert.equal(daysBetween("2026-09-21", "2026-10-19"), 29);
+  assert.equal(daysActive("2026-09-21", "2026-10-19", "2026-09-30"), 20);
+  assert.equal(daysActive("2026-09-21", "2026-10-19", "2026-09-01"), 29);
+  assert.equal(daysActive("2026-09-21", "2026-10-19", null), 29);
+  assert.equal(daysActive("2026-09-21", "2026-10-19", "2026-10-19"), 1);
+  assert.equal(daysActive("2026-09-21", "2026-10-19", "2026-11-01"), 29);
+});

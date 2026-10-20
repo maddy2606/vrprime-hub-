@@ -80,3 +80,65 @@ export function readAdsReport(text: string): { ok: true; report: AdsReport } | {
   const list = [...bySku.values()];
   return { ok: true, report: { month: from.slice(0, 7), from, to, rows: list, spend: round2(list.reduce((n, r) => n + r.spend, 0)), lines } };
 }
+
+// ---- The Ads tracker: the same report, kept per SKU and campaign -----------------------------------------------------
+
+export type AdCampaignRow = { sku: string; campaign_id: string; campaign_name: string; spend: number; views: number; clicks: number; units: number; revenue: number };
+export type AdsCampaignReport = { from: string; to: string; days: number; rows: AdCampaignRow[]; spend: number; lines: number };
+
+/** Days from one ISO day to another, both counted (2026-10-01 to 2026-10-07 is 7). */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+}
+
+/**
+ * Days a campaign ran inside a scan's period: from its start date (or the period's start, if later) to the period's end.
+ * Without a known start date, the whole period. Never less than 1.
+ */
+export function daysActive(periodStart: string, periodEnd: string, startDate: string | null | undefined): number {
+  const all = daysBetween(periodStart, periodEnd);
+  if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return all;
+  if (startDate > periodEnd) return all;
+  const from = startDate > periodStart ? startDate : periodStart;
+  return Math.max(1, daysBetween(from, periodEnd));
+}
+
+/**
+ * Reads the report for the Ads tracker: one row per SKU and campaign (ad groups added together), for any period up to
+ * 92 days. Returns an error in plain words when the file is not this report.
+ */
+export function readAdsCampaignReport(text: string): { ok: true; report: AdsCampaignReport } | { ok: false; error: string } {
+  const rows = csvRows(text);
+  const period = (label: string) => rows.find((r) => r[0]?.trim().toLowerCase() === label)?.[1]?.trim().slice(0, 10) ?? "";
+  const from = period("start time");
+  const to = period("end time");
+  const h = rows.findIndex((r) => r.some((f) => f.trim() === "Sku Id") && r.some((f) => f.trim() === "Ad Spend"));
+  if (h < 0) return { ok: false, error: "This is not a PLA Consolidated FSN Report: it has no Sku Id and Ad Spend columns. In Seller Hub open Ads, Reports, Other Reports, choose PLA and Consolidated FSN Report." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return { ok: false, error: "The report's Start Time and End Time lines are missing, so its period is not known." };
+  const days = daysBetween(from, to);
+  if (days < 1 || days > 92) return { ok: false, error: `The report runs from ${from} to ${to}. Download it for 92 days or fewer (7 days is the usual).` };
+  const head = rows[h].map((f) => f.trim());
+  const at = (name: string) => head.indexOf(name);
+  const i = { id: at("Campaign ID"), name: at("Campaign Name"), sku: at("Sku Id"), spend: at("Ad Spend"), views: at("Views"), clicks: at("Clicks"), direct: at("Direct Units Sold"), indirect: at("Indirect Units Sold"), revenue: at("Total Revenue (Rs.)") };
+  if (i.id < 0) return { ok: false, error: "The report has no Campaign ID column. Download the PLA Consolidated FSN Report again from Seller Hub." };
+  const byKey = new Map<string, AdCampaignRow>();
+  let lines = 0;
+  for (const r of rows.slice(h + 1)) {
+    if (r.length < head.length - 1) continue;
+    const campaign_id = (r[i.id] ?? "").trim().toUpperCase();
+    if (!campaign_id) continue;
+    lines++;
+    const sku = (r[i.sku] ?? "").trim().toUpperCase() || NO_SKU;
+    const key = `${sku}\u0000${campaign_id}`;
+    const cur = byKey.get(key) ?? { sku, campaign_id, campaign_name: (i.name >= 0 ? r[i.name] : "")?.trim() || campaign_id, spend: 0, views: 0, clicks: 0, units: 0, revenue: 0 };
+    cur.spend = round2(cur.spend + num(r[i.spend]));
+    if (i.views >= 0) cur.views += num(r[i.views]);
+    if (i.clicks >= 0) cur.clicks += num(r[i.clicks]);
+    if (i.direct >= 0) cur.units += num(r[i.direct]);
+    if (i.indirect >= 0) cur.units += num(r[i.indirect]);
+    if (i.revenue >= 0) cur.revenue = round2(cur.revenue + num(r[i.revenue]));
+    byKey.set(key, cur);
+  }
+  const list = [...byKey.values()];
+  return { ok: true, report: { from, to, days, rows: list, spend: round2(list.reduce((n, r) => n + r.spend, 0)), lines } };
+}

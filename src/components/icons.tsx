@@ -223,3 +223,11 @@ export const CommandIcon = (p: IconProps) => (
     <path d="M9 9V6.5A2.5 2.5 0 1 0 6.5 9H9zm0 0h6m-6 0v6m6-6V6.5A2.5 2.5 0 1 1 17.5 9H15zm0 0v6m0 0h2.5a2.5 2.5 0 1 1-2.5 2.5V15zm0 0H9m0 0v2.5A2.5 2.5 0 1 1 6.5 15H9z" />
   </Icon>
 );
+
+export const MegaphoneIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z" />
+    <path d="M16 9a4 4 0 0 1 0 6" />
+    <path d="M18.5 6.5a7.5 7.5 0 0 1 0 11" />
+  </Icon>
+);

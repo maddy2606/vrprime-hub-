@@ -422,3 +422,29 @@ export type ActionResult<T = undefined> =
 export type SessionUser = Profile & { email: string | null; warehouseIds: string[] };
 
 export type Person = Pick<Profile, "id" | "name" | "role" | "active">;
+
+// ---- Ads tracker (Flipkart Ads spend per SKU and campaign). Accessed through a loose client: newer than `Database`. ----
+
+export type AdCampaignStatus = "Live" | "Paused" | "Ended" | "Draft";
+
+export type AdTrackedSkuRow = { sku: string; added_by: string | null; created_at: string };
+
+export type AdCampaignRecord = {
+  campaign_id: string;
+  name: string;
+  skus: string[];
+  campaign_type: string | null;
+  daily_budget: number | null;
+  shared_budget: boolean;
+  start_date: string | null;
+  status: AdCampaignStatus;
+  notes: string | null;
+  source: "manual" | "report";
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdScanRecord = { id: string; period_start: string; period_end: string; days: number; filename: string | null; uploaded_by: string | null; created_at: string };
+
+export type AdScanRowRecord = { scan_id: string; sku: string; campaign_id: string; campaign_name: string; spend: number; views: number; clicks: number; units: number; revenue: number };

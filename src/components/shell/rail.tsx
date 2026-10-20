@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MoreIcon, ReceiptIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, ReceiptIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
 
 /**
- * The rail, in order: Command Deck, Dashboard (owner), Work board, Tickets, Flipkart, Forecast, Team (owner and admin), Expenses, P&L, People, Settings (owner).
+ * The rail, in order: Command Deck, Dashboard (owner), Work board, Tickets, Flipkart, Forecast, Ads tracker and Team (owner and admin), Expenses, P&L, People, Settings (owner).
  * On a phone it is a bottom bar of five: Deck, Flipkart, Forecast and Team, with the rest under More.
  */
 function items(isOwner: boolean, isStaff: boolean): Item[] {
@@ -20,7 +20,12 @@ function items(isOwner: boolean, isStaff: boolean): Item[] {
     { key: "tickets", href: "/tickets", label: "Tickets", icon: TicketIcon },
     { key: "flipkart", href: "/flipkart", label: "Flipkart", icon: BoxIcon },
     { key: "forecast", href: "/flipkart?tab=forecast", label: "Forecast", icon: TrendIcon },
-    ...(isStaff ? [{ key: "team", href: "/team", label: "Team", icon: GaugeIcon }] : []),
+    ...(isStaff
+      ? [
+          { key: "ads", href: "/ads", label: "Ads tracker", icon: MegaphoneIcon },
+          { key: "team", href: "/team", label: "Team", icon: GaugeIcon },
+        ]
+      : []),
     ...(isOwner
       ? [
           { key: "expenses", href: "/expenses", label: "Expenses", icon: ReceiptIcon },
@@ -38,6 +43,7 @@ function activeKey(pathname: string, tab: string | null): string {
   if (pathname.startsWith("/flipkart")) return tab === "forecast" ? "forecast" : "flipkart";
   if (pathname === "/work" || pathname === "/all" || pathname.startsWith("/posts")) return "work";
   if (pathname.startsWith("/tickets")) return "tickets";
+  if (pathname.startsWith("/ads")) return "ads";
   if (pathname.startsWith("/team")) return "team";
   if (pathname.startsWith("/expenses")) return "expenses";
   if (pathname.startsWith("/pnl")) return "pnl";
@@ -95,7 +101,7 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
 }
 
 /** Short names for the bottom bar, where each slot is a fifth of a phone's width. */
-const SHORT: Record<string, string> = { deck: "Deck", work: "Work", tickets: "Tickets", flipkart: "Flipkart", forecast: "Forecast", team: "Team", expenses: "Expenses", people: "People", settings: "Settings" };
+const SHORT: Record<string, string> = { deck: "Deck", work: "Work", tickets: "Tickets", flipkart: "Flipkart", forecast: "Forecast", ads: "Ads", team: "Team", expenses: "Expenses", people: "People", settings: "Settings" };
 
 /** The places that get a slot of their own on a phone; the rest go under More. Five slots at most. */
 function splitForPhone(list: Item[]): { bar: Item[]; more: Item[] } {

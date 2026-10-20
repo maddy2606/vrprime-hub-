@@ -467,6 +467,24 @@ were sold. Shown only once 30 days of shipped orders are loaded.
 - Changing the function: edit `supabase/functions/orders-sync/`, then `npx supabase functions deploy orders-sync --no-verify-jwt --use-api`.
 - Seller Hub links are in `src/lib/seller-hub.ts`.
 
+## The Ads tracker
+
+**Ads tracker** (`/ads`, owner and admin) shows Flipkart Ads (PLA) spend per tracked SKU and campaign, one scan per period:
+spend, average daily spend, units, revenue and ROI, each campaign with its name and ID, a "Needs a look" list (spend with no
+sales, or ROI under 3.5), the average daily spend scan by scan, the campaign log and the list of tracked SKUs.
+
+- **Sync**: in Seller Hub open Ads, Reports, Other Reports, choose PLA and **Consolidated FSN Report**, pick the dates (7 days is
+  usual), Download, then press **Sync** on the page and choose the file. The file is read on the server
+  (`readAdsCampaignReport` in `src/lib/ads-report.ts`) and saved in one step by `ads_tracker_save_scan`: a second sync of the
+  same dates replaces the first. Every SKU in the report is kept, so a SKU tracked later already has its history.
+- **Campaign log**: add each campaign when it is made (name, ID, SKUs, type, daily budget, start date, status, notes).
+  A sync adds any campaign it finds on a tracked SKU. The report has no budget, start date or status, so those come from the log;
+  Avg / day = spend ÷ days the campaign ran in the period (from its start date when the log has one, else the whole period).
+- **Weekly scan**: a scheduled Claude task downloads the report every Tuesday morning from Seller Hub and syncs it here.
+- **Tables** (migration `20261021090000_ads_tracker.sql`): `ad_tracked_skus`, `ad_campaigns`, `ad_scans`, `ad_scan_rows`.
+  One policy per table lets owner and admin through and nobody else. `20261021091000_ads_tracker_first_scan.sql` loads the first
+  scan (21 Sep to 19 Oct 2026), the 32 tracked SKUs and their 33 campaigns; it is safe to run twice.
+
 ## Folder map
 
 ```

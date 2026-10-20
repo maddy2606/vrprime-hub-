@@ -168,8 +168,15 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
     db.from("attendance").select("staff_id, day, status").gte("day", from).lte("day", to),
     db.from("app_settings").select("key, value").in("key", [...SETTING_KEYS]),
     db.rpc("team_order_load", { p_days: 35 }),
-    // Orders still waiting whose dispatch time has passed, per warehouse.
-    db.from("fk_order_items").select("warehouse_id").eq("platform", "flipkart").eq("stage", "pending").eq("hold", false).lt("dispatch_by", new Date().toISOString()).limit(20000),
+    // Late orders, the Command Deck's rule: to accept, to pack or to dispatch, not on hold, dispatch time passed. Orders
+    // Flipkart is still processing ("Under Processing" in Seller Hub) are left out: their delay is not the warehouse's.
+    db
+      .from("fk_pending_orders")
+      .select("warehouse_id, shipment_key")
+      .in("bucket", ["to_accept", "to_pack", "to_dispatch"])
+      .eq("hold", false)
+      .lt("dispatch_by", new Date().toISOString())
+      .limit(20000),
   ]);
   for (const [where, r] of [["warehouses", whRes], ["staff", staffRes], ["pay", payRes], ["attendance", markRes], ["settings", setRes]] as const) {
     if (r.error) fail(where, r.error);
@@ -219,7 +226,13 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
 
   const windowStart = shiftDay(today, -14);
   const lateBy = new Map<string, number>();
-  for (const r of (lateRes.data ?? []) as { warehouse_id: string | null }[]) if (r.warehouse_id) lateBy.set(r.warehouse_id, (lateBy.get(r.warehouse_id) ?? 0) + 1);
+  const lateSeen = new Set<string>();
+  for (const r of (lateRes.data ?? []) as { warehouse_id: string | null; shipment_key: string }[]) {
+    // One count per shipment, as the Command Deck counts them.
+    if (!r.warehouse_id || lateSeen.has(`${r.warehouse_id}|${r.shipment_key}`)) continue;
+    lateSeen.add(`${r.warehouse_id}|${r.shipment_key}`);
+    lateBy.set(r.warehouse_id, (lateBy.get(r.warehouse_id) ?? 0) + 1);
+  }
   const last14 = Array.from({ length: 14 }, (_, i) => shiftDay(today, -(14 - i)));
   const weekly = (h: Record<string, number>) => {
     const a = sumDays(h, 1, 7);

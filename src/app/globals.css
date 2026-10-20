@@ -303,6 +303,7 @@ select optgroup {
 /* The side rail hides on computers with a mouse and slides in when the pointer reaches the left edge (or keyboard focus
    goes into it); the page then uses the full width. Touch screens (tablets) keep it showing, since they cannot hover. */
 .vr-shell { padding-left: 0; }
+.vr-rail-zone { display: none; }
 @media (min-width: 561px) {
   .vr-shell { padding-left: 72px; }
 }
@@ -314,7 +315,6 @@ select optgroup {
   .vr-rail:focus-within { transform: translateX(0); transition-delay: 0ms; box-shadow: 12px 0 40px -12px rgba(0, 0, 0, 0.7); }
   .vr-rail-zone { display: block; }
 }
-.vr-rail-zone { display: none; }
 .vr-rail-zone > span { transition: opacity 200ms ease; }
 .vr-rail-zone:hover > span { opacity: 0; }
 

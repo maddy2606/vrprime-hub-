@@ -116,6 +116,11 @@ function Unlinked({ m, masters }: { m: MonthPnl; masters: { id: string; name: st
 function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; masters: { id: string; name: string }[] }) {
   const t = m.total;
   const mg = margin(t);
+  // The days the month covers: Flipkart's report and the synced orders together.
+  const span = {
+    from: [m.report?.from, m.from].filter(Boolean).sort()[0] ?? null,
+    to: [m.report?.to, m.to].filter(Boolean).sort().reverse()[0] ?? null,
+  };
   return (
     <>
       <section className="sp-card sp-card-lg p-5 sm:p-6" aria-labelledby="pnl-month">
@@ -124,7 +129,7 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
             {t.net < 0 ? "Loss" : "Profit"} in {m.label}
             {t.ads > 0 ? ", after ads" : ""}
           </h2>
-          {m.from && m.to ? <span className="text-xs text-muted">Orders {day(m.from)} to {day(m.to)}</span> : null}
+          {span.from && span.to ? <span className="text-xs text-muted">Orders {day(span.from)} to {day(span.to)}</span> : null}
         </div>
         <p className="mt-3 font-mono text-[2.8rem] font-bold leading-none tracking-tight tabular-nums sm:text-6xl">
           <ProfitText value={t.net} />

@@ -104,7 +104,7 @@ function WarehouseCard({ w, index }: { w: WarehouseView; index: number }) {
   const p = w.plan;
   const week = w.pastDays.slice(-7);
   const status = p.staff === 0 ? null : worstOf(week);
-  const busyDays = week.filter((x) => x.status !== "ok").length;
+  const busyDays = week.filter((x) => x.status === status).length;
   const scale = Math.max(p.limit * 1.15, w.average ?? 0, 1);
   const avgStatus: DayStatus = (w.average ?? 0) <= p.comfortable ? "ok" : (w.average ?? 0) <= p.limit ? "tight" : "short";
   return (

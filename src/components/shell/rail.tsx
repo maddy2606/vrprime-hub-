@@ -53,9 +53,13 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
   const list = items(isOwner, isStaff);
   return (
     <>
+      {/* The left edge: moving the pointer here slides the rail in (computers with a mouse; see .vr-rail in globals.css). */}
+      <div aria-hidden="true" className="vr-rail-zone fixed inset-y-0 left-0 z-40 w-3">
+        <span className="absolute left-1 top-1/2 h-14 w-1 -translate-y-1/2 rounded-full bg-accent/60" />
+      </div>
       {/* Slim icon rail, 72px, from 561px up */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[72px] flex-col items-center border-r border-line-soft bg-panel2/90 py-4 backdrop-blur min-[561px]:flex">
-        <Link prefetch={false} href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring font-display mb-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-base font-semibold text-accent-ink sp-glow">
+      <aside className="vr-rail fixed inset-y-0 left-0 z-40 hidden w-[72px] flex-col items-center border-r border-line-soft bg-panel2/95 py-4 backdrop-blur min-[561px]:flex">
+        <Link href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring font-display mb-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-base font-semibold text-accent-ink sp-glow">
           VR
         </Link>
         <nav aria-label="Main" className="flex flex-1 flex-col items-center gap-2">
@@ -63,7 +67,6 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
             const on = active === item.key;
             return (
               <Link
-                prefetch={false}
                 key={item.key}
                 href={item.href}
                 aria-label={item.label}
@@ -124,7 +127,7 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
             const on = active === item.key;
             return (
               <li key={item.key}>
-                <Link prefetch={false} href={item.href} aria-current={on ? "page" : undefined} className={slotClass(on)}>
+                <Link href={item.href} aria-current={on ? "page" : undefined} className={slotClass(on)}>
                   <span aria-hidden="true" className={pill(on)}>
                     <item.icon className="h-[22px] w-[22px]" />
                   </span>
@@ -153,7 +156,6 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
             return (
               <li key={item.key}>
                 <Link
-                  prefetch={false}
                   href={item.href}
                   onClick={() => setMoreOpen(false)}
                   aria-current={on ? "page" : undefined}

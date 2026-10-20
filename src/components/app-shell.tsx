@@ -13,7 +13,7 @@ import { readThemeMode, THEME_COOKIE } from "@/lib/theme-mode";
 import type { NotificationRow, SessionUser } from "@/lib/types";
 
 /**
- * The shell: a 72px icon rail (a bottom bar on phones), the command bar on top of every page, and the page.
+ * The shell: a 72px icon rail that slides in from the left edge (a bottom bar on phones), the command bar on top of every page, and the page.
  */
 export async function AppShell({
   user,
@@ -39,7 +39,7 @@ export async function AppShell({
 }) {
   const theme = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <div className="min-[561px]:pl-[72px]">
+    <div className="vr-shell">
       <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} />
       <CommandBar
         user={{ name: user.name, role: user.role, sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}

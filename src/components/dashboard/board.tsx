@@ -29,7 +29,7 @@ const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / who
 function Tile({ href, label, glow, index, children }: { href: string; label: string; glow: string; index: number; children: ReactNode }) {
   return (
     <Link
-      prefetch={false}
+     
       href={href}
       className="focus-ring sp-card sp-card-lg sp-lift sp-reveal group relative block min-w-0 overflow-hidden p-5"
       style={style(index)}
@@ -54,7 +54,7 @@ function Tile({ href, label, glow, index, children }: { href: string; label: str
 function Panel({ title, sub, href, index, children, className = "" }: { title: string; sub?: string; href: string; index: number; children: ReactNode; className?: string }) {
   return (
     <section className={`sp-card sp-card-lg sp-reveal min-w-0 p-5 sm:p-6 ${className}`} style={style(index)}>
-      <Link prefetch={false} href={href} className="focus-ring group mb-4 flex items-end justify-between gap-2 rounded-lg">
+      <Link href={href} className="focus-ring group mb-4 flex items-end justify-between gap-2 rounded-lg">
         <span className="min-w-0">
           <span className="block font-display text-lg font-semibold group-hover:text-accent-text">{title}</span>
           {sub ? <span className="block text-xs text-muted">{sub}</span> : null}
@@ -240,7 +240,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           {months.length ? (
             <div className="flex h-56 items-end gap-4">
               {months.map((m) => (
-                <Link key={m.month} prefetch={false} href={`/pnl?month=${m.month}`} className="focus-ring group flex h-full min-w-0 flex-1 flex-col justify-end rounded-xl p-1 hover:bg-surface2/50">
+                <Link key={m.month} href={`/pnl?month=${m.month}`} className="focus-ring group flex h-full min-w-0 flex-1 flex-col justify-end rounded-xl p-1 hover:bg-surface2/50">
                   <span className="flex h-full items-end justify-center gap-1.5">
                     {[
                       { v: m.total.sales, c: "linear-gradient(180deg, var(--accent-text), var(--accent))", l: "Revenue" },
@@ -268,7 +268,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           <ul className="flex flex-col gap-2.5">
             {[...best, ...worst].map((p) => (
               <li key={p.id}>
-                <Link prefetch={false} href={now ? `/pnl?month=${now.month}` : "/pnl"} className="focus-ring grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-1 py-0.5 hover:bg-surface2/50">
+                <Link href={now ? `/pnl?month=${now.month}` : "/pnl"} className="focus-ring grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-1 py-0.5 hover:bg-surface2/50">
                   <span className="truncate text-sm font-semibold">{p.name}</span>
                   <span className="h-2.5 overflow-hidden rounded-full bg-surface2">
                     <span className="sp-bar block h-full rounded-full" style={{ width: `${(Math.abs(p.net) / maxProduct) * 100}%`, background: p.net < 0 ? "var(--bad)" : "linear-gradient(90deg, var(--accent), var(--ok))" }} />
@@ -291,7 +291,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
               const href = deck.warehouses.find((x) => x.id === w.id)?.href ?? "/flipkart?tab=orders";
               return (
                 <li key={w.id}>
-                  <Link prefetch={false} href={href} className="focus-ring block rounded-lg px-1 py-0.5 hover:bg-surface2/50">
+                  <Link href={href} className="focus-ring block rounded-lg px-1 py-0.5 hover:bg-surface2/50">
                     <span className="flex items-center justify-between gap-2 text-sm">
                       <span className="flex items-center gap-2 font-semibold">
                         <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: w.color }} />
@@ -322,7 +322,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
               const over = r.budget !== null && r.spent > r.budget;
               return (
                 <li key={r.key}>
-                  <Link prefetch={false} href={r.href} className="focus-ring block rounded-lg px-1 py-0.5 hover:bg-surface2/50">
+                  <Link href={r.href} className="focus-ring block rounded-lg px-1 py-0.5 hover:bg-surface2/50">
                     <span className="flex items-center justify-between gap-2 text-sm">
                       <span className="flex items-center gap-2 font-semibold">
                         <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: r.color }} />
@@ -343,7 +343,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             })}
           </ul>
           {!expenses.hasBudget ? (
-            <Link prefetch={false} href="/expenses#budget-title" className="mt-3 block text-xs font-bold text-warn hover:underline">
+            <Link href="/expenses#budget-title" className="mt-3 block text-xs font-bold text-warn hover:underline">
               No budget set for {expenses.label} yet. Plan it →
             </Link>
           ) : (
@@ -355,7 +355,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             <ul className="flex flex-col gap-2">
               {alerts.map((a) => (
                 <li key={a.id}>
-                  <Link prefetch={false} href={a.href} className="focus-ring flex items-start gap-3 rounded-xl border border-line-soft bg-surface/60 p-3 hover:border-accent/50">
+                  <Link href={a.href} className="focus-ring flex items-start gap-3 rounded-xl border border-line-soft bg-surface/60 p-3 hover:border-accent/50">
                     <Chip tone={KIND_TONE[a.kind] ?? "neutral"}>{NOTIFICATION_ICON_LABEL[a.kind] ?? "Alert"}</Chip>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold">{a.title}</span>

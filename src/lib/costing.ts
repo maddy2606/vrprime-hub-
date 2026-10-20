@@ -26,59 +26,108 @@ export function skuCost(unitsPerOrder: number, unitCost: number | null): number 
   return unitCost === null ? null : round2(unitCost * Math.max(1, unitsPerOrder));
 }
 
-/** Per order month and Flipkart SKU, counted as Seller Hub does (see pnl_month_units). */
-export type MonthUnits = { month: string; sku: string; ordered: number; cancelled: number; custReturned: number; rto: number; soldValue: number; soldPricedUnits: number };
-/** feePct: the SKU's real Flipkart fee rate (from the P&L report); null uses the default estimate. */
-export type SkuFacts = { masterId: string | null; cost: number | null; price: number | null; feePct?: number | null };
+/** Synced orders per order month and Flipkart SKU (see pnl_month_units). inReport: days Flipkart's P&L report covers. */
+export type MonthUnits = { month: string; sku: string; inReport?: boolean; ordered: number; cancelled: number; custReturned: number; rto: number; soldValue: number; soldPricedUnits: number };
+/** Flipkart's P&L report per order month and SKU: units, order value, seller price (revenue) and net earnings. */
+export type ReportUnits = { month: string; sku: string; gross: number; retCanc: number; net: number; itemValue: number; sales: number; earnings: number; firstDay: string | null; lastDay: string | null };
 /**
- * units: sold (ordered less customer and courier returns). profit is before ads; net is after ads. listPricedUnits are
- * sold units with no order price saved, priced at today's listing price instead; unpricedUnits have neither.
+ * salesPerUnit / earnPerUnit: the SKU's seller price and net earnings per unit sold, from Flipkart's P&L report; used to
+ * price orders the report does not cover yet. Without them, the order's selling price is scaled by the report-wide
+ * ratio of seller price to selling price, and fees are the default estimate.
  */
-export type PnlLine = { units: number; sales: number; fees: number; cost: number; profit: number; ads: number; net: number; uncostedSales: number; unpricedUnits: number; listPricedUnits: number; estFeeSales: number };
-/** The month's units as Seller Hub shows them: orders (not cancelled), cancellations, customer returns, courier returns. */
+export type SkuFacts = { masterId: string | null; cost: number | null; price: number | null; salesPerUnit?: number | null; earnPerUnit?: number | null };
+/**
+ * units: sold. sales: your revenue (Flipkart's seller price). fees: what Flipkart keeps of it (sales less net earnings).
+ * profit is before ads; net is after ads. estSales: sales worked out from synced orders rather than taken from
+ * Flipkart's report. itemValue: what buyers paid (Seller Hub's "sales"). listPricedUnits are sold units with no order
+ * price, priced at today's listing price; unpricedUnits have neither.
+ */
+export type PnlLine = {
+  units: number;
+  sales: number;
+  fees: number;
+  cost: number;
+  profit: number;
+  ads: number;
+  net: number;
+  itemValue: number;
+  estSales: number;
+  uncostedSales: number;
+  unpricedUnits: number;
+  listPricedUnits: number;
+};
+/** The month's units: synced orders as Seller Hub counts them, and Flipkart's report where it covers. */
 export type MonthCounts = { ordered: number; cancelled: number; custReturned: number; rto: number };
-export type MonthPnlData = { total: PnlLine; counts: MonthCounts; byMaster: Map<string, PnlLine> };
+export type ReportCounts = { gross: number; retCanc: number; net: number; from: string | null; to: string | null };
+export type MonthPnlData = { total: PnlLine; counts: MonthCounts; report: ReportCounts | null; byMaster: Map<string, PnlLine> };
 
-const emptyLine = (): PnlLine => ({ units: 0, sales: 0, fees: 0, cost: 0, profit: 0, ads: 0, net: 0, uncostedSales: 0, unpricedUnits: 0, listPricedUnits: 0, estFeeSales: 0 });
-const emptyMonth = (): MonthPnlData => ({ total: emptyLine(), counts: { ordered: 0, cancelled: 0, custReturned: 0, rto: 0 }, byMaster: new Map() });
+const emptyLine = (): PnlLine => ({ units: 0, sales: 0, fees: 0, cost: 0, profit: 0, ads: 0, net: 0, itemValue: 0, estSales: 0, uncostedSales: 0, unpricedUnits: 0, listPricedUnits: 0 });
+const emptyMonth = (): MonthPnlData => ({ total: emptyLine(), counts: { ordered: 0, cancelled: 0, custReturned: 0, rto: 0 }, report: null, byMaster: new Map() });
+
+function add(month: MonthPnlData, key: string, units: number, sales: number, fees: number, itemValue: number, f: SkuFacts, estimated: boolean, listUnits = 0) {
+  const line = month.byMaster.get(key) ?? emptyLine();
+  month.byMaster.set(key, line);
+  const cost = f.cost === null ? 0 : units * f.cost;
+  for (const l of [month.total, line]) {
+    l.units += units;
+    l.sales = round2(l.sales + sales);
+    l.fees = round2(l.fees + fees);
+    l.cost = round2(l.cost + cost);
+    l.itemValue = round2(l.itemValue + itemValue);
+    l.profit = round2(l.sales - l.fees - l.cost);
+    l.net = round2(l.profit - l.ads);
+    if (estimated) l.estSales = round2(l.estSales + sales);
+    if (f.cost === null) l.uncostedSales = round2(l.uncostedSales + sales);
+    if (f.price === null) l.unpricedUnits += listUnits;
+    else l.listPricedUnits += listUnits;
+  }
+}
 
 /**
- * Profit per month, and per master SKU within it. Units sold = ordered less customer returns and courier returns (RTO).
- * Sales = the real selling price of those orders, plus today's listing price for sold units with no order price saved.
- * Flipkart fees = sales x the SKU's real fee rate (default estimate when it has none); profit = sales - fees - cost. A SKU with no cost yet counts as costing nothing, and its
- * sales are added up in uncostedSales so the page can say the profit is too high until costs are filled in.
+ * Profit per month, and per master SKU within it.
+ *   Days Flipkart's P&L report covers: its own figures. Units are its net units, sales its seller price, fees what it
+ *   keeps (sales less net earnings).
+ *   Later days (and months with no report): synced orders. Units sold = ordered less customer and courier returns,
+ *   valued at the SKU's per-unit seller price and earnings from the report; for a SKU the report never had, its
+ *   selling price x the report-wide seller-price ratio, with fees at the default estimate.
+ * Profit = sales - fees - product cost. A SKU with no cost yet counts as costing nothing (uncostedSales says so).
  */
-export function monthlyPnl(rows: MonthUnits[], facts: Map<string, SkuFacts>, feePct: number): Map<string, MonthPnlData> {
+export function monthlyPnl(orders: MonthUnits[], report: ReportUnits[], facts: Map<string, SkuFacts>, opts: { feePct: number; fspToSales: number }): Map<string, MonthPnlData> {
   const out = new Map<string, MonthPnlData>();
-  for (const r of rows) {
-    const month = out.get(r.month) ?? emptyMonth();
-    out.set(r.month, month);
+  const monthOf = (m: string) => {
+    const d = out.get(m) ?? emptyMonth();
+    out.set(m, d);
+    return d;
+  };
+  const none: SkuFacts = { masterId: null, cost: null, price: null };
+  for (const r of report) {
+    const month = monthOf(r.month);
+    const rc = (month.report ??= { gross: 0, retCanc: 0, net: 0, from: null, to: null });
+    rc.gross += r.gross;
+    rc.retCanc += r.retCanc;
+    rc.net += r.net;
+    if (r.firstDay && (!rc.from || r.firstDay < rc.from)) rc.from = r.firstDay;
+    if (r.lastDay && (!rc.to || r.lastDay > rc.to)) rc.to = r.lastDay;
+    const f = facts.get(r.sku) ?? none;
+    add(month, f.masterId ?? "unlinked", Math.max(0, r.net), r.sales, r.sales - r.earnings, r.itemValue, f, false);
+  }
+  for (const r of orders) {
+    const month = monthOf(r.month);
     month.counts.ordered += r.ordered;
     month.counts.cancelled += r.cancelled;
     month.counts.custReturned += r.custReturned;
     month.counts.rto += r.rto;
+    if (r.inReport) continue;
     const sold = Math.max(0, r.ordered - r.custReturned - r.rto);
     if (sold === 0) continue;
-    const f = facts.get(r.sku) ?? { masterId: null, cost: null, price: null };
-    const key = f.masterId ?? "unlinked";
-    const line = month.byMaster.get(key) ?? emptyLine();
-    month.byMaster.set(key, line);
+    const f = facts.get(r.sku) ?? none;
     const listUnits = Math.max(0, sold - r.soldPricedUnits);
-    const sales = r.soldValue + (f.price === null ? 0 : listUnits * f.price);
-    const rate = f.feePct ?? feePct;
-    const fees = (sales * rate) / 100;
-    const cost = f.cost === null ? 0 : sold * f.cost;
-    for (const l of [month.total, line]) {
-      l.units += sold;
-      l.sales = round2(l.sales + sales);
-      l.fees = round2(l.fees + fees);
-      l.cost = round2(l.cost + cost);
-      l.profit = round2(l.sales - l.fees - l.cost);
-      l.net = round2(l.profit - l.ads);
-      if (f.cost === null) l.uncostedSales = round2(l.uncostedSales + sales);
-      if (f.feePct === null || f.feePct === undefined) l.estFeeSales = round2(l.estFeeSales + sales);
-      if (f.price === null) l.unpricedUnits += listUnits;
-      else l.listPricedUnits += listUnits;
+    const fspValue = r.soldValue + (f.price === null ? 0 : listUnits * f.price);
+    if (f.salesPerUnit != null && f.earnPerUnit != null) {
+      add(month, f.masterId ?? "unlinked", sold, sold * f.salesPerUnit, sold * (f.salesPerUnit - f.earnPerUnit), fspValue, f, true, listUnits);
+    } else {
+      const sales = fspValue * opts.fspToSales;
+      add(month, f.masterId ?? "unlinked", sold, sales, (sales * opts.feePct) / 100, fspValue, f, true, listUnits);
     }
   }
   return out;
@@ -109,7 +158,3 @@ export function applyAds(pnl: Map<string, MonthPnlData>, ads: MonthAds[]): void 
   }
 }
 
-/** A SKU's real fee rate in %: Flipkart's total expenses (negative in its report) against its accounted sales. */
-export function feeRate(sales: number, expenses: number): number | null {
-  return sales > 0 ? Math.round((Math.abs(expenses) / sales) * 10000) / 100 : null;
-}

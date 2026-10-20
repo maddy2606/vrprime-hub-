@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PnlBoard, type AdsUpload, type CostingRow, type MonthPnl, type UnlinkedSku } from "@/components/pnl/pnl-board";
 import { requireUser } from "@/lib/auth";
-import { applyAds, feeRate, findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthAds, type MonthUnits, type SkuFacts } from "@/lib/costing";
+import { applyAds, findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthAds, type MonthUnits, type ReportUnits, type SkuFacts } from "@/lib/costing";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "P&L" };
@@ -34,7 +34,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
     db.from("app_settings").select("value").eq("key", "money_default_fee_percent").maybeSingle(),
     db.from("pnl_ad_spend").select("month, sku, spend").limit(20000),
     db.from("pnl_ad_uploads").select("month, period_from, period_to, filename, skus, spend, uploaded_at").order("month", { ascending: false }),
-    db.rpc("pnl_fee_rates"),
+    db.rpc("pnl_report_units", { p_from: FROM }),
   ]);
 
   const masters = new Map<string, MasterInfo>(
@@ -55,10 +55,11 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   // Each Flipkart SKU: its master, its cost (unit cost x units in an order) and its selling price now.
   const linkBy = new Map(links.map((l) => [l.channel_sku, l]));
   const linkLower = new Map(links.map((l) => [l.channel_sku.toLowerCase(), l]));
-  type Raw = { month: string; sku: string; ordered: number; cancelled: number; cust_returned: number; rto: number; sold_value: number; sold_priced_units: number; first_day: string | null; last_day: string | null };
+  type Raw = { month: string; sku: string; in_report: boolean; ordered: number; cancelled: number; cust_returned: number; rto: number; sold_value: number; sold_priced_units: number; first_day: string | null; last_day: string | null };
   const unitRows = ((Array.isArray(unitsRes.data) ? unitsRes.data : []) as Raw[]).map((r) => ({
     month: r.month,
     sku: r.sku,
+    inReport: r.in_report === true,
     ordered: Number(r.ordered),
     cancelled: Number(r.cancelled),
     custReturned: Number(r.cust_returned),
@@ -68,25 +69,52 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
     first_day: r.first_day,
     last_day: r.last_day,
   }));
-  // Each SKU's real Flipkart fee rate, from the uploaded Profit and Loss Reports (at least 3 order items to trust it).
-  const rates = new Map<string, number>();
-  for (const r of (Array.isArray(rateRes.data) ? rateRes.data : []) as { sku: string; items: number; sales: number; expenses: number }[]) {
-    const rate = Number(r.items) >= 3 ? feeRate(Number(r.sales), Number(r.expenses)) : null;
-    if (rate !== null) rates.set(r.sku, rate);
+  // Flipkart's own P&L report figures per month and SKU, and each SKU's per-unit seller price and net earnings from it
+  // (from at least 3 units sold), which price the orders after the report ends.
+  type RawReport = { month: string; sku: string; gross: number; ret_canc: number; net: number; item_value: number; fsp_value: number; sales: number; earnings: number; first_day: string | null; last_day: string | null };
+  const rawReport = (Array.isArray(rateRes.data) ? rateRes.data : []) as RawReport[];
+  const reportRows: ReportUnits[] = rawReport.map((r) => ({
+    month: r.month,
+    sku: r.sku,
+    gross: Number(r.gross),
+    retCanc: Number(r.ret_canc),
+    net: Number(r.net),
+    itemValue: Number(r.item_value),
+    sales: Number(r.sales),
+    earnings: Number(r.earnings),
+    firstDay: r.first_day,
+    lastDay: r.last_day,
+  }));
+  const perSku = new Map<string, { net: number; sales: number; earnings: number }>();
+  let fspAll = 0;
+  let salesAll = 0;
+  for (const r of rawReport) {
+    const t = perSku.get(r.sku) ?? { net: 0, sales: 0, earnings: 0 };
+    t.net += Number(r.net);
+    t.sales += Number(r.sales);
+    t.earnings += Number(r.earnings);
+    perSku.set(r.sku, t);
+    fspAll += Number(r.fsp_value);
+    salesAll += Number(r.sales);
   }
+  const rates = new Map<string, { salesPerUnit: number; earnPerUnit: number }>();
+  for (const [sku, t] of perSku) if (t.net >= 3) rates.set(sku, { salesPerUnit: t.sales / t.net, earnPerUnit: t.earnings / t.net });
   const ratesLower = new Map([...rates].map(([k, v]) => [k.toLowerCase(), v]));
+  // Seller price against selling price across the report: prices a SKU the report never had. 1 with no report yet.
+  const fspToSales = fspAll > 0 ? salesAll / fspAll : 1;
   const facts = new Map<string, SkuFacts>();
-  for (const sku of new Set(unitRows.map((r) => r.sku))) {
+  for (const sku of new Set([...unitRows.map((r) => r.sku), ...reportRows.map((r) => r.sku)])) {
     const link = findSku(sku, linkBy, linkLower);
     const unit = link ? masterUnitCost(link.master_id, masters, costs) : null;
     facts.set(sku, {
       masterId: link?.master_id ?? null,
       cost: link ? skuCost(link.units_per_order ?? 1, unit) : null,
       price: findSku(sku, prices, pricesLower) ?? null,
-      feePct: findSku(sku, rates, ratesLower) ?? null,
+      salesPerUnit: findSku(sku, rates, ratesLower)?.salesPerUnit ?? null,
+      earnPerUnit: findSku(sku, rates, ratesLower)?.earnPerUnit ?? null,
     });
   }
-  const pnl = monthlyPnl(unitRows as MonthUnits[], facts, feePct);
+  const pnl = monthlyPnl(unitRows as MonthUnits[], reportRows, facts, { feePct, fspToSales });
   // Ad spend from the uploaded Flipkart Ads reports: off each month, and off the master SKU each advertised SKU belongs to.
   const adRows: MonthAds[] = ((adRes.data ?? []) as { month: string; sku: string; spend: number }[]).map((a) => ({
     month: a.month,
@@ -129,6 +157,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
       to: span.get(month)?.to ?? null,
       total: p.total,
       counts: p.counts,
+      report: p.report,
       adsUpload: uploads.find((u) => u.month === month) ?? null,
       unlinked: (unlinked.get(month) ?? []).sort((a, b) => b.sales - a.sales || b.units - a.units),
       byMaster: [...p.byMaster.entries()].map(([id, line]) => ({ id, name: id === "unlinked" ? "SKUs not linked to a master" : (masters.get(id)?.name ?? "Unknown"), ...line })).sort((a, b) => b.sales - a.sales),
@@ -146,5 +175,5 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   }));
 
   const asked = typeof sp.month === "string" ? sp.month : null;
-  return <PnlBoard months={months} month={asked && months.some((m) => m.month === asked) ? asked : (months[0]?.month ?? null)} costing={costing} uploads={uploads} feePct={feePct} realFeeSkus={rates.size} error={unitsRes.error?.message ?? null} />;
+  return <PnlBoard months={months} month={asked && months.some((m) => m.month === asked) ? asked : (months[0]?.month ?? null)} costing={costing} uploads={uploads} feePct={feePct} reportSkus={rates.size} error={unitsRes.error?.message ?? null} />;
 }

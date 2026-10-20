@@ -7,7 +7,7 @@ import { SearchIcon } from "@/components/icons";
 import { UploadReport } from "@/components/money/upload-report";
 import { useToast } from "@/components/toast";
 import { buttonClass, Chip } from "@/components/ui";
-import { masterUnitCost, skuCost, type MasterInfo, type MonthCounts, type PnlLine } from "@/lib/costing";
+import { masterUnitCost, skuCost, type MasterInfo, type MonthCounts, type PnlLine, type ReportCounts } from "@/lib/costing";
 import { formatINR, formatNumber } from "@/lib/format";
 import { linkSku } from "@/server/actions/masters";
 import { saveMasterCosts, uploadAdsReport } from "@/server/actions/pnl";
@@ -21,6 +21,7 @@ export type MonthPnl = {
   to: string | null;
   total: PnlLine;
   counts: MonthCounts;
+  report: ReportCounts | null;
   byMaster: (PnlLine & { id: string; name: string })[];
   unlinked: UnlinkedSku[];
   adsUpload: AdsUpload | null;
@@ -133,7 +134,7 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
         </p>
         <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 sm:grid-cols-5">
           {[
-            ["Sales", money(t.sales)],
+            ["Sales (seller price)", money(t.sales)],
             ["Flipkart fees", `−${money(t.fees)}`],
             ["Product cost", `−${money(t.cost)}`],
             ["Ads (incl. 18% GST)", m.adsUpload || t.ads > 0 ? `−${money(t.ads)}` : "not added"],
@@ -145,7 +146,7 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
             </div>
           ))}
         </dl>
-        {m.from && m.from > `${m.month}-01` ? (
+        {m.from && m.from > `${m.month}-01` && !(m.report?.from && m.report.from <= `${m.month}-01`) ? (
           <p className="mt-4 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
             Only orders from {day(m.from)} are in the app: {day(`${m.month}-01`)} to {day(new Date(Date.parse(`${m.from}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10))} are missing, so
             this month is short. Older orders are read from Flipkart at night (10:15 pm to 6:45 am) once asked for.
@@ -163,15 +164,30 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
         ) : m.from && m.adsUpload.to < (m.to ?? "") ? (
           <p className="mt-2 text-xs text-muted">The ads report covers up to {day(m.adsUpload.to)}; upload a newer one to include later ad spend.</p>
         ) : null}
-        <p className="mt-4 text-xs text-muted">
-          Orders {formatNumber(m.counts.ordered + m.counts.cancelled)} · cancelled {formatNumber(m.counts.cancelled)} · returned by customers {formatNumber(m.counts.custReturned)} · net{" "}
-          {formatNumber(m.counts.ordered - m.counts.custReturned)} (as Seller Hub counts) · courier returns (RTO) {formatNumber(m.counts.rto)} · <b className="text-ink">sold {formatNumber(t.units)}</b>
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          {t.estFeeSales > 0
-            ? `Fees: ${money(t.estFeeSales)} of sales use the ${feePct}% estimate (no Flipkart P&L report data for those SKUs); the rest use each SKU's real Flipkart fee rate.`
-            : "Fees: every SKU uses its real Flipkart fee rate from the P&L report."}
-        </p>
+        <div className="mt-4 space-y-1 text-xs text-muted">
+          {m.report ? (
+            <p>
+              <b className="text-ink">Flipkart&apos;s P&amp;L report</b> covers orders {m.report.from ? day(m.report.from) : "?"} to {m.report.to ? day(m.report.to) : "?"}: gross{" "}
+              {formatNumber(m.report.gross)} units, returned or cancelled {formatNumber(m.report.retCanc)}, net {formatNumber(m.report.net)}. Its own seller price, fees and net earnings are
+              used for those orders.
+            </p>
+          ) : (
+            <p>
+              <b className="text-ink">No Flipkart P&amp;L report for {m.label} yet</b>: the figures are worked out from the synced orders. Upload the report below for Flipkart&apos;s own
+              numbers.
+            </p>
+          )}
+          {t.estSales > 0 ? (
+            <p>
+              {money(t.estSales)} of sales are estimated from synced orders{m.report?.to ? ` after ${day(m.report.to)}` : ""}: each SKU&apos;s seller price and earnings per unit from
+              Flipkart&apos;s report (or, for a SKU it never had, its selling price scaled the same way and fees at {feePct}%).
+            </p>
+          ) : null}
+          <p>
+            Synced orders: {formatNumber(m.counts.ordered + m.counts.cancelled)} · cancelled {formatNumber(m.counts.cancelled)} · returned by customers {formatNumber(m.counts.custReturned)} ·
+            courier returns (RTO) {formatNumber(m.counts.rto)}. Buyers paid {money(t.itemValue)} (Seller Hub&apos;s &quot;sales&quot;); your revenue is the seller price, {money(t.sales)}.
+          </p>
+        </div>
         {t.listPricedUnits > 0 ? (
           <p className="mt-1 text-xs text-muted">
             {formatNumber(t.listPricedUnits)} sold units have no order price saved yet, so they use today&apos;s listing price.
@@ -439,23 +455,24 @@ function AdsReports({ uploads }: { uploads: AdsUpload[] }) {
 }
 
 /** Flipkart's Profit and Loss Report: Flipkart's own fees for every order, so each SKU's real fee rate is known. */
-function FeesReport({ realFeeSkus, feePct }: { realFeeSkus: number; feePct: number }) {
+function FeesReport({ reportSkus, feePct }: { reportSkus: number; feePct: number }) {
   return (
     <section className="sp-card mt-5 p-5 sm:p-6" aria-labelledby="fees-title">
       <h2 id="fees-title" className="font-display text-lg font-semibold">
-        Real Flipkart fees
+        Flipkart&apos;s P&amp;L report
       </h2>
       <p className="mb-3 max-w-2xl text-xs text-muted">
-        {realFeeSkus > 0 ? `${realFeeSkus} SKUs use their real fee rate from Flipkart's reports; the rest use the ${feePct}% estimate.` : `All SKUs use the ${feePct}% estimate for now.`} In Seller Hub, search
-        &quot;Profit and Loss Report&quot; (under Payments, Reports), download it for a month as Excel and upload it here. Each SKU&apos;s fee rate (commission, fixed, collection, pick and pack,
-        shipping, reverse shipping and GST on them) then comes from Flipkart&apos;s own figures. Settlement reports can be uploaded here too.
+        {reportSkus > 0 ? `Flipkart's own figures are in for ${reportSkus} SKUs.` : "No report uploaded yet."} In Seller Hub open Reports, Request New Report, Payment Reports, Profit and Loss
+        Report, pick a month (or the days so far), and when it is generated download the Excel file and upload it here. For the orders it covers, the P&amp;L uses Flipkart&apos;s own units,
+        seller price, fees and net earnings; orders after it are priced from each SKU&apos;s figures in it. Uploading the same orders again never counts them twice. Files over 10 MB can be
+        uploaded too; it takes a few minutes. Without any report, fees are estimated at {feePct}%.
       </p>
       <UploadReport />
     </section>
   );
 }
 
-export function PnlBoard({ months, month, costing, uploads, feePct, realFeeSkus, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; realFeeSkus: number; error: string | null }) {
+export function PnlBoard({ months, month, costing, uploads, feePct, reportSkus, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; reportSkus: number; error: string | null }) {
   const m = months.find((x) => x.month === month) ?? null;
   return (
     <div className="flex min-w-0 flex-col">
@@ -491,14 +508,14 @@ export function PnlBoard({ months, month, costing, uploads, feePct, realFeeSkus,
       {m ? <MonthView m={m} feePct={feePct} masters={costing.map((c) => ({ id: c.id, name: c.name }))} /> : <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">No orders yet to work out a profit from.</p>}
 
       <p className="mt-4 text-xs text-muted">
-        How it is worked out: units sold are the month&apos;s orders that were not cancelled, less those returned by the customer or by the courier (RTO). Seller Hub&apos;s net
-        units still count courier returns. Sales use each order&apos;s own selling price (today&apos;s listing price where an order has none saved). Flipkart fees use each SKU&apos;s real rate from Flipkart&apos;s P&amp;L report, or {feePct}% where there is none (Settings, Default fee %). Ads come from the Flipkart Ads reports
-        uploaded below, plus 18% GST. Storage, other Flipkart charges and warehouse expenses are not included.
+        How it is worked out: for orders Flipkart&apos;s P&amp;L report covers, its own net units, seller price (your revenue) and net earnings; Flipkart fees are the seller price
+        less net earnings. Later orders: units sold are orders not cancelled less customer and courier returns, priced from each SKU&apos;s report figures. Product cost is your cost per unit
+        times units sold. Ads come from the Flipkart Ads reports, plus 18% GST. Storage, other Flipkart charges and warehouse expenses are not included.
       </p>
 
       <AdsReports uploads={uploads} />
 
-      <FeesReport realFeeSkus={realFeeSkus} feePct={feePct} />
+      <FeesReport reportSkus={reportSkus} feePct={feePct} />
 
       <Costing rows={costing} />
     </div>

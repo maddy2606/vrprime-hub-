@@ -143,6 +143,12 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
             </div>
           ))}
         </dl>
+        {m.from && m.from > `${m.month}-01` ? (
+          <p className="mt-4 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+            Only orders from {day(m.from)} are in the app: {day(`${m.month}-01`)} to {day(new Date(Date.parse(`${m.from}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10))} are missing, so
+            this month is short. Older orders are read from Flipkart at night (10:15 pm to 6:45 am) once asked for.
+          </p>
+        ) : null}
         {t.uncostedSales > 0 ? (
           <p className="mt-4 rounded-lg bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
             {money(t.uncostedSales)} of these sales are for master SKUs with no cost yet, so the profit shows too high. Add their costs below.

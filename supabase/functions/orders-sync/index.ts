@@ -75,7 +75,7 @@ function makeStore(db: SupabaseClient): OrdersStore {
   const leaseUntil = (from = Date.now()) => new Date(from + LEASE_MS).toISOString();
   return {
     async loadRun(id): Promise<RunRow | null> {
-      const { data, error } = await db.from("order_runs").select("id, kind, status, plan, step, next_path").eq("id", id).maybeSingle();
+      const { data, error } = await db.from("order_runs").select("id, kind, status, plan, step, next_path, notes").eq("id", id).maybeSingle();
       check("Reading the run", error);
       return data as RunRow | null;
     },

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PnlBoard, type AdsUpload, type CostingRow, type MonthPnl, type UnlinkedSku } from "@/components/pnl/pnl-board";
 import { requireUser } from "@/lib/auth";
-import { applyAds, findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthAds, type MonthUnits, type SkuFacts } from "@/lib/costing";
+import { applyAds, feeRate, findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthAds, type MonthUnits, type SkuFacts } from "@/lib/costing";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "P&L" };
@@ -15,6 +15,7 @@ type Loose = {
 
 // Orders have been synced from early September 2026.
 const FROM = "2026-09-01";
+const ADS_GST = 0.18;
 const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
 
 /** Profit and loss by month from the synced Flipkart orders, and the cost of every master SKU. Owner only. */
@@ -24,7 +25,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   const db = (await createClient()) as unknown as Loose;
   const sp = await searchParams;
 
-  const [mpRes, linkRes, costRes, priceRes, unitsRes, feeRes, adRes, adUpRes] = await Promise.all([
+  const [mpRes, linkRes, costRes, priceRes, unitsRes, feeRes, adRes, adUpRes, rateRes] = await Promise.all([
     db.from("master_products").select("id, name, kit_parts").order("name"),
     db.from("sku_master").select("channel_sku, master_id, units_per_order"),
     db.from("master_costs").select("master_id, cost"),
@@ -33,6 +34,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
     db.from("app_settings").select("value").eq("key", "money_default_fee_percent").maybeSingle(),
     db.from("pnl_ad_spend").select("month, sku, spend").limit(20000),
     db.from("pnl_ad_uploads").select("month, period_from, period_to, filename, skus, spend, uploaded_at").order("month", { ascending: false }),
+    db.rpc("pnl_fee_rates"),
   ]);
 
   const masters = new Map<string, MasterInfo>(
@@ -66,18 +68,31 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
     first_day: r.first_day,
     last_day: r.last_day,
   }));
+  // Each SKU's real Flipkart fee rate, from the uploaded Profit and Loss Reports (at least 3 order items to trust it).
+  const rates = new Map<string, number>();
+  for (const r of (Array.isArray(rateRes.data) ? rateRes.data : []) as { sku: string; items: number; sales: number; expenses: number }[]) {
+    const rate = Number(r.items) >= 3 ? feeRate(Number(r.sales), Number(r.expenses)) : null;
+    if (rate !== null) rates.set(r.sku, rate);
+  }
+  const ratesLower = new Map([...rates].map(([k, v]) => [k.toLowerCase(), v]));
   const facts = new Map<string, SkuFacts>();
   for (const sku of new Set(unitRows.map((r) => r.sku))) {
     const link = findSku(sku, linkBy, linkLower);
     const unit = link ? masterUnitCost(link.master_id, masters, costs) : null;
-    facts.set(sku, { masterId: link?.master_id ?? null, cost: link ? skuCost(link.units_per_order ?? 1, unit) : null, price: findSku(sku, prices, pricesLower) ?? null });
+    facts.set(sku, {
+      masterId: link?.master_id ?? null,
+      cost: link ? skuCost(link.units_per_order ?? 1, unit) : null,
+      price: findSku(sku, prices, pricesLower) ?? null,
+      feePct: findSku(sku, rates, ratesLower) ?? null,
+    });
   }
   const pnl = monthlyPnl(unitRows as MonthUnits[], facts, feePct);
   // Ad spend from the uploaded Flipkart Ads reports: off each month, and off the master SKU each advertised SKU belongs to.
   const adRows: MonthAds[] = ((adRes.data ?? []) as { month: string; sku: string; spend: number }[]).map((a) => ({
     month: a.month,
     masterKey: findSku(a.sku, linkBy, linkLower)?.master_id ?? "unlinked",
-    spend: Number(a.spend),
+    // Ad spend in the report is before GST; Flipkart adds 18% GST to it.
+    spend: Math.round(Number(a.spend) * (1 + ADS_GST) * 100) / 100,
   }));
   applyAds(pnl, adRows);
   const uploads: AdsUpload[] = ((adUpRes.data ?? []) as { month: string; period_from: string; period_to: string; filename: string | null; skus: number; spend: number; uploaded_at: string }[]).map((u) => ({
@@ -131,5 +146,5 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   }));
 
   const asked = typeof sp.month === "string" ? sp.month : null;
-  return <PnlBoard months={months} month={asked && months.some((m) => m.month === asked) ? asked : (months[0]?.month ?? null)} costing={costing} uploads={uploads} feePct={feePct} error={unitsRes.error?.message ?? null} />;
+  return <PnlBoard months={months} month={asked && months.some((m) => m.month === asked) ? asked : (months[0]?.month ?? null)} costing={costing} uploads={uploads} feePct={feePct} realFeeSkus={rates.size} error={unitsRes.error?.message ?? null} />;
 }

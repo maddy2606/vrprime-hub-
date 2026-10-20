@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { SearchIcon } from "@/components/icons";
+import { UploadReport } from "@/components/money/upload-report";
 import { useToast } from "@/components/toast";
 import { buttonClass, Chip } from "@/components/ui";
 import { masterUnitCost, skuCost, type MasterInfo, type MonthCounts, type PnlLine } from "@/lib/costing";
@@ -133,9 +134,9 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
         <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 sm:grid-cols-5">
           {[
             ["Sales", money(t.sales)],
-            [`Flipkart fees (${feePct}%)`, `−${money(t.fees)}`],
+            ["Flipkart fees", `−${money(t.fees)}`],
             ["Product cost", `−${money(t.cost)}`],
-            ["Ads (Flipkart Ads)", m.adsUpload || t.ads > 0 ? `−${money(t.ads)}` : "not added"],
+            ["Ads (incl. 18% GST)", m.adsUpload || t.ads > 0 ? `−${money(t.ads)}` : "not added"],
             ["Units sold", formatNumber(t.units)],
           ].map(([k, v]) => (
             <div key={k} className="min-w-0">
@@ -165,6 +166,11 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
         <p className="mt-4 text-xs text-muted">
           Orders {formatNumber(m.counts.ordered + m.counts.cancelled)} · cancelled {formatNumber(m.counts.cancelled)} · returned by customers {formatNumber(m.counts.custReturned)} · net{" "}
           {formatNumber(m.counts.ordered - m.counts.custReturned)} (as Seller Hub counts) · courier returns (RTO) {formatNumber(m.counts.rto)} · <b className="text-ink">sold {formatNumber(t.units)}</b>
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          {t.estFeeSales > 0
+            ? `Fees: ${money(t.estFeeSales)} of sales use the ${feePct}% estimate (no Flipkart P&L report data for those SKUs); the rest use each SKU's real Flipkart fee rate.`
+            : "Fees: every SKU uses its real Flipkart fee rate from the P&L report."}
         </p>
         {t.listPricedUnits > 0 ? (
           <p className="mt-1 text-xs text-muted">
@@ -419,7 +425,9 @@ function AdsReports({ uploads }: { uploads: AdsUpload[] }) {
               <span className="text-xs text-muted">
                 {day(u.from)} to {day(u.to)} · {formatNumber(u.skus)} SKUs · uploaded {new Date(u.uploadedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}
               </span>
-              <span className="font-mono font-bold tabular-nums">{money(u.spend)}</span>
+              <span className="font-mono font-bold tabular-nums">
+                {money(u.spend)} <span className="text-xs font-normal text-muted">+ 18% GST = {money(u.spend * 1.18)}</span>
+              </span>
             </li>
           ))}
         </ul>
@@ -430,7 +438,24 @@ function AdsReports({ uploads }: { uploads: AdsUpload[] }) {
   );
 }
 
-export function PnlBoard({ months, month, costing, uploads, feePct, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; error: string | null }) {
+/** Flipkart's Profit and Loss Report: Flipkart's own fees for every order, so each SKU's real fee rate is known. */
+function FeesReport({ realFeeSkus, feePct }: { realFeeSkus: number; feePct: number }) {
+  return (
+    <section className="sp-card mt-5 p-5 sm:p-6" aria-labelledby="fees-title">
+      <h2 id="fees-title" className="font-display text-lg font-semibold">
+        Real Flipkart fees
+      </h2>
+      <p className="mb-3 max-w-2xl text-xs text-muted">
+        {realFeeSkus > 0 ? `${realFeeSkus} SKUs use their real fee rate from Flipkart's reports; the rest use the ${feePct}% estimate.` : `All SKUs use the ${feePct}% estimate for now.`} In Seller Hub, search
+        &quot;Profit and Loss Report&quot; (under Payments, Reports), download it for a month as Excel and upload it here. Each SKU&apos;s fee rate (commission, fixed, collection, pick and pack,
+        shipping, reverse shipping and GST on them) then comes from Flipkart&apos;s own figures. Settlement reports can be uploaded here too.
+      </p>
+      <UploadReport />
+    </section>
+  );
+}
+
+export function PnlBoard({ months, month, costing, uploads, feePct, realFeeSkus, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; realFeeSkus: number; error: string | null }) {
   const m = months.find((x) => x.month === month) ?? null;
   return (
     <div className="flex min-w-0 flex-col">
@@ -467,10 +492,13 @@ export function PnlBoard({ months, month, costing, uploads, feePct, error }: { m
 
       <p className="mt-4 text-xs text-muted">
         How it is worked out: units sold are the month&apos;s orders that were not cancelled, less those returned by the customer or by the courier (RTO). Seller Hub&apos;s net
-        units still count courier returns. Sales use each order&apos;s own selling price (today&apos;s listing price where an order has none saved). Flipkart fees are an estimate at {feePct}% of sales (change it in Settings, Default fee %). Ads come from the Flipkart Ads reports uploaded below. Storage, other Flipkart charges and warehouse expenses are not included.
+        units still count courier returns. Sales use each order&apos;s own selling price (today&apos;s listing price where an order has none saved). Flipkart fees use each SKU&apos;s real rate from Flipkart&apos;s P&amp;L report, or {feePct}% where there is none (Settings, Default fee %). Ads come from the Flipkart Ads reports
+        uploaded below, plus 18% GST. Storage, other Flipkart charges and warehouse expenses are not included.
       </p>
 
       <AdsReports uploads={uploads} />
+
+      <FeesReport realFeeSkus={realFeeSkus} feePct={feePct} />
 
       <Costing rows={costing} />
     </div>

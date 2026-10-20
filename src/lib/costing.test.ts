@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyAds, findSku, masterUnitCost, monthlyPnl, skuCost, type MasterInfo, type SkuFacts } from "./costing.ts";
+import { applyAds, feeRate, findSku, masterUnitCost, monthlyPnl, skuCost, type MasterInfo, type SkuFacts } from "./costing.ts";
 
 const masters = new Map<string, MasterInfo>([
   ["berry", { id: "berry", name: "Berry Car Perfume", kitParts: [] }],
@@ -71,4 +71,24 @@ test("ad spend comes off the month and the product it advertised", () => {
   assert.equal(sep.byMaster.get("berry")!.net, 1200 - 300);
   assert.equal(sep.byMaster.get("unlinked")!.net, -50, "ads with no sales: a loss");
   assert.equal(p.get("2026-08")!.total.net, -25, "a month with only ads still shows");
+});
+
+test("each SKU's real Flipkart fee rate is used; the rest are estimated and flagged", () => {
+  assert.equal(feeRate(1000, -320), 32);
+  assert.equal(feeRate(0, -5), null);
+  const facts = new Map<string, SkuFacts>([
+    ["REAL", { masterId: "berry", cost: 0, price: 100, feePct: 32 }],
+    ["GUESS", { masterId: "musk", cost: 0, price: 100 }],
+  ]);
+  const p = monthlyPnl(
+    [
+      { month: "2026-10", sku: "REAL", ordered: 10, cancelled: 0, custReturned: 0, rto: 0, soldValue: 1000, soldPricedUnits: 10 },
+      { month: "2026-10", sku: "GUESS", ordered: 5, cancelled: 0, custReturned: 0, rto: 0, soldValue: 500, soldPricedUnits: 5 },
+    ],
+    facts,
+    12,
+  );
+  const oct = p.get("2026-10")!.total;
+  assert.equal(oct.fees, 320 + 60);
+  assert.equal(oct.estFeeSales, 500);
 });

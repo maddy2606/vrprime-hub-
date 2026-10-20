@@ -22,6 +22,8 @@ export type RunRow = {
   plan: unknown[];
   step: number;
   next_path: string | null;
+  /** notes.history: a run the owner asked for, which may run by day. */
+  notes?: Record<string, unknown> | null;
 };
 
 export interface OrdersStore {
@@ -92,7 +94,7 @@ export async function processRun(runId: string, deps: RunnerDeps): Promise<RunOu
     let readInPart = 0;
 
     while (step < run.plan.length) {
-      if (run.kind === "backfill" && !deps.isNight()) {
+      if (run.kind === "backfill" && !run.notes?.history && !deps.isNight()) {
         log("The backfill only runs at night: going back to sleep");
         await store.pause(runId, "Waiting for the night (22:15 to 06:45 IST)");
         return "paused";

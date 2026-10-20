@@ -28,23 +28,24 @@ export function skuCost(unitsPerOrder: number, unitCost: number | null): number 
 
 /** Per order month and Flipkart SKU, counted as Seller Hub does (see pnl_month_units). */
 export type MonthUnits = { month: string; sku: string; ordered: number; cancelled: number; custReturned: number; rto: number; soldValue: number; soldPricedUnits: number };
-export type SkuFacts = { masterId: string | null; cost: number | null; price: number | null };
+/** feePct: the SKU's real Flipkart fee rate (from the P&L report); null uses the default estimate. */
+export type SkuFacts = { masterId: string | null; cost: number | null; price: number | null; feePct?: number | null };
 /**
  * units: sold (ordered less customer and courier returns). profit is before ads; net is after ads. listPricedUnits are
  * sold units with no order price saved, priced at today's listing price instead; unpricedUnits have neither.
  */
-export type PnlLine = { units: number; sales: number; fees: number; cost: number; profit: number; ads: number; net: number; uncostedSales: number; unpricedUnits: number; listPricedUnits: number };
+export type PnlLine = { units: number; sales: number; fees: number; cost: number; profit: number; ads: number; net: number; uncostedSales: number; unpricedUnits: number; listPricedUnits: number; estFeeSales: number };
 /** The month's units as Seller Hub shows them: orders (not cancelled), cancellations, customer returns, courier returns. */
 export type MonthCounts = { ordered: number; cancelled: number; custReturned: number; rto: number };
 export type MonthPnlData = { total: PnlLine; counts: MonthCounts; byMaster: Map<string, PnlLine> };
 
-const emptyLine = (): PnlLine => ({ units: 0, sales: 0, fees: 0, cost: 0, profit: 0, ads: 0, net: 0, uncostedSales: 0, unpricedUnits: 0, listPricedUnits: 0 });
+const emptyLine = (): PnlLine => ({ units: 0, sales: 0, fees: 0, cost: 0, profit: 0, ads: 0, net: 0, uncostedSales: 0, unpricedUnits: 0, listPricedUnits: 0, estFeeSales: 0 });
 const emptyMonth = (): MonthPnlData => ({ total: emptyLine(), counts: { ordered: 0, cancelled: 0, custReturned: 0, rto: 0 }, byMaster: new Map() });
 
 /**
  * Profit per month, and per master SKU within it. Units sold = ordered less customer returns and courier returns (RTO).
  * Sales = the real selling price of those orders, plus today's listing price for sold units with no order price saved.
- * Flipkart fees = sales x fee %; profit = sales - fees - cost. A SKU with no cost yet counts as costing nothing, and its
+ * Flipkart fees = sales x the SKU's real fee rate (default estimate when it has none); profit = sales - fees - cost. A SKU with no cost yet counts as costing nothing, and its
  * sales are added up in uncostedSales so the page can say the profit is too high until costs are filled in.
  */
 export function monthlyPnl(rows: MonthUnits[], facts: Map<string, SkuFacts>, feePct: number): Map<string, MonthPnlData> {
@@ -64,7 +65,8 @@ export function monthlyPnl(rows: MonthUnits[], facts: Map<string, SkuFacts>, fee
     month.byMaster.set(key, line);
     const listUnits = Math.max(0, sold - r.soldPricedUnits);
     const sales = r.soldValue + (f.price === null ? 0 : listUnits * f.price);
-    const fees = (sales * feePct) / 100;
+    const rate = f.feePct ?? feePct;
+    const fees = (sales * rate) / 100;
     const cost = f.cost === null ? 0 : sold * f.cost;
     for (const l of [month.total, line]) {
       l.units += sold;
@@ -74,6 +76,7 @@ export function monthlyPnl(rows: MonthUnits[], facts: Map<string, SkuFacts>, fee
       l.profit = round2(l.sales - l.fees - l.cost);
       l.net = round2(l.profit - l.ads);
       if (f.cost === null) l.uncostedSales = round2(l.uncostedSales + sales);
+      if (f.feePct === null || f.feePct === undefined) l.estFeeSales = round2(l.estFeeSales + sales);
       if (f.price === null) l.unpricedUnits += listUnits;
       else l.listPricedUnits += listUnits;
     }
@@ -104,4 +107,9 @@ export function applyAds(pnl: Map<string, MonthPnlData>, ads: MonthAds[]): void 
       l.net = round2(l.profit - l.ads);
     }
   }
+}
+
+/** A SKU's real fee rate in %: Flipkart's total expenses (negative in its report) against its accounted sales. */
+export function feeRate(sales: number, expenses: number): number | null {
+  return sales > 0 ? Math.round((Math.abs(expenses) / sales) * 10000) / 100 : null;
 }

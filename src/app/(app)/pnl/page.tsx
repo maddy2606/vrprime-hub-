@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PnlBoard, type CostingRow, type MonthPnl, type UnlinkedSku } from "@/components/pnl/pnl-board";
+import { PnlBoard, type AdsUpload, type CostingRow, type MonthPnl, type UnlinkedSku } from "@/components/pnl/pnl-board";
 import { requireUser } from "@/lib/auth";
-import { findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthUnits, type SkuFacts } from "@/lib/costing";
+import { applyAds, findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthAds, type MonthUnits, type SkuFacts } from "@/lib/costing";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "P&L" };
@@ -24,13 +24,15 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   const db = (await createClient()) as unknown as Loose;
   const sp = await searchParams;
 
-  const [mpRes, linkRes, costRes, priceRes, unitsRes, feeRes] = await Promise.all([
+  const [mpRes, linkRes, costRes, priceRes, unitsRes, feeRes, adRes, adUpRes] = await Promise.all([
     db.from("master_products").select("id, name, kit_parts").order("name"),
     db.from("sku_master").select("channel_sku, master_id, units_per_order"),
     db.from("master_costs").select("master_id, cost"),
     db.from("stock_listings").select("sku, selling_price, title").eq("platform", "flipkart"),
     db.rpc("pnl_month_units", { p_from: FROM }),
     db.from("app_settings").select("value").eq("key", "money_default_fee_percent").maybeSingle(),
+    db.from("pnl_ad_spend").select("month, sku, spend").limit(20000),
+    db.from("pnl_ad_uploads").select("month, period_from, period_to, filename, skus, spend, uploaded_at").order("month", { ascending: false }),
   ]);
 
   const masters = new Map<string, MasterInfo>(
@@ -63,6 +65,23 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
     facts.set(sku, { masterId: link?.master_id ?? null, cost: link ? skuCost(link.units_per_order ?? 1, unit) : null, price: findSku(sku, prices, pricesLower) ?? null });
   }
   const pnl = monthlyPnl(unitRows as MonthUnits[], facts, feePct);
+  // Ad spend from the uploaded Flipkart Ads reports: off each month, and off the master SKU each advertised SKU belongs to.
+  const adRows: MonthAds[] = ((adRes.data ?? []) as { month: string; sku: string; spend: number }[]).map((a) => ({
+    month: a.month,
+    masterKey: findSku(a.sku, linkBy, linkLower)?.master_id ?? "unlinked",
+    spend: Number(a.spend),
+  }));
+  applyAds(pnl, adRows);
+  const uploads: AdsUpload[] = ((adUpRes.data ?? []) as { month: string; period_from: string; period_to: string; filename: string | null; skus: number; spend: number; uploaded_at: string }[]).map((u) => ({
+    month: u.month,
+    label: monthLabel(u.month),
+    from: u.period_from,
+    to: u.period_to,
+    filename: u.filename,
+    skus: u.skus,
+    spend: Number(u.spend),
+    uploadedAt: u.uploaded_at,
+  }));
   // Flipkart SKUs sold in each month that are not linked to a master SKU, so they have no cost.
   const unlinked = new Map<string, UnlinkedSku[]>();
   for (const r of unitRows) {
@@ -85,6 +104,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
       from: span.get(month)?.from ?? null,
       to: span.get(month)?.to ?? null,
       total: p.total,
+      adsUpload: uploads.find((u) => u.month === month) ?? null,
       unlinked: (unlinked.get(month) ?? []).sort((a, b) => b.sales - a.sales || b.units - a.units),
       byMaster: [...p.byMaster.entries()].map(([id, line]) => ({ id, name: id === "unlinked" ? "SKUs not linked to a master" : (masters.get(id)?.name ?? "Unknown"), ...line })).sort((a, b) => b.sales - a.sales),
     }));
@@ -101,5 +121,5 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   }));
 
   const asked = typeof sp.month === "string" ? sp.month : null;
-  return <PnlBoard months={months} month={asked && months.some((m) => m.month === asked) ? asked : (months[0]?.month ?? null)} costing={costing} feePct={feePct} error={unitsRes.error?.message ?? null} />;
+  return <PnlBoard months={months} month={asked && months.some((m) => m.month === asked) ? asked : (months[0]?.month ?? null)} costing={costing} uploads={uploads} feePct={feePct} error={unitsRes.error?.message ?? null} />;
 }

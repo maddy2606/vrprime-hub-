@@ -9,14 +9,25 @@ import { buttonClass, Chip } from "@/components/ui";
 import { masterUnitCost, skuCost, type MasterInfo, type PnlLine } from "@/lib/costing";
 import { formatINR, formatNumber } from "@/lib/format";
 import { linkSku } from "@/server/actions/masters";
-import { saveMasterCosts } from "@/server/actions/pnl";
+import { saveMasterCosts, uploadAdsReport } from "@/server/actions/pnl";
 
 export type UnlinkedSku = { sku: string; title: string | null; units: number; sales: number };
-export type MonthPnl = { month: string; label: string; from: string | null; to: string | null; total: PnlLine; byMaster: (PnlLine & { id: string; name: string })[]; unlinked: UnlinkedSku[] };
+export type AdsUpload = { month: string; label: string; from: string; to: string; filename: string | null; skus: number; spend: number; uploadedAt: string };
+export type MonthPnl = {
+  month: string;
+  label: string;
+  from: string | null;
+  to: string | null;
+  total: PnlLine;
+  byMaster: (PnlLine & { id: string; name: string })[];
+  unlinked: UnlinkedSku[];
+  adsUpload: AdsUpload | null;
+};
 export type CostingRow = { id: string; name: string; cost: number | null; kitParts: { id: string; name: string; qty: number }[]; skus: { sku: string; units: number }[] };
 
 const day = (d: string) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
-const margin = (l: PnlLine) => (l.sales > 0 ? Math.round((l.profit / l.sales) * 100) : null);
+// Margin after ads.
+const margin = (l: PnlLine) => (l.sales > 0 ? Math.round((l.net / l.sales) * 100) : null);
 const money = (n: number) => formatINR(Math.round(n));
 const parse = (s: string): number | null => {
   const t = s.replace(/[,₹\s]/g, "");
@@ -107,21 +118,23 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
       <section className="sp-card sp-card-lg p-5 sm:p-6" aria-labelledby="pnl-month">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="pnl-month" className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
-            {t.profit < 0 ? "Loss" : "Profit"} in {m.label}
+            {t.net < 0 ? "Loss" : "Profit"} in {m.label}
+            {t.ads > 0 ? ", after ads" : ""}
           </h2>
           {m.from && m.to ? <span className="text-xs text-muted">Orders {day(m.from)} to {day(m.to)}</span> : null}
         </div>
         <p className="mt-3 font-mono text-[2.8rem] font-bold leading-none tracking-tight tabular-nums sm:text-6xl">
-          <ProfitText value={t.profit} />
+          <ProfitText value={t.net} />
         </p>
         <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
           {formatNumber(t.units)} units sold{mg !== null ? <Chip tone={mg < 0 ? "bad" : mg < 10 ? "warn" : "ok"}>{mg}% margin</Chip> : null}
         </p>
-        <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 sm:grid-cols-4">
+        <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4 sm:grid-cols-5">
           {[
             ["Sales", money(t.sales)],
             [`Flipkart fees (${feePct}%)`, `−${money(t.fees)}`],
             ["Product cost", `−${money(t.cost)}`],
+            ["Ads (Flipkart Ads)", m.adsUpload || t.ads > 0 ? `−${money(t.ads)}` : "not added"],
             ["Units sold", formatNumber(t.units)],
           ].map(([k, v]) => (
             <div key={k} className="min-w-0">
@@ -135,6 +148,13 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
             {money(t.uncostedSales)} of these sales are for master SKUs with no cost yet, so the profit shows too high. Add their costs below.
           </p>
         ) : null}
+        {!m.adsUpload ? (
+          <p className="mt-2 text-sm font-semibold text-warn">
+            Ads spend for {m.label} is not added yet. Upload that month&apos;s Flipkart Ads report below.
+          </p>
+        ) : m.from && m.adsUpload.to < (m.to ?? "") ? (
+          <p className="mt-2 text-xs text-muted">The ads report covers up to {day(m.adsUpload.to)}; upload a newer one to include later ad spend.</p>
+        ) : null}
         {t.unpricedUnits > 0 ? <p className="mt-2 text-xs text-muted">{formatNumber(t.unpricedUnits)} units have no selling price on Flipkart now, so their sales are left out.</p> : null}
       </section>
 
@@ -144,14 +164,15 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
         </h2>
         <p className="px-5 pb-3 text-xs text-muted sm:px-6">Biggest sales first</p>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] text-sm">
+          <table className="w-full min-w-[40rem] text-sm">
             <thead>
               <tr className="border-y border-line text-left text-[11px] font-bold uppercase tracking-wider text-muted">
                 <th className="px-5 py-2 sm:px-6">Product</th>
                 <th className="px-3 py-2 text-right">Units</th>
                 <th className="px-3 py-2 text-right">Sales</th>
                 <th className="px-3 py-2 text-right">Cost</th>
-                <th className="px-5 py-2 text-right sm:px-6">Profit</th>
+                <th className="px-3 py-2 text-right">Ads</th>
+                <th className="px-5 py-2 text-right sm:px-6">Profit after ads</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-soft">
@@ -170,8 +191,9 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums">{formatNumber(r.units)}</td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums">{money(r.sales)}</td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted">{r.uncostedSales > 0 && r.cost === 0 ? "—" : money(r.cost)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted">{r.ads ? money(r.ads) : "—"}</td>
                   <td className="px-5 py-2.5 text-right font-mono font-bold tabular-nums sm:px-6">
-                    <ProfitText value={r.profit} />
+                    <ProfitText value={r.net} />
                   </td>
                 </tr>
               ))}
@@ -340,7 +362,59 @@ function Costing({ rows }: { rows: CostingRow[] }) {
 
 // ---- The page -------------------------------------------------------------------------------------------------------
 
-export function PnlBoard({ months, month, costing, feePct, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; feePct: number; error: string | null }) {
+/** The Flipkart Ads reports: upload one month at a time; uploading a month again replaces it. */
+function AdsReports({ uploads }: { uploads: AdsUpload[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      if (toast.result(await uploadAdsReport(await file.text(), file.name))) router.refresh();
+    } catch {
+      toast.result({ ok: false, message: "The file could not be read. Upload the report as downloaded (CSV)." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="sp-card mt-5 p-5 sm:p-6" aria-labelledby="ads-title">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 id="ads-title" className="font-display text-lg font-semibold">
+            Ads spend from Flipkart Ads
+          </h2>
+          <p className="max-w-2xl text-xs text-muted">
+            In Seller Hub open Ads, Reports, Other Reports. Choose PLA and Consolidated FSN Report, pick one month (Last Month, or This Month so far), press Download, and upload the
+            file here. Spend is taken off each product it advertised. Uploading a month again replaces it.
+          </p>
+        </div>
+        <label className={buttonClass("primary", busy ? "pointer-events-none opacity-60" : "cursor-pointer")}>
+          {busy ? "Uploading…" : "Upload ads report"}
+          <input type="file" accept=".csv,text/csv" className="sr-only" disabled={busy} onChange={(e) => upload(e.target.files?.[0] ?? undefined).finally(() => (e.target.value = ""))} />
+        </label>
+      </div>
+      {uploads.length ? (
+        <ul className="mt-4 divide-y divide-line-soft rounded-2xl border border-line-soft">
+          {uploads.map((u) => (
+            <li key={u.month} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 text-sm">
+              <span className="font-bold">{u.label}</span>
+              <span className="text-xs text-muted">
+                {day(u.from)} to {day(u.to)} · {formatNumber(u.skus)} SKUs · uploaded {new Date(u.uploadedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}
+              </span>
+              <span className="font-mono font-bold tabular-nums">{money(u.spend)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-muted">No ads report uploaded yet.</p>
+      )}
+    </section>
+  );
+}
+
+export function PnlBoard({ months, month, costing, uploads, feePct, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; error: string | null }) {
   const m = months.find((x) => x.month === month) ?? null;
   return (
     <div className="flex min-w-0 flex-col">
@@ -365,7 +439,7 @@ export function PnlBoard({ months, month, costing, feePct, error }: { months: Mo
               >
                 <span className={`text-xs font-bold ${on ? "text-accent-ink/80" : "text-muted"}`}>{x.label}</span>
                 <span className="font-mono text-base font-bold tabular-nums">
-                  {on ? (x.total.profit < 0 ? `−${money(-x.total.profit)}` : money(x.total.profit)) : <ProfitText value={x.total.profit} />}
+                  {on ? (x.total.net < 0 ? `−${money(-x.total.net)}` : money(x.total.net)) : <ProfitText value={x.total.net} />}
                 </span>
               </Link>
             );
@@ -377,8 +451,10 @@ export function PnlBoard({ months, month, costing, feePct, error }: { months: Mo
 
       <p className="mt-4 text-xs text-muted">
         How it is worked out: units sold are orders dispatched in the month, less those returned (by the customer or by the courier). Sales use each SKU&apos;s selling price on
-        Flipkart today. Flipkart fees are an estimate at {feePct}% of sales (change it in Settings, Default fee %). Ads and other costs are not included.
+        Flipkart today. Flipkart fees are an estimate at {feePct}% of sales (change it in Settings, Default fee %). Ads come from the Flipkart Ads reports uploaded below. Storage, other Flipkart charges and warehouse expenses are not included.
       </p>
+
+      <AdsReports uploads={uploads} />
 
       <Costing rows={costing} />
     </div>

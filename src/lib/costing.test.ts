@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { findSku, masterUnitCost, monthlyPnl, skuCost, type MasterInfo, type SkuFacts } from "./costing.ts";
+import { applyAds, findSku, masterUnitCost, monthlyPnl, skuCost, type MasterInfo, type SkuFacts } from "./costing.ts";
 
 const masters = new Map<string, MasterInfo>([
   ["berry", { id: "berry", name: "Berry Car Perfume", kitParts: [] }],
@@ -51,4 +51,21 @@ test("SKUs match as written, then in any case", () => {
   assert.equal(findSku("Lint-01", exact, lower), 1);
   assert.equal(findSku("LINT-01", exact, lower), 1);
   assert.equal(findSku("other", exact, lower), undefined);
+});
+
+test("ad spend comes off the month and the product it advertised", () => {
+  const facts = new Map<string, SkuFacts>([["BERRY-1", { masterId: "berry", cost: 60, price: 200 }]]);
+  const p = monthlyPnl([{ month: "2026-09", sku: "BERRY-1", dispatched: 10, returned: 0 }], facts, 10);
+  applyAds(p, [
+    { month: "2026-09", masterKey: "berry", spend: 300 },
+    { month: "2026-09", masterKey: "unlinked", spend: 50 },
+    { month: "2026-08", masterKey: "musk", spend: 25 },
+  ]);
+  const sep = p.get("2026-09")!;
+  assert.equal(sep.total.profit, 2000 - 200 - 600);
+  assert.equal(sep.total.ads, 350);
+  assert.equal(sep.total.net, 1200 - 350);
+  assert.equal(sep.byMaster.get("berry")!.net, 1200 - 300);
+  assert.equal(sep.byMaster.get("unlinked")!.net, -50, "ads with no sales: a loss");
+  assert.equal(p.get("2026-08")!.total.net, -25, "a month with only ads still shows");
 });

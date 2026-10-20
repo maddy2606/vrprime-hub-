@@ -28,9 +28,10 @@ export function skuCost(unitsPerOrder: number, unitCost: number | null): number 
 
 export type MonthUnits = { month: string; sku: string; dispatched: number; returned: number };
 export type SkuFacts = { masterId: string | null; cost: number | null; price: number | null };
-export type PnlLine = { units: number; sales: number; fees: number; cost: number; profit: number; uncostedSales: number; unpricedUnits: number };
+/** profit is before ads; net is after ads (the month's ad spend, from the Flipkart Ads report). */
+export type PnlLine = { units: number; sales: number; fees: number; cost: number; profit: number; ads: number; net: number; uncostedSales: number; unpricedUnits: number };
 
-const emptyLine = (): PnlLine => ({ units: 0, sales: 0, fees: 0, cost: 0, profit: 0, uncostedSales: 0, unpricedUnits: 0 });
+const emptyLine = (): PnlLine => ({ units: 0, sales: 0, fees: 0, cost: 0, profit: 0, ads: 0, net: 0, uncostedSales: 0, unpricedUnits: 0 });
 
 /**
  * Profit per month, and per master SKU within it. Units sold = dispatched less returned. Sales = units x selling price;
@@ -57,6 +58,7 @@ export function monthlyPnl(rows: MonthUnits[], facts: Map<string, SkuFacts>, fee
       l.fees = round2(l.fees + fees);
       l.cost = round2(l.cost + cost);
       l.profit = round2(l.sales - l.fees - l.cost);
+      l.net = round2(l.profit - l.ads);
       if (f.cost === null) l.uncostedSales = round2(l.uncostedSales + sales);
       if (f.price === null) l.unpricedUnits += sold;
     }
@@ -67,4 +69,24 @@ export function monthlyPnl(rows: MonthUnits[], facts: Map<string, SkuFacts>, fee
 /** The SKU as written, else the same SKU in any case (how master SKU links are matched elsewhere). */
 export function findSku<T>(sku: string, exact: Map<string, T>, lower: Map<string, T>): T | undefined {
   return exact.get(sku) ?? lower.get(sku.toLowerCase());
+}
+
+export type MonthAds = { month: string; masterKey: string; spend: number };
+
+/**
+ * Takes each month's ad spend off: from the month, and from the master SKU the advertised Flipkart SKU belongs to
+ * ("unlinked" when it belongs to none). A month or product with ads but no sales still shows, as a loss.
+ */
+export function applyAds(pnl: Map<string, { total: PnlLine; byMaster: Map<string, PnlLine> }>, ads: MonthAds[]): void {
+  for (const a of ads) {
+    if (!a.spend) continue;
+    const month = pnl.get(a.month) ?? { total: emptyLine(), byMaster: new Map<string, PnlLine>() };
+    pnl.set(a.month, month);
+    const line = month.byMaster.get(a.masterKey) ?? emptyLine();
+    month.byMaster.set(a.masterKey, line);
+    for (const l of [month.total, line]) {
+      l.ads = round2(l.ads + a.spend);
+      l.net = round2(l.profit - l.ads);
+    }
+  }
 }

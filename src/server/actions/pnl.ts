@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { readAdsReport } from "@/lib/ads-report";
 import { getActiveUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
@@ -38,4 +39,21 @@ export async function saveMasterCosts(input: unknown): Promise<ActionResult> {
   revalidatePath("/pnl");
   const n = parsed.data.length;
   return { ok: true, message: `${n} ${n === 1 ? "cost" : "costs"} saved` };
+}
+
+/** Uploads a Flipkart Ads PLA Consolidated FSN Report (CSV text): replaces that month's ad spend per SKU. */
+export async function uploadAdsReport(text: unknown, filename: unknown): Promise<ActionResult> {
+  const user = await getActiveUser();
+  if (!user) return NOT_SIGNED_IN;
+  if (user.role !== "owner") return { ok: false, message: "Only the owner can upload ads reports." };
+  if (typeof text !== "string" || text.length === 0 || text.length > 8_000_000) return { ok: false, message: "That file is empty or too large. Upload the report as downloaded (CSV)." };
+  const read = readAdsReport(text);
+  if (!read.ok) return { ok: false, message: read.error };
+  const { month, from, to, rows, spend } = read.report;
+  const db = (await createClient()) as unknown as Loose & { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ error: { message: string; code?: string } | null }> };
+  const { error } = await db.rpc("pnl_save_ads", { p_month: month, p_from: from, p_to: to, p_filename: typeof filename === "string" ? filename.slice(0, 200) : null, p_rows: rows });
+  if (error) return dbError(error, "save the ads report");
+  revalidatePath("/pnl");
+  const label = new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+  return { ok: true, message: `${label}: ₹${Math.round(spend).toLocaleString("en-IN")} ad spend across ${rows.length} SKUs saved` };
 }

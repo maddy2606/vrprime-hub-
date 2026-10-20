@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DeckIcon, GaugeIcon, MoreIcon, ReceiptIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BoardIcon, BoxIcon, DeckIcon, GaugeIcon, MoreIcon, ReceiptIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
 
 /**
- * The rail, in order: Command Deck, Work board, Tickets, Flipkart, Forecast, Team (owner and admin), Expenses, People, Settings (owner).
+ * The rail, in order: Command Deck, Work board, Tickets, Flipkart, Forecast, Team (owner and admin), Expenses, P&L, People, Settings (owner).
  * On a phone it is a bottom bar of five: Deck, Flipkart, Forecast and Team, with the rest under More.
  */
 function items(isOwner: boolean, isStaff: boolean): Item[] {
@@ -23,6 +23,7 @@ function items(isOwner: boolean, isStaff: boolean): Item[] {
     ...(isOwner
       ? [
           { key: "expenses", href: "/expenses", label: "Expenses", icon: ReceiptIcon },
+          { key: "pnl", href: "/pnl", label: "P&L", icon: RupeeIcon },
           { key: "people", href: "/admin/users", label: "People", icon: UsersIcon },
           { key: "settings", href: "/admin/settings", label: "Settings", icon: SlidersIcon },
         ]
@@ -37,6 +38,7 @@ function activeKey(pathname: string, tab: string | null): string {
   if (pathname.startsWith("/tickets")) return "tickets";
   if (pathname.startsWith("/team")) return "team";
   if (pathname.startsWith("/expenses")) return "expenses";
+  if (pathname.startsWith("/pnl")) return "pnl";
   if (pathname.startsWith("/admin/users")) return "people";
   if (pathname.startsWith("/admin/settings")) return "settings";
   return "";

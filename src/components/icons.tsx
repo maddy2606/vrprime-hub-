@@ -165,6 +165,16 @@ export const GaugeIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** Four tiles of different sizes: the dashboard. */
+export const DashIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="3.5" width="7.5" height="9" rx="2" />
+    <rect x="13" y="3.5" width="7.5" height="5" rx="2" />
+    <rect x="13" y="10.5" width="7.5" height="10" rx="2" />
+    <rect x="3.5" y="14.5" width="7.5" height="6" rx="2" />
+  </Icon>
+);
+
 /** A bill with lines: expenses. */
 export const ReceiptIcon = (p: IconProps) => (
   <Icon {...p}>

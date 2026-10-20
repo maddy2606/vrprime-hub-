@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DeckIcon, GaugeIcon, MoreIcon, ReceiptIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MoreIcon, ReceiptIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
 
 /**
- * The rail, in order: Command Deck, Work board, Tickets, Flipkart, Forecast, Team (owner and admin), Expenses, P&L, People, Settings (owner).
+ * The rail, in order: Command Deck, Dashboard (owner), Work board, Tickets, Flipkart, Forecast, Team (owner and admin), Expenses, P&L, People, Settings (owner).
  * On a phone it is a bottom bar of five: Deck, Flipkart, Forecast and Team, with the rest under More.
  */
 function items(isOwner: boolean, isStaff: boolean): Item[] {
   return [
     { key: "deck", href: "/", label: "Command Deck", icon: DeckIcon },
+    ...(isOwner ? [{ key: "dashboard", href: "/dashboard", label: "Dashboard", icon: DashIcon }] : []),
     { key: "work", href: "/work", label: "Work board", icon: BoardIcon },
     { key: "tickets", href: "/tickets", label: "Tickets", icon: TicketIcon },
     { key: "flipkart", href: "/flipkart", label: "Flipkart", icon: BoxIcon },
@@ -33,6 +34,7 @@ function items(isOwner: boolean, isStaff: boolean): Item[] {
 
 function activeKey(pathname: string, tab: string | null): string {
   if (pathname === "/") return "deck";
+  if (pathname.startsWith("/dashboard")) return "dashboard";
   if (pathname.startsWith("/flipkart")) return tab === "forecast" ? "forecast" : "flipkart";
   if (pathname === "/work" || pathname === "/all" || pathname.startsWith("/posts")) return "work";
   if (pathname.startsWith("/tickets")) return "tickets";

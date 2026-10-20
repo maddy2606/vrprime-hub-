@@ -18,31 +18,34 @@ test("a pack of 2 costs twice the master; a kit costs its parts", () => {
   assert.equal(skuCost(3, null), null);
 });
 
-test("profit per month: returns come off, fees are a share of sales, missing costs are flagged", () => {
+test("profit per month: counted like Seller Hub, real order prices first, missing costs flagged", () => {
   const facts = new Map<string, SkuFacts>([
     ["BERRY-1", { masterId: "berry", cost: 60, price: 199 }],
     ["BERRY-2", { masterId: "berry", cost: 120, price: 349 }],
     ["NEW-1", { masterId: "musk", cost: null, price: 150 }],
   ]);
+  const u = (month: string, sku: string, ordered: number, custReturned: number, rto: number, soldValue: number, soldPricedUnits: number) => ({ month, sku, ordered, cancelled: 1, custReturned, rto, soldValue, soldPricedUnits });
   const p = monthlyPnl(
     [
-      { month: "2026-10", sku: "BERRY-1", dispatched: 10, returned: 2 },
-      { month: "2026-10", sku: "BERRY-2", dispatched: 4, returned: 0 },
-      { month: "2026-10", sku: "NEW-1", dispatched: 3, returned: 1 },
-      { month: "2026-09", sku: "BERRY-1", dispatched: 1, returned: 3 },
+      u("2026-10", "BERRY-1", 10, 1, 1, 8 * 180, 8), // every sold unit has its order price (180, not today's 199)
+      u("2026-10", "BERRY-2", 4, 0, 0, 2 * 300, 2), // two units priced, two at today's listing price
+      u("2026-10", "NEW-1", 3, 1, 0, 0, 0),
+      u("2026-09", "BERRY-1", 1, 2, 1, 0, 0),
     ],
     facts,
     20,
   );
   const oct = p.get("2026-10")!;
+  assert.deepEqual(oct.counts, { ordered: 17, cancelled: 3, custReturned: 2, rto: 1 });
   assert.equal(oct.total.units, 8 + 4 + 2);
-  assert.equal(oct.total.sales, 8 * 199 + 4 * 349 + 2 * 150);
-  assert.equal(oct.total.fees, ((8 * 199 + 4 * 349 + 2 * 150) * 20) / 100);
+  const sales = 8 * 180 + (2 * 300 + 2 * 349) + 2 * 150;
+  assert.equal(oct.total.sales, sales);
+  assert.equal(oct.total.fees, (sales * 20) / 100);
   assert.equal(oct.total.cost, 8 * 60 + 4 * 120);
-  assert.equal(oct.total.profit, Math.round((oct.total.sales - oct.total.fees - oct.total.cost) * 100) / 100);
+  assert.equal(oct.total.listPricedUnits, 2 + 2);
   assert.equal(oct.total.uncostedSales, 300);
   assert.equal(oct.byMaster.get("berry")!.units, 12);
-  assert.equal(p.has("2026-09"), false, "more returned than sent: nothing sold");
+  assert.equal(p.get("2026-09")!.total.units, 0, "more returned than ordered: nothing sold");
 });
 
 test("SKUs match as written, then in any case", () => {
@@ -55,7 +58,7 @@ test("SKUs match as written, then in any case", () => {
 
 test("ad spend comes off the month and the product it advertised", () => {
   const facts = new Map<string, SkuFacts>([["BERRY-1", { masterId: "berry", cost: 60, price: 200 }]]);
-  const p = monthlyPnl([{ month: "2026-09", sku: "BERRY-1", dispatched: 10, returned: 0 }], facts, 10);
+  const p = monthlyPnl([{ month: "2026-09", sku: "BERRY-1", ordered: 10, cancelled: 0, custReturned: 0, rto: 0, soldValue: 0, soldPricedUnits: 0 }], facts, 10);
   applyAds(p, [
     { month: "2026-09", masterKey: "berry", spend: 300 },
     { month: "2026-09", masterKey: "unlinked", spend: 50 },

@@ -53,10 +53,18 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   // Each Flipkart SKU: its master, its cost (unit cost x units in an order) and its selling price now.
   const linkBy = new Map(links.map((l) => [l.channel_sku, l]));
   const linkLower = new Map(links.map((l) => [l.channel_sku.toLowerCase(), l]));
-  const unitRows = ((Array.isArray(unitsRes.data) ? unitsRes.data : []) as { month: string; sku: string; dispatched: number; returned: number; first_day: string | null; last_day: string | null }[]).map((r) => ({
-    ...r,
-    dispatched: Number(r.dispatched),
-    returned: Number(r.returned),
+  type Raw = { month: string; sku: string; ordered: number; cancelled: number; cust_returned: number; rto: number; sold_value: number; sold_priced_units: number; first_day: string | null; last_day: string | null };
+  const unitRows = ((Array.isArray(unitsRes.data) ? unitsRes.data : []) as Raw[]).map((r) => ({
+    month: r.month,
+    sku: r.sku,
+    ordered: Number(r.ordered),
+    cancelled: Number(r.cancelled),
+    custReturned: Number(r.cust_returned),
+    rto: Number(r.rto),
+    soldValue: Number(r.sold_value),
+    soldPricedUnits: Number(r.sold_priced_units),
+    first_day: r.first_day,
+    last_day: r.last_day,
   }));
   const facts = new Map<string, SkuFacts>();
   for (const sku of new Set(unitRows.map((r) => r.sku))) {
@@ -86,9 +94,10 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
   const unlinked = new Map<string, UnlinkedSku[]>();
   for (const r of unitRows) {
     const f = facts.get(r.sku);
-    const sold = Math.max(0, r.dispatched - r.returned);
+    const sold = Math.max(0, r.ordered - r.custReturned - r.rto);
     if (!f || f.masterId !== null || sold === 0) continue;
-    unlinked.set(r.month, [...(unlinked.get(r.month) ?? []), { sku: r.sku, title: titles.get(r.sku) ?? null, units: sold, sales: f.price === null ? 0 : sold * f.price }]);
+    const sales = r.soldValue + Math.max(0, sold - r.soldPricedUnits) * (f.price ?? 0);
+    unlinked.set(r.month, [...(unlinked.get(r.month) ?? []), { sku: r.sku, title: titles.get(r.sku) ?? null, units: sold, sales }]);
   }
   const span = new Map<string, { from: string; to: string }>();
   for (const r of unitRows) {
@@ -104,6 +113,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
       from: span.get(month)?.from ?? null,
       to: span.get(month)?.to ?? null,
       total: p.total,
+      counts: p.counts,
       adsUpload: uploads.find((u) => u.month === month) ?? null,
       unlinked: (unlinked.get(month) ?? []).sort((a, b) => b.sales - a.sales || b.units - a.units),
       byMaster: [...p.byMaster.entries()].map(([id, line]) => ({ id, name: id === "unlinked" ? "SKUs not linked to a master" : (masters.get(id)?.name ?? "Unknown"), ...line })).sort((a, b) => b.sales - a.sales),

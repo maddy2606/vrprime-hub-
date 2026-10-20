@@ -108,6 +108,12 @@ function quantity(value: unknown): number {
   return Number.isFinite(n) && n >= 0 ? Math.min(Math.floor(n), 100_000) : 1;
 }
 
+/** A rupee amount from Flipkart (number or text), or null. */
+function rupees(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(n) && n >= 0 && n < 10_000_000 ? Math.round(n * 100) / 100 : null;
+}
+
 function date(value: unknown): string | null {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
   return Number.isNaN(Date.parse(value)) ? null : value;
@@ -131,6 +137,8 @@ export type OrderItemRow = {
   cancelled_at: string | null;
   cancel_reason: string | null;
   cancel_sub_reason: string | null;
+  /** What the order item sold for (Flipkart's sellingPrice, for all its units). Nothing else about the payment is kept. */
+  selling_price: number | null;
 };
 
 export function normalizeShipments(shipments: unknown[]): { items: OrderItemRow[]; seen: number } {
@@ -160,6 +168,7 @@ export function normalizeShipments(shipments: unknown[]): { items: OrderItemRow[
         cancelled_at: date(raw.cancellationDate),
         cancel_reason: text(raw.cancellationReason),
         cancel_sub_reason: text(raw.cancellationSubReason),
+        selling_price: isObject(raw.priceComponents) ? rupees(raw.priceComponents.sellingPrice) : null,
       });
     }
   }

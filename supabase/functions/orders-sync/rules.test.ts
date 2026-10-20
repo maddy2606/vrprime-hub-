@@ -24,7 +24,7 @@ const SHIPMENT = {
       sku: " RATH2",
       title: "SECRET-TITLE",
       paymentType: "COD",
-      priceComponents: { sellingPrice: 987654, customerPrice: 987654 },
+      priceComponents: { sellingPrice: 499, customerPrice: 987654 },
       hsn: "33012400",
       customerEmail: "secret@example.test",
     },
@@ -52,6 +52,7 @@ test("keeps only the fields we need from a shipment, and nothing about the buyer
     cancelled_at: null,
     cancel_reason: null,
     cancel_sub_reason: null,
+    selling_price: 499,
   });
   assert.equal(items[1].quantity, 3, "a quantity sent as text is understood");
 

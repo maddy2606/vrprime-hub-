@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { SearchIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { buttonClass, Chip } from "@/components/ui";
-import { masterUnitCost, skuCost, type MasterInfo, type PnlLine } from "@/lib/costing";
+import { masterUnitCost, skuCost, type MasterInfo, type MonthCounts, type PnlLine } from "@/lib/costing";
 import { formatINR, formatNumber } from "@/lib/format";
 import { linkSku } from "@/server/actions/masters";
 import { saveMasterCosts, uploadAdsReport } from "@/server/actions/pnl";
@@ -19,6 +19,7 @@ export type MonthPnl = {
   from: string | null;
   to: string | null;
   total: PnlLine;
+  counts: MonthCounts;
   byMaster: (PnlLine & { id: string; name: string })[];
   unlinked: UnlinkedSku[];
   adsUpload: AdsUpload | null;
@@ -160,6 +161,15 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
           </p>
         ) : m.from && m.adsUpload.to < (m.to ?? "") ? (
           <p className="mt-2 text-xs text-muted">The ads report covers up to {day(m.adsUpload.to)}; upload a newer one to include later ad spend.</p>
+        ) : null}
+        <p className="mt-4 text-xs text-muted">
+          Orders {formatNumber(m.counts.ordered + m.counts.cancelled)} · cancelled {formatNumber(m.counts.cancelled)} · returned by customers {formatNumber(m.counts.custReturned)} · net{" "}
+          {formatNumber(m.counts.ordered - m.counts.custReturned)} (as Seller Hub counts) · courier returns (RTO) {formatNumber(m.counts.rto)} · <b className="text-ink">sold {formatNumber(t.units)}</b>
+        </p>
+        {t.listPricedUnits > 0 ? (
+          <p className="mt-1 text-xs text-muted">
+            {formatNumber(t.listPricedUnits)} sold units have no order price saved yet, so they use today&apos;s listing price.
+          </p>
         ) : null}
         {t.unpricedUnits > 0 ? <p className="mt-2 text-xs text-muted">{formatNumber(t.unpricedUnits)} units have no selling price on Flipkart now, so their sales are left out.</p> : null}
       </section>
@@ -456,8 +466,8 @@ export function PnlBoard({ months, month, costing, uploads, feePct, error }: { m
       {m ? <MonthView m={m} feePct={feePct} masters={costing.map((c) => ({ id: c.id, name: c.name }))} /> : <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">No orders yet to work out a profit from.</p>}
 
       <p className="mt-4 text-xs text-muted">
-        How it is worked out: units sold are orders dispatched in the month, less those returned (by the customer or by the courier). Sales use each SKU&apos;s selling price on
-        Flipkart today. Flipkart fees are an estimate at {feePct}% of sales (change it in Settings, Default fee %). Ads come from the Flipkart Ads reports uploaded below. Storage, other Flipkart charges and warehouse expenses are not included.
+        How it is worked out: units sold are the month&apos;s orders that were not cancelled, less those returned by the customer or by the courier (RTO). Seller Hub&apos;s net
+        units still count courier returns. Sales use each order&apos;s own selling price (today&apos;s listing price where an order has none saved). Flipkart fees are an estimate at {feePct}% of sales (change it in Settings, Default fee %). Ads come from the Flipkart Ads reports uploaded below. Storage, other Flipkart charges and warehouse expenses are not included.
       </p>
 
       <AdsReports uploads={uploads} />

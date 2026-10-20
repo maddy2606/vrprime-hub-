@@ -227,7 +227,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
 
       {/* Today's signals from the Command Deck, each a link. */}
       {deck.pulses.length ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className={`grid grid-cols-2 gap-4 ${deck.pulses.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
           {deck.pulses.slice(0, 4).map((p, i) => (
             <KpiTile key={p.key} label={p.label} value={p.value} sub={p.sub} tone={p.tone} spark={p.spark} sparkTone={p.tone} sparkLabel={p.sparkLabel} href={p.href} index={6 + i} />
           ))}

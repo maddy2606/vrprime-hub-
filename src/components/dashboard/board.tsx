@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Gauge, Sparkline, TrendChart } from "@/components/signal/charts";
 import { CountUp } from "@/components/signal/count-up";
+import { RupeesCountUp } from "@/components/dashboard/money-count";
 import { KpiTile } from "@/components/signal/kpi";
 import { Chip } from "@/components/ui";
 import { KIND_TONE, timeAgo } from "@/lib/alerts";
@@ -143,7 +144,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label={`Profit after ads · ${now ? now.label.split(" ")[0] : "month"}`} glow={t && t.net < 0 ? "var(--bad)" : "var(--ok)"} index={0}>
           <span className={`block font-mono text-4xl font-bold tabular-nums ${t && t.net < 0 ? "text-bad" : "text-ok"}`}>
-            <CountUp value={Math.round(t?.net ?? 0)} format={short} />
+            <RupeesCountUp value={Math.round(t?.net ?? 0)} />
           </span>
           <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
             {margin !== null ? <Chip tone={margin < 10 ? "bad" : margin < 25 ? "warn" : "ok"}>{margin}% margin</Chip> : null}
@@ -153,7 +154,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
         </Tile>
         <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label="Revenue (seller price)" glow="var(--accent)" index={1}>
           <span className="block font-mono text-4xl font-bold tabular-nums">
-            <CountUp value={Math.round(t?.sales ?? 0)} format={short} />
+            <RupeesCountUp value={Math.round(t?.sales ?? 0)} />
           </span>
           <span className="mt-2 block text-xs text-muted">
             {formatNumber(t?.units ?? 0)} units sold{prev ? ` · ${prev.label.split(" ")[0]} ${short(prev.total.sales)}` : ""}
@@ -170,7 +171,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
         <Tile href="/pnl#ads-title" label="Ads incl. 18% GST" glow="var(--madder)" index={2}>
           <span className="flex items-center justify-between gap-3">
             <span className="block font-mono text-4xl font-bold tabular-nums">
-              <CountUp value={Math.round(t?.ads ?? 0)} format={short} />
+              <RupeesCountUp value={Math.round(t?.ads ?? 0)} />
             </span>
             <Gauge pct={adsShare} tone={adsShare > 15 ? "bad" : adsShare > 10 ? "warn" : "ok"} label={`Ads are ${Math.round(adsShare)}% of revenue`} />
           </span>

@@ -491,6 +491,18 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
     locked.set(m.key.id, String(m.messageStubParameters?.[0] ?? "unknown"));
   }
   if (locked.size) logError("whatsapp undecryptable", new Error([...new Set(locked.values())].join("; ")));
+  // Remember them, so the next fetches ask the phone to send them again; forget the ones that have now arrived.
+  const lockedRows = held
+    .filter((m) => m.key.id && locked.has(m.key.id))
+    .map((m) => ({
+      id: m.key.id!,
+      msg_key: { remoteJid: m.key.remoteJid, id: m.key.id, fromMe: Boolean(m.key.fromMe), participant: m.key.participant ?? m.participant ?? undefined },
+      sent_at: toNumber(m.messageTimestamp) > 0 ? new Date(toNumber(m.messageTimestamp) * 1000).toISOString() : null,
+      reason: locked.get(m.key.id!)?.slice(0, 200) ?? null,
+    }));
+  if (lockedRows.length) await db.from("whatsapp_locked").upsert([...new Map(lockedRows.map((r) => [r.id, r])).values()], { onConflict: "id", ignoreDuplicates: true });
+  if (rows.size) await db.from("whatsapp_locked").delete().in("id", [...rows.keys()]);
+  const { count: stillLocked } = await db.from("whatsapp_locked").select("id", { count: "exact", head: true }).gte("first_seen", new Date(Date.now() - 14 * 86_400_000).toISOString());
   // Screenshots first (each is checked for a QR code as it is saved), then everything is sorted into expenses again.
   const shots = await saveScreenshots(db, deadline - 9000);
   await checkSavedForQr(db, deadline - 7000);
@@ -500,7 +512,7 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
   if (shots.left) parts.push(`${shots.left} still to download (press Fetch again)`);
   const seen = held.filter((m) => m.key.remoteJid === groupId).length;
   let note = `${parts.join(", ")}.`;
-  if (locked.size) note += ` ${locked.size} could not be decrypted (${[...new Set(locked.values())].join("; ").slice(0, 120)}).`;
+  if (stillLocked) note += ` ${stillLocked} ${stillLocked === 1 ? "message" : "messages"} could not be decrypted yet: the site asks your phone to send ${stillLocked === 1 ? "it" : "them"} again on every fetch (keep WhatsApp on the phone online).`;
   else if (!added) note += seen ? ` WhatsApp sent ${seen} already saved.` : " WhatsApp sent nothing new for the group.";
   if (seen) {
     // What came for the group, for checking a message that went missing: the time span and the kinds.
@@ -557,7 +569,7 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
     }
     // Messages that arrived while the site was away come first; then wait until they stop. A group message that could
     // not be decrypted is asked for again, so give WhatsApp time to send it once more.
-    const listenUntil = Math.min(deadline - 20_000, Date.now() + 45_000);
+    const listenUntil = Math.min(deadline - 20_000, Date.now() + 60_000);
     const locked = () => held.some((m) => m.key.remoteJid === st.group_id && !m.message && m.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT);
     let last = -1;
     let quiet = 0;
@@ -566,10 +578,33 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
       quiet = held.length === last ? quiet + 1 : 0;
       last = held.length;
     }
+    // Messages this device could not decrypt before: ask the phone to send each again (it has them readable). Its answer
+    // comes as a normal message, now or on the next connection.
+    const { data: pending } = await db
+      .from("whatsapp_locked")
+      .select("id, msg_key, sent_at, tries")
+      .gte("first_seen", new Date(Date.now() - 14 * 86_400_000).toISOString())
+      .lt("tries", 12)
+      .order("sent_at", { ascending: false })
+      .limit(10);
+    const asking = ((pending ?? []) as { id: string; msg_key: Record<string, unknown>; sent_at: string | null; tries: number }[]).filter((p) => !held.some((m) => m.key.id === p.id && m.message));
+    if (asking.length && Date.now() < listenUntil - 10_000) {
+      await Promise.all(
+        asking.map((p) =>
+          sock!
+            .requestPlaceholderResend(p.msg_key as never, { key: p.msg_key as never, messageTimestamp: p.sent_at ? Math.floor(Date.parse(p.sent_at) / 1000) : undefined })
+            .catch(() => undefined),
+        ),
+      );
+      for (const p of asking) await db.from("whatsapp_locked").update({ tries: p.tries + 1, last_try: new Date().toISOString() }).eq("id", p.id);
+      // Wait for the phone's answers, up to 20 seconds.
+      const askedAt = Date.now();
+      while (Date.now() < listenUntil && Date.now() - askedAt < 20_000 && !asking.every((p) => held.some((m) => m.key.id === p.id && m.message))) await wait(1000);
+    }
     // Then fills gaps: asks the phone for the group's 50 messages before the newest one (just arrived, or saved here), so
     // a message this device missed or could not decrypt comes again; ones already saved are skipped. Needs the phone online.
     const arrived = held
-      .filter((m) => m.key.remoteJid === st.group_id && m.key.id && m.message && toNumber(m.messageTimestamp) > 0)
+      .filter((m) => m.key.remoteJid === st.group_id && m.key.id && toNumber(m.messageTimestamp) > 0) // a message it could not decrypt is a fine anchor too: the phone has it
       .sort((a, b) => toNumber(b.messageTimestamp) - toNumber(a.messageTimestamp))[0];
     let anchor: { id: string; fromMe: boolean; participant?: string; at: number } | null = arrived
       ? { id: arrived.key.id!, fromMe: Boolean(arrived.key.fromMe), participant: arrived.key.participant ?? undefined, at: toNumber(arrived.messageTimestamp) * 1000 }

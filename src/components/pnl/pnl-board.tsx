@@ -205,7 +205,7 @@ function Costing({ rows }: { rows: CostingRow[] }) {
                 {isKit ? (
                   <p className="mt-0.5 text-xs text-muted">
                     {r.kitParts.map((p) => `${p.qty} × ${p.name}`).join(" + ")}
-                    {fromParts !== null ? ` = ${formatINR(fromParts)} from its parts` : " (add the parts' costs, or type the kit's own cost)"}
+                    {current[r.id] !== undefined ? " (uses its own cost)" : fromParts !== null ? ` = ${formatINR(fromParts)} from its parts` : " (add the parts' costs, or type the kit's own cost)"}
                   </p>
                 ) : null}
                 {r.skus.length ? (

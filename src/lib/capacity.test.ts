@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { attendanceRate, capacityHeadline, combinePlans, DEFAULT_CAPACITY_SETTINGS, forecastOrders, planWarehouse, shiftDay } from "./capacity.ts";
+import { attendanceRate, capacityHeadline, combinePlans, DEFAULT_CAPACITY_SETTINGS, forecastOrders, loadStatus, planWarehouse, shiftDay, teamSuggestions } from "./capacity.ts";
 
 const TODAY = "2026-10-18"; // a Sunday
 const S = DEFAULT_CAPACITY_SETTINGS;
@@ -217,4 +217,28 @@ test("the headline: covered, plan ahead, or start now", () => {
 
   const none = planWarehouse({ today: TODAY, staff: 0, attendanceRate: null, forecast: ready(900), booked: {}, settings: S });
   assert.equal(capacityHeadline([{ name: "Delhi", plan: none }], TODAY, S, fmt).headline, "No team is set up yet");
+});
+
+test("suggestions come from what happened: late orders, overloaded days, room to spare, big changes", () => {
+  const steady = (n: number) => Array.from({ length: 14 }, () => n);
+  const s = teamSuggestions([
+    { name: "Kolkata", staff: 1, comfortable: 400, limit: 500, days: [...steady(300).slice(0, 7), 450, 460, 470, 520, 540, 300, 300], late: 0, attendanceRate: 1 },
+    { name: "Bhiwandi", staff: 2, comfortable: 800, limit: 1000, days: steady(470), late: 34, attendanceRate: null },
+    { name: "Bangalore", staff: 2, comfortable: 800, limit: 1000, days: steady(300), late: 0, attendanceRate: 0.6 },
+    { name: "Delhi", staff: 0, comfortable: 0, limit: 0, days: steady(700), late: 0, attendanceRate: null },
+  ]);
+  const text = s.map((x) => x.text).join("\n");
+  assert.match(s[0].text, /Bhiwandi: 34 orders are past their dispatch time/, "late orders first");
+  assert.match(text, /Kolkata went past the most its team can pack \(500 a day\) on 2 of the last 7 days/);
+  assert.match(text, /Kolkata orders are up \d+% on the week before/);
+  assert.match(text, /Bangalore averages 300 orders a day against 800/);
+  assert.match(text, /Bangalore: people came in 60% of days/);
+  assert.match(text, /Delhi: about 700 orders a day but no people added/);
+});
+
+test("a day's real orders against the team", () => {
+  assert.equal(loadStatus(390, 400, 500), "ok");
+  assert.equal(loadStatus(450, 400, 500), "tight");
+  assert.equal(loadStatus(520, 400, 500), "short");
+  assert.equal(loadStatus(520, 0, 0), "ok", "no team set: nothing to judge against");
 });

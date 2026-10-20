@@ -7,12 +7,16 @@ import {
   combinePlans,
   DEFAULT_CAPACITY_SETTINGS,
   forecastOrders,
+  loadStatus,
   planWarehouse,
   shiftDay,
   teamCapacity,
+  teamSuggestions,
   type AttendanceStatus,
   type CapacitySettings,
+  type DayStatus,
   type Headline,
+  type Suggestion,
   type WarehousePlan,
 } from "@/lib/capacity";
 import { formatDate, todayIST } from "@/lib/format";
@@ -72,6 +76,13 @@ export type WarehouseView = {
   /** Orders placed yesterday and the average of the last 7 full days. */
   yesterday: number | null;
   average: number | null;
+  /** Real orders placed per day, the last 14 full days (oldest first), each against the team. */
+  pastDays: { day: string; orders: number; status: DayStatus }[];
+  /** Orders placed so far today, and orders still waiting whose dispatch time has passed. */
+  todaySoFar: number;
+  late: number;
+  /** The last 7 full days against the 7 before, in percent; null without two weeks of history. */
+  weeklyChangePct: number | null;
 };
 
 export type TeamData = {
@@ -85,6 +96,12 @@ export type TeamData = {
   people: PersonView[];
   /** Orders placed per day, all warehouses, the last 14 full days, for the chart. */
   past: { day: string; orders: number }[];
+  /** All warehouses together, the same 14 days against everyone's capacity, and today so far. */
+  allDays: { day: string; orders: number; status: DayStatus }[];
+  allToday: number;
+  allLate: number;
+  /** Plain suggestions from what really happened in the last two weeks. */
+  suggestions: Suggestion[];
   /** True when there is no order history at all yet. */
   noOrders: boolean;
   monthLabel: string;
@@ -144,13 +161,15 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
   const from = [monthStart(day), shiftDay(today, -14)].sort()[0];
   const to = [monthEnd(day), today].sort().reverse()[0];
 
-  const [whRes, staffRes, payRes, markRes, setRes, loadRes] = await Promise.all([
+  const [whRes, staffRes, payRes, markRes, setRes, loadRes, lateRes] = await Promise.all([
     db.from("warehouses").select("id, name, sort_order").order("sort_order"),
     db.from("staff").select("id, name, warehouse_id, active").order("name"),
     isOwner ? db.from("staff_pay").select("staff_id, monthly_salary") : Promise.resolve({ data: [], error: null }),
     db.from("attendance").select("staff_id, day, status").gte("day", from).lte("day", to),
     db.from("app_settings").select("key, value").in("key", [...SETTING_KEYS]),
     db.rpc("team_order_load", { p_days: 35 }),
+    // Orders still waiting whose dispatch time has passed, per warehouse.
+    db.from("fk_order_items").select("warehouse_id").eq("platform", "flipkart").eq("stage", "pending").eq("hold", false).lt("dispatch_by", new Date().toISOString()).limit(20000),
   ]);
   for (const [where, r] of [["warehouses", whRes], ["staff", staffRes], ["pay", payRes], ["attendance", markRes], ["settings", setRes]] as const) {
     if (r.error) fail(where, r.error);
@@ -199,6 +218,14 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
   };
 
   const windowStart = shiftDay(today, -14);
+  const lateBy = new Map<string, number>();
+  for (const r of (lateRes.data ?? []) as { warehouse_id: string | null }[]) if (r.warehouse_id) lateBy.set(r.warehouse_id, (lateBy.get(r.warehouse_id) ?? 0) + 1);
+  const last14 = Array.from({ length: 14 }, (_, i) => shiftDay(today, -(14 - i)));
+  const weekly = (h: Record<string, number>) => {
+    const a = sumDays(h, 1, 7);
+    const b = sumDays(h, 8, 14);
+    return Object.keys(h).some((k) => k <= shiftDay(today, -14)) && b > 0 ? ((a - b) / b) * 100 : null;
+  };
   const views: WarehouseView[] = warehouses.map((w, i) => {
     const active = people.filter((p) => p.warehouseId === w.id && p.active);
     const recent = marks.filter((m) => m.day >= windowStart && m.day <= today && active.some((p) => p.id === m.staff_id));
@@ -222,6 +249,10 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
       marked: active.filter((p) => p.status !== null).length,
       yesterday: known ? (history[shiftDay(today, -1)] ?? 0) : null,
       average: known ? Math.round(sumDays(history, 1, 7) / 7) : null,
+      pastDays: last14.map((d) => ({ day: d, orders: history[d] ?? 0, status: loadStatus(history[d] ?? 0, plan.comfortable, plan.limit) })),
+      todaySoFar: history[today] ?? 0,
+      late: lateBy.get(w.id) ?? 0,
+      weeklyChangePct: weekly(history),
     };
   });
 
@@ -246,9 +277,17 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
     return { day: d, orders: allPlaced[d] ?? 0 };
   });
 
+  const suggestions = teamSuggestions(
+    views.map((v) => ({ name: v.name, staff: v.staff, comfortable: v.plan.comfortable, limit: v.plan.limit, days: v.pastDays.map((x) => x.orders), late: v.late, attendanceRate: v.plan.attendanceRate })),
+  );
+
   return {
     today,
     day,
+    allDays: last14.map((d) => ({ day: d, orders: allPlaced[d] ?? 0, status: loadStatus(allPlaced[d] ?? 0, total.comfortable, total.limit) })),
+    allToday: allPlaced[today] ?? 0,
+    allLate: views.reduce((n, v) => n + v.late, 0),
+    suggestions,
     settings,
     isOwner,
     headline,

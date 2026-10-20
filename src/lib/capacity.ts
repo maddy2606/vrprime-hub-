@@ -320,3 +320,56 @@ export function capacityHeadline(
     detail: `${first.name} gets busier from ${fmtDay(first.plan.firstPressure ?? today)}; finding someone takes about ${settings.leadDays} days.`,
   };
 }
+
+// --- What happened (no forecast) ---------------------------------------------------------------------------------------
+
+/** One day's real orders against the team: ok up to comfort, tight up to the limit, short past it. */
+export function loadStatus(orders: number, comfortable: number, limit: number): DayStatus {
+  if (comfortable <= 0) return "ok";
+  return orders <= comfortable ? "ok" : orders <= limit ? "tight" : "short";
+}
+
+export type SuggestionInput = {
+  name: string;
+  staff: number;
+  comfortable: number;
+  limit: number;
+  /** Orders placed per day, oldest first, the last 14 full days. */
+  days: number[];
+  /** Orders still waiting whose dispatch time has passed. */
+  late: number;
+  attendanceRate: number | null;
+};
+export type Suggestion = { tone: "bad" | "warn" | "ok" | "info"; text: string };
+
+const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+
+/**
+ * Plain suggestions from what really happened in the last two weeks: late orders to clear, warehouses that went past what
+ * their team packs, ones with room to spare, big week-on-week changes and low attendance. Most urgent first.
+ */
+export function teamSuggestions(rows: SuggestionInput[]): Suggestion[] {
+  const out: { rank: number; s: Suggestion }[] = [];
+  for (const r of rows) {
+    const last7 = r.days.slice(-7);
+    const prev7 = r.days.slice(-14, -7);
+    const a7 = Math.round(avg(last7));
+    if (r.late > 0) out.push({ rank: 0, s: { tone: "bad", text: `${r.name}: ${r.late} ${r.late === 1 ? "order is" : "orders are"} past their dispatch time. Clear ${r.late === 1 ? "it" : "them"} first.` } });
+    if (r.staff === 0) {
+      if (a7 > 0) out.push({ rank: 3, s: { tone: "info", text: `${r.name}: about ${a7} orders a day but no people added on the Team page, so its load cannot be checked.` } });
+      continue;
+    }
+    const over = last7.filter((n) => n > r.limit).length;
+    const tight = last7.filter((n) => n > r.comfortable).length;
+    if (over >= 2) out.push({ rank: 1, s: { tone: "bad", text: `${r.name} went past the most its team can pack (${r.limit} a day) on ${over} of the last 7 days. One more person, or overtime on busy days, would help.` } });
+    else if (tight >= 3) out.push({ rank: 2, s: { tone: "warn", text: `${r.name} was above its comfortable load (${r.comfortable} a day) on ${tight} of the last 7 days, averaging ${a7}. Watch it, or plan help for busy days.` } });
+    else if (a7 > 0 && a7 < r.comfortable * 0.5) out.push({ rank: 4, s: { tone: "ok", text: `${r.name} averages ${a7} orders a day against ${r.comfortable} its team packs comfortably: room for more, or a person could help elsewhere.` } });
+    const p7 = avg(prev7);
+    if (prev7.length === 7 && p7 > 0) {
+      const change = Math.round(((avg(last7) - p7) / p7) * 100);
+      if (Math.abs(change) >= 20) out.push({ rank: 3, s: { tone: change > 0 ? "warn" : "info", text: `${r.name} orders are ${change > 0 ? "up" : "down"} ${Math.abs(change)}% on the week before (${a7} a day against ${Math.round(p7)}).` } });
+    }
+    if (r.attendanceRate !== null && r.attendanceRate < 0.8) out.push({ rank: 3, s: { tone: "warn", text: `${r.name}: people came in ${Math.round(r.attendanceRate * 100)}% of days over the last two weeks, so the team packs less than its headcount suggests.` } });
+  }
+  return out.sort((a, b) => a.rank - b.rank).map((x) => x.s);
+}

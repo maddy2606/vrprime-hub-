@@ -1,5 +1,5 @@
 // Obviously fake team data for the local-only /dev/preview screen (?view=team). Never used in production.
-import { capacityHeadline, combinePlans, DEFAULT_CAPACITY_SETTINGS, forecastOrders, planWarehouse, shiftDay, type AttendanceStatus } from "@/lib/capacity";
+import { capacityHeadline, combinePlans, DEFAULT_CAPACITY_SETTINGS, forecastOrders, loadStatus, planWarehouse, shiftDay, teamSuggestions, type AttendanceStatus } from "@/lib/capacity";
 import { FAKE_WAREHOUSES } from "@/lib/dev-fixtures";
 import { formatDate, todayIST } from "@/lib/format";
 import { warehouseColor } from "@/lib/theme";
@@ -55,6 +55,13 @@ export function fakeTeam(): TeamData {
       marked: active.filter((p) => p.status !== null).length,
       yesterday: history[shiftDay(today, -1)] ?? 0,
       average: Math.round(last7.reduce((a, b) => a + b, 0) / 7),
+      pastDays: Array.from({ length: 14 }, (_, k) => {
+        const d = shiftDay(today, -(14 - k));
+        return { day: d, orders: history[d] ?? 0, status: loadStatus(history[d] ?? 0, plan.comfortable, plan.limit) };
+      }),
+      todaySoFar: Math.round(s.base * 0.6),
+      late: i === 0 ? 12 : 0,
+      weeklyChangePct: s.growth > 5 ? 9 : 1,
     };
   });
 
@@ -67,9 +74,14 @@ export function fakeTeam(): TeamData {
     settings,
   );
 
+  const last14 = Array.from({ length: 14 }, (_, k) => shiftDay(today, -(14 - k)));
   return {
     today,
     day: today,
+    allDays: last14.map((d) => ({ day: d, orders: all[d] ?? 0, status: loadStatus(all[d] ?? 0, total.comfortable, total.limit) })),
+    allToday: views.reduce((n, v) => n + v.todaySoFar, 0),
+    allLate: views.reduce((n, v) => n + v.late, 0),
+    suggestions: teamSuggestions(views.map((v) => ({ name: v.name, staff: v.staff, comfortable: v.plan.comfortable, limit: v.plan.limit, days: v.pastDays.map((x) => x.orders), late: v.late, attendanceRate: v.plan.attendanceRate }))),
     settings,
     isOwner: true,
     headline: capacityHeadline(views.map((v) => ({ name: v.name, plan: v.plan })), today, settings, (d) => formatDate(d, today)),

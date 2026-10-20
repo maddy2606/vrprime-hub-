@@ -417,7 +417,9 @@ export function CapacityChart({
       </div>
       <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
         <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.indigo }} /><span className="font-bold">Orders so far</span></li>
-        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0 w-5 border-t-2 border-dashed" style={{ borderColor: COLOR.indigo }} /><span className="font-bold">Expected</span></li>
+        {future.length > 0 ? (
+          <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0 w-5 border-t-2 border-dashed" style={{ borderColor: COLOR.indigo }} /><span className="font-bold">Expected</span></li>
+        ) : null}
         <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.ok }} /><span className="font-bold">Packed comfortably</span></li>
         <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.danger }} /><span className="font-bold">The most the team can pack</span></li>
       </ul>

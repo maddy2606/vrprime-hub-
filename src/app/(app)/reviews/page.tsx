@@ -14,7 +14,7 @@ type DbErr = { code?: string; message?: string } | null;
 /** The tables are not there yet: the migration has not been applied to this database. */
 const missingTable = (e: DbErr) => !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|schema cache/i.test(e.message ?? ""));
 
-type LinkRow = { row_no: number; platform: ReviewPlatform; product: string; sku: string; url: string; shares_with: number | null };
+type LinkRow = { row_no: number; platform: ReviewPlatform; product: string; sku: string; url: string; shares_with: number | null; priority: number | null; target: number | null };
 type CheckRow = { id: string; checked_on: string; note: string | null; created_at: string };
 type CountRow = { check_id: string; row_no: number; reviews: number | null };
 
@@ -26,7 +26,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
 
   const [linkRes, checkRes] = await Promise.all([
-    db.from("review_links").select("row_no, platform, product, sku, url, shares_with").eq("active", true).order("row_no"),
+    db.from("review_links").select("row_no, platform, product, sku, url, shares_with, priority, target").eq("active", true).order("priority", { nullsFirst: false }).order("row_no"),
     db.from("review_checks").select("id, checked_on, note, created_at").order("checked_on", { ascending: false }).limit(200),
   ]);
   if (missingTable(linkRes.error) || missingTable(checkRes.error)) return <ReviewTracker view={null} />;
@@ -38,6 +38,8 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     sku: r.sku,
     url: r.url,
     sharesWith: r.shares_with,
+    priority: r.priority,
+    target: r.target,
   }));
   const checks = (checkRes.data ?? []) as CheckRow[];
   const asked = typeof sp.check === "string" ? sp.check : null;

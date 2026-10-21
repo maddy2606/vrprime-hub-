@@ -1,8 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// /api/whatsapp/auto checks its own one-time token from the database.
-const PUBLIC_PATHS = ["/login", "/api/whatsapp/ping", "/api/whatsapp/auto"];
+// /api/whatsapp/auto and /api/reviews/auto check their own one-time token from the database.
+const PUBLIC_PATHS = ["/login", "/api/whatsapp/ping", "/api/whatsapp/auto", "/api/reviews/auto"];
 
 // Keeps the Supabase session fresh and sends signed-out visitors to /login.
 // This is a convenience only: real access control is RLS in Postgres plus the

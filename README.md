@@ -487,8 +487,15 @@ sales, or ROI under 3.5), the average daily spend scan by scan, the campaign log
 
 ## The Review tracker
 
-**Review tracker** (`/reviews`, owner and admin) counts the written reviews (not star ratings) on every VRPRIME Flipkart and
-Shopsy link at each check, compares a check with the one before, and lists any link that lost reviews first.
+**Review tracker** (`/reviews`, owner and admin) counts the written reviews (not star ratings) on every link of Aman's priority
+sheet (priorities 1 to 7 and "Last", each with a review target) at each check, compares a check with the one before, and lists
+any link that lost reviews first.
+
+- **Sync now** (button) and the **automatic sync every 5 days** both run `syncReviews` in `src/server/review-sync.ts`: the site
+  opens each link's `/product-reviews/` page (then the product page), reads "N ratings and M reviews" (`src/lib/review-count.ts`)
+  and saves today's check (India date), replacing an earlier one from today. A link it can't read is saved as not read, never as
+  0. The database checks daily at 8:45 am India time and starts a sync (`/api/reviews/auto`, one-time token, as the WhatsApp
+  fetch does) when the latest check is 5 days old.
 
 - **Totals** count a listing that shows another listing's reviews once (`shares_with`; rows 43, 45 and 46 share rows 8, 2 and 4)
   and leave out links that could not be read that day, so a page that failed to load never shows as a drop. The arithmetic is

@@ -1,8 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { RefreshIcon } from "@/components/icons";
+import { useToast } from "@/components/toast";
 import { useMemo, useState, type ReactNode } from "react";
-import { Chip, EmptyState } from "@/components/ui";
+import { buttonClass, Chip, EmptyState } from "@/components/ui";
 import { formatNumber } from "@/lib/format";
 import { reviewTotals, sortForAttention, type ReviewLine, type ReviewStatus } from "@/lib/reviews";
 
@@ -14,7 +16,7 @@ export type ReviewsView = {
   day: string | null;
   prevDay: string | null;
   lines: ReviewLine[];
-  /** Total written reviews per check, oldest first, shared listings counted once. */
+  /** Total written reviews per check, oldest first. */
   trend: { day: string; reviews: number; missing: number }[];
 };
 
@@ -24,6 +26,7 @@ const dayShort = (d: string) => new Date(`${d}T12:00:00+05:30`).toLocaleDateStri
 const dayYear = (d: string) => new Date(`${d}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 const signed = (n: number | null) => (n == null ? "—" : n > 0 ? `+${formatNumber(n)}` : n < 0 ? `−${formatNumber(-n)}` : "0");
 const changeClass = (n: number | null) => (n == null || n === 0 ? "text-muted" : n > 0 ? "text-ok" : "text-bad");
+const priorityName = (p: number | null) => (p == null ? "—" : p >= 8 ? "Last" : `P${p}`);
 const STATUS_TONE: Record<ReviewStatus, "ok" | "warn" | "bad" | "neutral" | "info"> = { Dropped: "bad", Gained: "ok", "No change": "neutral", "Not checked": "warn", New: "info" };
 
 function Section({ id, title, sub, action, children }: { id: string; title: string; sub?: string; action?: ReactNode; children: ReactNode }) {
@@ -48,13 +51,15 @@ function Section({ id, title, sub, action, children }: { id: string; title: stri
 function Kpis({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | null }) {
   const t = reviewTotals(lines);
   const since = prevDay ? `since ${dayShort(prevDay)}` : "no earlier check";
+  const withTarget = lines.filter((l) => l.target != null && l.target > 0);
+  const atTarget = withTarget.filter((l) => (l.reviews ?? 0) >= (l.target ?? 0)).length;
   const tiles: [string, string, string, string][] = [
-    ["Written reviews", formatNumber(t.reviews), "Flipkart + Shopsy, shared listings once", ""],
+    ["Written reviews", formatNumber(t.reviews), `all ${lines.length} links added up`, ""],
     ["Change", prevDay ? signed(t.change) : "—", since, prevDay ? changeClass(t.change) : ""],
     ["Links with reviews removed", formatNumber(t.dropped), t.dropped ? "see the list below" : "none", t.dropped ? "text-bad" : "text-ok"],
     ["Flipkart", formatNumber(t.byPlatform.Flipkart.reviews), prevDay ? `${signed(t.byPlatform.Flipkart.change)} ${since}` : "", ""],
     ["Shopsy", formatNumber(t.byPlatform.Shopsy.reviews), prevDay ? `${signed(t.byPlatform.Shopsy.change)} ${since}` : "", ""],
-    ["Links not read", formatNumber(t.notChecked), t.notChecked ? "page didn't load, check again" : `all ${lines.length} read`, t.notChecked ? "text-warn" : ""],
+    ["At target", `${atTarget} / ${withTarget.length}`, t.notChecked ? `${t.notChecked} links not read` : "links with reviews ≥ target", t.notChecked ? "text-warn" : ""],
   ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
@@ -83,7 +88,7 @@ function Removed({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | nu
               <Chip tone="bad">{signed(l.change)}</Chip>
               <span className="font-bold">{l.product}</span>
               <span className="font-mono text-xs text-muted">
-                {l.platform} · {l.sku} · row {l.rowNo}
+                {priorityName(l.priority)} · {l.platform} · {l.sku}
               </span>
               <span className="text-muted">
                 {formatNumber(l.before ?? 0)} → {formatNumber(l.reviews ?? 0)}
@@ -96,7 +101,7 @@ function Removed({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | nu
       )}
       {unread.length ? (
         <p className="mt-3 text-sm text-warn">
-          {unread.length} link{unread.length > 1 ? "s" : ""} could not be read this time (rows {unread.map((l) => l.rowNo).join(", ")}), so a removal there would not show.
+          {unread.length} link{unread.length > 1 ? "s" : ""} could not be read this time ({unread.map((l) => l.product).join(", ")}), so a removal there would not show.
         </p>
       ) : null}
     </Section>
@@ -105,24 +110,33 @@ function Removed({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | nu
 
 // ---- Every link ------------------------------------------------------------------------------------------------------
 
-type SortKey = "attention" | "row" | "reviews" | "change";
+type SortKey = "attention" | "priority" | "reviews" | "change" | "target";
 
 function LinkTable({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | null }) {
   const [platform, setPlatform] = useState<"all" | "Flipkart" | "Shopsy">("all");
+  const [priority, setPriority] = useState<string>("all");
+  const priorities = useMemo(() => [...new Set(lines.map((l) => l.priority ?? 0))].sort((a, b) => a - b), [lines]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "attention", dir: 1 });
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const shown = lines.filter((l) => (platform === "all" || l.platform === platform) && (!q || l.product.toLowerCase().includes(q) || l.sku.toLowerCase().includes(q) || String(l.rowNo) === q));
+    const shown = lines.filter(
+      (l) =>
+        (platform === "all" || l.platform === platform) &&
+        (priority === "all" || String(l.priority ?? 0) === priority) &&
+        (!q || l.product.toLowerCase().includes(q) || l.sku.toLowerCase().includes(q)),
+    );
     if (sort.key === "attention") return sortForAttention(shown);
-    const val = (l: ReviewLine) => (sort.key === "row" ? l.rowNo : sort.key === "reviews" ? (l.reviews ?? -1) : (l.change ?? -Infinity));
+    const left = (l: ReviewLine) => (l.target ? l.target - (l.reviews ?? 0) : -Infinity);
+    const val = (l: ReviewLine) =>
+      sort.key === "priority" ? (l.priority ?? 99) : sort.key === "reviews" ? (l.reviews ?? -1) : sort.key === "target" ? left(l) : (l.change ?? -Infinity);
     return [...shown].sort((a, b) => sort.dir * (val(a) - val(b)) || a.rowNo - b.rowNo);
-  }, [lines, platform, query, sort]);
+  }, [lines, platform, priority, query, sort]);
 
   const head = (key: SortKey, label: string, right = true) => (
     <th scope="col" className={`whitespace-nowrap px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-muted ${right ? "text-right" : "text-left"}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
-      <button type="button" className="focus-ring rounded" onClick={() => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "row" ? 1 : -1 }))}>
+      <button type="button" className="focus-ring rounded" onClick={() => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "priority" ? 1 : -1 }))}>
         {label}
         {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
       </button>
@@ -138,7 +152,7 @@ function LinkTable({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | 
     <Section
       id="reviews-links"
       title="Every link"
-      sub="Written reviews only, not star ratings. Opens with drops first. Rows marked “shares reviews” show the same reviews as another row and count once in the totals."
+      sub="Written reviews only, not star ratings. Opens with drops first. Target bar: reviews so far against the sheet's target; sort by To target to see what is furthest away."
       action={
         <div className="flex flex-wrap items-center gap-2">
           <div role="group" aria-label="Platform" className="inline-flex overflow-hidden rounded-xl border border-line">
@@ -148,7 +162,15 @@ function LinkTable({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | 
               </button>
             ))}
           </div>
-          <input id="reviews-search" type="search" className="input max-w-56" placeholder="Search product, SKU or row" aria-label="Search product, SKU or row" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <select id="reviews-priority" aria-label="Priority" className="input w-auto" value={priority} onChange={(e) => setPriority(e.target.value)}>
+            <option value="all">All priorities</option>
+            {priorities.map((p) => (
+              <option key={p} value={String(p)}>
+                {p === 0 ? "No priority" : p >= 8 ? "Last" : `Priority ${p}`}
+              </option>
+            ))}
+          </select>
+          <input id="reviews-search" type="search" className="input max-w-56" placeholder="Search product or ID" aria-label="Search product or ID" value={query} onChange={(e) => setQuery(e.target.value)} />
           {sort.key !== "attention" ? (
             <button type="button" className="focus-ring rounded-lg px-2 py-1 text-xs font-bold text-accent-text hover:bg-accent-soft" onClick={() => setSort({ key: "attention", dir: 1 })}>
               Drops first
@@ -161,15 +183,15 @@ function LinkTable({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | 
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-panel2">
             <tr>
-              {head("row", "Row", false)}
-              {plain("Platform")}
+              {head("priority", "Priority", false)}
               {plain("Product")}
-              {plain("SKU")}
+              {plain("Platform")}
               {head("reviews", "Reviews")}
               <th scope="col" className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wide text-muted">
                 {prevDay ? dayShort(prevDay) : "Before"}
               </th>
               {head("change", "Change")}
+              {head("target", "To target", false)}
               {plain("Status")}
             </tr>
           </thead>
@@ -177,18 +199,20 @@ function LinkTable({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | 
             {list.length ? (
               list.map((l) => (
                 <tr key={l.rowNo} className="border-t border-line-soft align-top hover:bg-surface2/40">
-                  <td className="px-3 py-2 font-mono tabular-nums">{l.rowNo}</td>
-                  <td className="px-3 py-2">{l.platform}</td>
-                  <td className="min-w-[16rem] px-3 py-2">
+                  <td className="px-3 py-2 font-mono font-bold">{priorityName(l.priority)}</td>
+                  <td className="min-w-[13rem] px-3 py-2">
                     <a href={l.url} target="_blank" rel="noopener noreferrer" className="focus-ring rounded font-bold hover:underline">
                       {l.product}
                     </a>
-                    {l.sharesWith != null ? <span className="block text-xs text-muted">Shares reviews with row {l.sharesWith}</span> : null}
+                    <span className="block font-mono text-[11px] text-muted">{l.sku}</span>
                   </td>
-                  <td className="px-3 py-2 font-mono text-xs">{l.sku}</td>
+                  <td className="px-3 py-2">{l.platform}</td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums">{l.reviews == null ? "—" : formatNumber(l.reviews)}</td>
                   <td className="px-3 py-2 text-right font-mono tabular-nums text-muted">{l.before == null ? "—" : formatNumber(l.before)}</td>
                   <td className={`px-3 py-2 text-right font-mono font-bold tabular-nums ${changeClass(l.change)}`}>{signed(l.change)}</td>
+                  <td className="px-3 py-2">
+                    <TargetBar reviews={l.reviews} target={l.target} />
+                  </td>
                   <td className="px-3 py-2">
                     <Chip tone={STATUS_TONE[l.status]}>{l.status}</Chip>
                   </td>
@@ -196,7 +220,7 @@ function LinkTable({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | 
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-sm text-muted">
+                <td colSpan={9} className="px-3 py-6 text-center text-sm text-muted">
                   No link matches.
                 </td>
               </tr>
@@ -208,13 +232,55 @@ function LinkTable({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string | 
   );
 }
 
+function TargetBar({ reviews, target }: { reviews: number | null; target: number | null }) {
+  if (!target) return <span className="text-muted">—</span>;
+  const have = reviews ?? 0;
+  const share = Math.min(1, have / target);
+  const done = have >= target;
+  return (
+    <span className="flex min-w-[8.5rem] items-center gap-2" title={`${formatNumber(have)} of ${formatNumber(target)}`}>
+      <span className="h-2 w-16 shrink-0 overflow-hidden rounded-full bg-surface2">
+        <span className={`block h-full rounded-full ${done ? "bg-ok" : "bg-accent"}`} style={{ width: `${share * 100}%` }} />
+      </span>
+      <span className={`whitespace-nowrap font-mono text-xs tabular-nums ${done ? "text-ok" : "text-muted"}`}>{done ? "done" : `${formatNumber(target - have)} to go`}</span>
+    </span>
+  );
+}
+
+// ---- Sync now --------------------------------------------------------------------------------------------------------
+
+/** Sync now: the site opens every link and saves today's counts. Takes about a minute. */
+function SyncButton() {
+  const router = useRouter();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const sync = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/reviews/sync", { method: "POST" });
+      const body = (await res.json().catch(() => null)) as { ok?: boolean; text?: string } | null;
+      if (toast.result({ ok: Boolean(res.ok && body?.ok), message: body?.text ?? "Sync didn't finish. Try again." })) router.refresh();
+    } catch {
+      toast.result({ ok: false, message: "Sync didn't finish. Check your connection and try again." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button type="button" className={buttonClass("primary")} disabled={busy} onClick={() => void sync()} title="Read every link's written reviews now and save them as today's check">
+      <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+      {busy ? "Syncing… about a minute" : "Sync now"}
+    </button>
+  );
+}
+
 // ---- Check by check --------------------------------------------------------------------------------------------------
 
 function Trend({ trend, day }: { trend: ReviewsView["trend"]; day: string | null }) {
   if (trend.length < 2) return null;
   const max = Math.max(1, ...trend.map((t) => t.reviews));
   return (
-    <Section id="reviews-trend" title="Check by check" sub="Total written reviews at each check, shared listings counted once. A check with links that didn't load reads low.">
+    <Section id="reviews-trend" title="Check by check" sub="Total written reviews at each check, all links added up. A check with links that didn't load reads low.">
       <ul className="grid gap-2">
         {trend.map((t, i) => {
           const prev = trend[i - 1];
@@ -248,7 +314,7 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
         <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Review tracker</h1>
         <EmptyState
           title="The Review tracker isn't set up in the database yet"
-          body="Apply the migrations 20261021120000_review_tracker.sql and 20261021121000_review_tracker_first_checks.sql (in supabase/migrations) to the Supabase project, then reload this page."
+          body="Apply the review tracker migrations (in supabase/migrations, starting 20261021120000) to the Supabase project, then reload this page."
         />
       </div>
     );
@@ -264,6 +330,7 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
             {view.day ? `Checked ${dayYear(view.day)}${view.prevDay ? `, compared with ${dayYear(view.prevDay)}` : ""}${note ? ` · ${note}` : ""}` : "No check saved yet."}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
         {view.checks.length ? (
           <select id="reviews-check" aria-label="Choose a check" className="input w-auto" value={view.day ?? ""} onChange={(e) => router.push(`/reviews?check=${encodeURIComponent(e.target.value)}`)}>
             {view.checks.map((c) => (
@@ -273,7 +340,10 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
             ))}
           </select>
         ) : null}
+        <SyncButton />
+        </div>
       </header>
+      <p className="-mt-2 text-xs text-muted">Syncs by itself every 5 days, around 8:45 am. Sync now saves today&apos;s counts, and the next automatic sync comes 5 days after the latest check.</p>
       {view.day ? (
         <>
           <Kpis lines={view.lines} prevDay={view.prevDay} />

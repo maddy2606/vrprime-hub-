@@ -11,6 +11,10 @@ export type ReviewLink = {
   product: string;
   sku: string;
   url: string;
+  /** Priority on Aman's sheet: 1 to 7, and 8 for "Last". */
+  priority: number | null;
+  /** Written reviews the listing is aiming for. */
+  target: number | null;
   /** The row whose reviews this listing also shows (Flipkart shows one set on several listings), or null. */
   sharesWith: number | null;
 };

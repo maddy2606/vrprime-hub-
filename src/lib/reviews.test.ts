@@ -10,6 +10,8 @@ const link = (rowNo: number, platform: "Flipkart" | "Shopsy", sharesWith: number
   sku: `FAKE${rowNo}`,
   url: `https://www.flipkart.com/fake/p/itm${rowNo}`,
   sharesWith,
+  priority: 1,
+  target: null,
 });
 
 test("marks each link dropped, gained, unchanged, not checked or new", () => {

@@ -267,7 +267,7 @@ function SyncButton() {
     }
   };
   return (
-    <button type="button" className={buttonClass("primary")} disabled={busy} onClick={() => void sync()} title="Read every link's written reviews now and save them as today's check">
+    <button type="button" className={buttonClass("primary")} disabled={busy} onClick={() => void sync()} title="Read the links the site can reach now and update today's counts">
       <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
       {busy ? "Syncing… about a minute" : "Sync now"}
     </button>
@@ -343,7 +343,7 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
         <SyncButton />
         </div>
       </header>
-      <p className="-mt-2 text-xs text-muted">Syncs by itself every 5 days, around 8:45 am. Sync now saves today&apos;s counts, and the next automatic sync comes 5 days after the latest check.</p>
+      <p className="-mt-2 text-xs text-muted">Every 5 days the counts are read in Aman&apos;s Chrome and saved here. Sync now updates the links the site itself can read; links it can&apos;t read keep their latest count.</p>
       {view.day ? (
         <>
           <Kpis lines={view.lines} prevDay={view.prevDay} />

@@ -66,43 +66,56 @@ export async function syncReviews(deadline: number, note: string): Promise<Revie
   const links = (data ?? []) as Link[];
   if (!links.length) return { ok: false, text: "There are no links to check." };
 
-  // A few at a time, Flipkart and Shopsy mixed, so neither site sees a burst.
+  // Two at a time with a pause between pages, Flipkart and Shopsy mixed, so neither site sees a burst.
   const counts = new Map<number, number | null>();
   const queue = [...links];
   await Promise.all(
-    Array.from({ length: 4 }, async () => {
-      for (let link = queue.shift(); link; link = queue.shift()) counts.set(link.row_no, await countFor(link, deadline));
+    Array.from({ length: 2 }, async () => {
+      for (let link = queue.shift(); link; link = queue.shift()) {
+        counts.set(link.row_no, await countFor(link, deadline));
+        await wait(400);
+      }
     }),
   );
+  return saveCounts(links.map((l) => l.row_no), counts, note);
+}
 
-  const missed = links.filter((l) => counts.get(l.row_no) == null).map((l) => l.row_no);
-  const read = links.length - missed.length;
-  if (read === 0) return { ok: false, text: "Flipkart and Shopsy didn't answer, so nothing was saved. Try again later.", read, missed };
+/**
+ * Saves counts as today's check (India date). A link with no count keeps the count today's check already has, so a
+ * partial sync only adds to what is known and never wipes it. Used by Sync now, the automatic sync and /api/reviews/save
+ * (counts read in the owner's own browser).
+ */
+export async function saveCounts(rowNos: number[], counts: Map<number, number | null>, note: string): Promise<ReviewSyncResult> {
+  const db = serverDb();
+  if (!db) return { ok: false, text: "The site is missing its database key, so it can't save." };
+  const read = rowNos.filter((r) => counts.get(r) != null);
+  const missed = rowNos.filter((r) => counts.get(r) == null);
+  if (read.length === 0) return { ok: false, text: "No link could be read, so nothing was saved. Flipkart and Shopsy may be blocking the site. Try again later.", read: 0, missed };
 
   const day = todayIST();
-  const { error: dErr } = await db.from("review_checks").delete().eq("checked_on", day);
-  const { data: check, error: cErr } = dErr
-    ? { data: null, error: dErr }
-    : await db.from("review_checks").insert({ checked_on: day, note: missed.length ? `${note}; ${missed.length} not read` : note }).select("id").single();
-  if (cErr || !check) {
-    logError("save the review check", cErr ?? { message: "no id" });
-    return { ok: false, text: "The counts were read but could not be saved. Try again." };
+  const { data: existing } = await db.from("review_checks").select("id").eq("checked_on", day).maybeSingle();
+  let checkId = (existing as { id: string } | null)?.id ?? null;
+  if (!checkId) {
+    const { data: made, error: cErr } = await db.from("review_checks").insert({ checked_on: day, note }).select("id").single();
+    if (cErr || !made) {
+      logError("save the review check", cErr ?? { message: "no id" });
+      return { ok: false, text: "The counts were read but could not be saved. Try again." };
+    }
+    checkId = (made as { id: string }).id;
   }
-  const rows = links.map((l) => ({ check_id: (check as { id: string }).id, row_no: l.row_no, reviews: counts.get(l.row_no) ?? null }));
-  const { error: rErr } = await db.from("review_counts").insert(rows);
+  // New check: every link, null where not read. Today's check already there: only the links read now change.
+  const rows = (existing ? read : rowNos).map((r) => ({ check_id: checkId, row_no: r, reviews: counts.get(r) ?? null }));
+  const { error: rErr } = await db.from("review_counts").upsert(rows, { onConflict: "check_id,row_no" });
   if (rErr) {
     logError("save the review counts", rErr);
     return { ok: false, text: "The counts were read but could not be saved. Try again." };
   }
+  await db.from("review_checks").update({ note: existing ? `${note} (updated)` : note }).eq("id", checkId);
   try {
     revalidatePath("/reviews");
   } catch {
     // Outside a request (the automatic run) there is no cache to clear; the page reads fresh data anyway.
   }
-  return {
-    ok: true,
-    text: missed.length ? `Synced ${read} of ${links.length} links. Not read: rows ${missed.join(", ")}.` : `Synced all ${links.length} links.`,
-    read,
-    missed,
-  };
+  const kept = existing && missed.length ? ` The other ${missed.length} keep today's earlier count.` : missed.length ? ` ${missed.length} not read.` : "";
+  return { ok: true, text: `Updated ${read.length} of ${rowNos.length} links.${kept}`, read: read.length, missed };
 }

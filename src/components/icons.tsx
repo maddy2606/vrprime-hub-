@@ -231,3 +231,10 @@ export const MegaphoneIcon = (p: IconProps) => (
     <path d="M18.5 6.5a7.5 7.5 0 0 1 0 11" />
   </Icon>
 );
+
+/** A star with a line under it: written reviews. */
+export const StarIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m12 3.5 2.5 5.1 5.6.8-4.05 3.95.95 5.6L12 16.3l-5 2.65.95-5.6L3.9 9.4l5.6-.8z" />
+  </Icon>
+);

@@ -485,6 +485,20 @@ sales, or ROI under 3.5), the average daily spend scan by scan, the campaign log
   One policy per table lets owner and admin through and nobody else. `20261021091000_ads_tracker_first_scan.sql` loads the first
   scan (21 Sep to 19 Oct 2026), the 32 tracked SKUs and their 33 campaigns; it is safe to run twice.
 
+## The Review tracker
+
+**Review tracker** (`/reviews`, owner and admin) counts the written reviews (not star ratings) on every VRPRIME Flipkart and
+Shopsy link at each check, compares a check with the one before, and lists any link that lost reviews first.
+
+- **Totals** count a listing that shows another listing's reviews once (`shares_with`; rows 43, 45 and 46 share rows 8, 2 and 4)
+  and leave out links that could not be read that day, so a page that failed to load never shows as a drop. The arithmetic is
+  in `src/lib/reviews.ts`.
+- **Saving a check**: `review_tracker_save_check(day, note, counts)` replaces any check of the same day in one step;
+  `counts` is `[{"row_no": 2, "reviews": 123}, …]`, with `null` for a link that could not be read.
+- **Tables** (migration `20261021120000_review_tracker.sql`): `review_links`, `review_checks`, `review_counts`. One policy per
+  table lets owner and admin through and nobody else. `20261021121000_review_tracker_first_checks.sql` loads the 45 links, the
+  17 Oct 2026 baseline and the 21 Oct 2026 check; it is safe to run twice.
+
 ## Folder map
 
 ```

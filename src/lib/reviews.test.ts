@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { reviewLines, reviewTotals, sortForAttention, type ReviewLink } from "./reviews.ts";
+import { byDistanceToTarget, priorityProgress, reviewLines, reviewTotals, sortForAttention, targetProgress, toGo, type ReviewLink } from "./reviews.ts";
 
 // Made-up listings in the shape of the tracker's links.
 const link = (rowNo: number, platform: "Flipkart" | "Shopsy", sharesWith: number | null = null): ReviewLink => ({
@@ -45,4 +45,37 @@ test("opens with the biggest drop, then links not read, then the biggest gain", 
   const now = new Map<number, number | null>([[1, 5], [2, 95], [3, 80], [4, null], [5, 130]]);
   const before = new Map<number, number | null>([[1, 5], [2, 100], [3, 100], [4, 10], [5, 100]]);
   assert.deepEqual(sortForAttention(reviewLines(links, now, before)).map((l) => l.rowNo), [3, 2, 4, 5, 1]);
+});
+
+test("target progress caps each link at its own target and counts links at target", () => {
+  const links = [
+    { ...link(1, "Flipkart"), target: 100, priority: 1 },
+    { ...link(2, "Shopsy"), target: 100, priority: 1 },
+    { ...link(3, "Flipkart"), target: 500, priority: 2 },
+    { ...link(4, "Shopsy"), target: null, priority: 2 },
+    { ...link(5, "Flipkart"), target: 200, priority: null },
+  ];
+  const now = new Map<number, number | null>([[1, 130], [2, 40], [3, 0], [4, 70], [5, null]]);
+  const lines = reviewLines(links, now, null);
+  assert.deepEqual(targetProgress(lines), { have: 140, target: 900, links: 4, atTarget: 1 });
+  assert.deepEqual(
+    priorityProgress(lines).map((p) => [p.priority, p.have, p.target, p.links, p.atTarget]),
+    [[1, 140, 200, 2, 1], [2, 0, 500, 1, 0], [0, 0, 200, 1, 0]],
+  );
+  assert.deepEqual(lines.map(toGo), [0, 60, 500, null, null]);
+});
+
+test("nearest-to-target leaves out links already there, without a target or not read", () => {
+  const links = [
+    { ...link(1, "Flipkart"), target: 100 },
+    { ...link(2, "Shopsy"), target: 100 },
+    { ...link(3, "Flipkart"), target: 500 },
+    { ...link(4, "Shopsy"), target: null },
+    { ...link(5, "Flipkart"), target: 200 },
+    { ...link(6, "Shopsy"), target: 100 },
+  ];
+  const now = new Map<number, number | null>([[1, 130], [2, 94], [3, 0], [4, 70], [5, null], [6, 99]]);
+  const lines = reviewLines(links, now, null);
+  assert.deepEqual(byDistanceToTarget(lines, "nearest").map((l) => l.rowNo), [6, 2, 3]);
+  assert.deepEqual(byDistanceToTarget(lines, "furthest").map((l) => l.rowNo), [3, 2, 6]);
 });

@@ -87,6 +87,52 @@ export function reviewTotals(lines: ReviewLine[]): ReviewTotals {
   };
 }
 
+/** Written reviews still needed to reach the sheet's target: 0 once there, null with no target or no count. */
+export function toGo(l: ReviewLine): number | null {
+  if (!l.target || l.target <= 0 || l.reviews == null) return null;
+  return Math.max(0, l.target - l.reviews);
+}
+
+export type TargetProgress = {
+  /** Reviews counted towards targets, each listing capped at its own target, so one listing over target can't hide another short of it. */
+  have: number;
+  target: number;
+  /** Links with a target, and how many have reached it. */
+  links: number;
+  atTarget: number;
+};
+
+const progressOf = (lines: ReviewLine[]): TargetProgress => {
+  const withTarget = lines.filter((l) => l.target != null && l.target > 0);
+  return {
+    have: withTarget.reduce((n, l) => n + Math.min(l.reviews ?? 0, l.target ?? 0), 0),
+    target: withTarget.reduce((n, l) => n + (l.target ?? 0), 0),
+    links: withTarget.length,
+    atTarget: withTarget.filter((l) => (l.reviews ?? 0) >= (l.target ?? 0)).length,
+  };
+};
+
+/** How far every link is towards its target, all added up. Each listing counts against its own target, shared or not. */
+export function targetProgress(lines: ReviewLine[]): TargetProgress {
+  return progressOf(lines);
+}
+
+/** The same per priority on Aman's sheet (0 for links with none), 1 first and "Last" (8) at the end. */
+export function priorityProgress(lines: ReviewLine[]): (TargetProgress & { priority: number })[] {
+  const groups = new Map<number, ReviewLine[]>();
+  for (const l of lines) groups.set(l.priority ?? 0, [...(groups.get(l.priority ?? 0) ?? []), l]);
+  return [...groups.entries()].sort(([a], [b]) => (a || 99) - (b || 99)).map(([priority, ls]) => ({ priority, ...progressOf(ls) }));
+}
+
+/**
+ * Links short of their target, nearest first (the quick wins) or furthest first. Links that were not read this check
+ * are left out: their distance isn't known.
+ */
+export function byDistanceToTarget(lines: ReviewLine[], order: "nearest" | "furthest"): ReviewLine[] {
+  const dir = order === "nearest" ? 1 : -1;
+  return lines.filter((l) => (toGo(l) ?? 0) > 0).sort((a, b) => dir * ((toGo(a) ?? 0) - (toGo(b) ?? 0)) || a.rowNo - b.rowNo);
+}
+
 /** The order the table opens in: drops first (biggest loss first), then links not read, then gains (biggest first), then the rest. */
 export function sortForAttention(lines: ReviewLine[]): ReviewLine[] {
   const rank: Record<ReviewStatus, number> = { Dropped: 0, "Not checked": 1, Gained: 2, New: 3, "No change": 4 };

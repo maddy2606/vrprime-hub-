@@ -7,7 +7,7 @@
 const REDACTED = "[redacted]";
 
 // Environment variables whose values must never appear in output.
-const SECRET_ENV_NAMES = ["SUPABASE_SECRET_KEY", "VAPID_PRIVATE_KEY", "FLIPKART_APP_SECRET"];
+const SECRET_ENV_NAMES = ["SUPABASE_SECRET_KEY", "VAPID_PRIVATE_KEY", "FLIPKART_APP_SECRET", "WHATSAPP_BOT_TOKEN", "WHATSAPP_BOT_APP_SECRET", "WHATSAPP_BOT_VERIFY_TOKEN", "GEMINI_API_KEY"];
 
 const MARKER = String.raw`(?:sb_secret_|sb_publishable_|eyJ[A-Za-z0-9_-]{5,}|Bearer\s)`;
 // A quoted string that contains a key or token: drop the whole quoted part,

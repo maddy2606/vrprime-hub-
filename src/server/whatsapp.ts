@@ -327,7 +327,8 @@ async function updateExpenses(db: Db, groupId: string): Promise<number> {
   const warehouses = (whs ?? []) as { id: string; name: string }[];
   const existing = new Map<string, { id: string; key: string; edited: boolean; read_amount: number | null; read_text: string | null; read_done: boolean; verdict: string; status: string }>();
   for (let from = 0; ; from += 1000) {
-    const { data } = await db.from("expenses").select("id, key, edited, read_amount, read_text, read_done, verdict, status").not("key", "is", null).gte("spent_at", since).range(from, from + 999);
+    // Expenses from the expenses bot ("bot:" keys) are not the group's: never updated or removed here.
+    const { data } = await db.from("expenses").select("id, key, edited, read_amount, read_text, read_done, verdict, status").not("key", "is", null).not("key", "like", "bot:%").gte("spent_at", since).range(from, from + 999);
     for (const e of data ?? []) existing.set(e.key, e);
     if (!data || data.length < 1000) break;
   }

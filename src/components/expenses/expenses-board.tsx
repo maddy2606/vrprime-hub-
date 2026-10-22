@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { CheckIcon, PlusIcon, ReceiptIcon, RefreshIcon } from "@/components/icons";
+import { AlertIcon, CheckIcon, PlusIcon, ReceiptIcon, RefreshIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 import { Bar } from "@/components/signal/charts";
 import { useToast } from "@/components/toast";
@@ -11,7 +11,7 @@ import { buttonClass, Chip } from "@/components/ui";
 import { warehouseFor } from "@/lib/budget";
 import { counts, EXPENSE_CATEGORIES, monthSummary } from "@/lib/expenses";
 import { formatINR, formatNumber } from "@/lib/format";
-import { addExpense, chooseExpenseGroup, deleteExpense, saveScreenshotReading, updateExpense } from "@/server/actions/expenses";
+import { addExpense, chooseExpenseGroup, deleteExpense, dismissLocked, saveScreenshotReading, updateExpense } from "@/server/actions/expenses";
 import { BudgetSection, GENERAL, type BudgetPlan, type BudgetWarehouse } from "./budget";
 
 export type ExpenseRow = {
@@ -38,6 +38,10 @@ export type ExpenseRow = {
   imageUrl: string | null;
 };
 export type MonthTotal = { month: string; label: string; total: number; count: number };
+/** A group message WhatsApp delivered locked: the site keeps asking the phone for it. `sender` is null when unknown. */
+export type StuckMessage = { id: string; sentAt: string; sender: string | null; tries: number };
+/** What the Add sheet starts with when typing in a message that could not be read. */
+type AddFrom = { lockedId: string; at: string; reason: string };
 export type WhatsAppState = {
   linkedAs: string | null;
   groupId: string | null;
@@ -244,6 +248,68 @@ function WhatsAppBar({ wa }: { wa: WhatsAppState }) {
         </div>
       ) : null}
       <LinkSheet open={linking} onClose={() => setLinking(false)} />
+    </section>
+  );
+}
+
+// ---- Messages WhatsApp delivered locked ------------------------------------------------------------------------------------
+
+/**
+ * Group messages the site could not decrypt, so they never became expenses. Each fetch asks the phone to send them again;
+ * meanwhile one that was a payment can be typed in, and one that was not can be set aside.
+ */
+function StuckMessages({ list, onType }: { list: StuckMessage[]; onType: (m: StuckMessage) => void }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [pending, startTransition] = useTransition();
+  if (!list.length) return null;
+  const n = list.length;
+  return (
+    <section className="sp-card mb-5 border-l-4 border-l-warn p-4 sm:p-5" aria-labelledby="stuck-title">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warn-soft text-warn">
+          <AlertIcon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="stuck-title" className="text-sm font-bold">
+            {n} WhatsApp {n === 1 ? "message" : "messages"} could not be read
+          </h2>
+          <p className="mt-0.5 text-xs text-muted">
+            WhatsApp delivered {n === 1 ? "it" : "them"} locked, so {n === 1 ? "it is" : "they are"} not in the expenses below. Every fetch asks your phone to send{" "}
+            {n === 1 ? "it" : "them"} again: open WhatsApp on the phone, keep it open, and press Fetch from WhatsApp. If one was a payment, you can type it in now.
+          </p>
+        </div>
+      </div>
+      <ul className="mt-3 divide-y divide-line-soft overflow-hidden rounded-xl border border-line-soft">
+        {list.map((m) => (
+          <li key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-surface/60 px-3 py-2.5">
+            <span className="min-w-[12rem] flex-1">
+              <span className="block truncate text-sm font-bold">{m.sender ?? "A group member"}</span>
+              <span className="block text-xs text-muted">
+                {dayHead.format(new Date(m.sentAt))}, {time.format(new Date(m.sentAt))} · {m.tries ? `phone asked ${m.tries} ${m.tries === 1 ? "time" : "times"}` : "phone not asked yet"}
+              </span>
+            </span>
+            <span className="flex gap-2">
+              <button type="button" onClick={() => onType(m)} className={buttonClass("primary", "min-h-10")}>
+                <PlusIcon className="h-4 w-4" />
+                Type it in
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  startTransition(async () => {
+                    if (window.confirm("Set this message aside? The site stops asking the phone for it.") && toast.result(await dismissLocked(m.id))) router.refresh();
+                  })
+                }
+                className={buttonClass("ghost", "min-h-10")}
+              >
+                Not a payment
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -462,7 +528,7 @@ function EditSheet({ row, onClose, warehouses }: { row: ExpenseRow | null; onClo
   );
 }
 
-function AddSheet({ open, onClose, today, warehouses }: { open: boolean; onClose: () => void; today: string; warehouses: BudgetWarehouse[] }) {
+function AddSheet({ open, onClose, today, warehouses, from }: { open: boolean; onClose: () => void; today: string; warehouses: BudgetWarehouse[]; from: AddFrom | null }) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -470,8 +536,17 @@ function AddSheet({ open, onClose, today, warehouses }: { open: boolean; onClose
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string>("Other");
   const form = useNoteAndWarehouse(warehouses);
+  // Typing in a message that could not be read starts from its day and who sent it; a plain Add starts empty again.
+  const [prevFrom, setPrevFrom] = useState<string | null>(null);
+  const fromKey = from?.lockedId ?? null;
+  if (fromKey !== prevFrom) {
+    setPrevFrom(fromKey);
+    setDay(from ? istDay(from.at) : today);
+    setAmount("");
+    form.reset(from?.reason ?? "", null);
+  }
   return (
-    <Sheet open={open} onClose={onClose} title="Add an expense" subtitle="For one that is not in the WhatsApp group, like cash.">
+    <Sheet open={open} onClose={onClose} title={from ? "Type in a payment" : "Add an expense"} subtitle={from ? "From the WhatsApp message that could not be read: check the phone for the amount." : "For one that is not in the WhatsApp group, like cash."}>
       <div className="grid gap-3">
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           Date
@@ -502,7 +577,8 @@ function AddSheet({ open, onClose, today, warehouses }: { open: boolean; onClose
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
-            if (toast.result(await addExpense({ day, amount: Number(amount.replace(/,/g, "")), category, reason: form.reason, warehouseId: form.warehouse || null }))) {
+            const link = from ? { at: from.at, lockedId: from.lockedId } : {};
+            if (toast.result(await addExpense({ day, amount: Number(amount.replace(/,/g, "")), category, reason: form.reason, warehouseId: form.warehouse || null, ...link }))) {
               setAmount("");
               form.reset("", null);
               router.refresh();
@@ -541,9 +617,28 @@ function downloadCsv(month: string, rows: ExpenseRow[], names: Map<string, strin
 
 const isReading = (e: ExpenseRow) => e.verdict === "pending" && e.status !== "ignored";
 
-export function ExpensesBoard({ month, months, previous, expenses, whatsapp, today, plan }: { month: string; months: MonthTotal[]; previous: MonthTotal | null; expenses: ExpenseRow[]; whatsapp: WhatsAppState; today: string; plan: BudgetPlan }) {
+export function ExpensesBoard({
+  month,
+  months,
+  previous,
+  expenses,
+  whatsapp,
+  today,
+  plan,
+  locked,
+}: {
+  month: string;
+  months: MonthTotal[];
+  previous: MonthTotal | null;
+  expenses: ExpenseRow[];
+  whatsapp: WhatsAppState;
+  today: string;
+  plan: BudgetPlan;
+  locked: StuckMessage[];
+}) {
   const [editing, setEditing] = useState<ExpenseRow | null>(null);
   const [adding, setAdding] = useState(false);
+  const [addFrom, setAddFrom] = useState<AddFrom | null>(null);
   const [show, setShow] = useState<"payments" | "check" | "reading" | "not">("payments");
   // One warehouse's expenses only (picked on its budget card); GENERAL for those not tied to one.
   const [place, setPlace] = useState<string | null>(null);
@@ -578,7 +673,14 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
           <button type="button" onClick={() => downloadCsv(month, expenses, names)} disabled={!expenses.length} className={buttonClass("secondary")}>
             CSV
           </button>
-          <button type="button" onClick={() => setAdding(true)} className={buttonClass("secondary")}>
+          <button
+            type="button"
+            onClick={() => {
+              setAddFrom(null);
+              setAdding(true);
+            }}
+            className={buttonClass("secondary")}
+          >
             <PlusIcon className="h-4 w-4" />
             Add
           </button>
@@ -586,6 +688,13 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
       </div>
 
       <WhatsAppBar wa={whatsapp} />
+      <StuckMessages
+        list={locked}
+        onType={(m) => {
+          setAddFrom({ lockedId: m.id, at: m.sentAt, reason: `WhatsApp payment from ${m.sender ?? "a group member"}, ${time.format(new Date(m.sentAt))}` });
+          setAdding(true);
+        }}
+      />
       <ScreenshotReader rows={expenses} />
 
       <nav aria-label="Months" className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
@@ -763,7 +872,7 @@ export function ExpensesBoard({ month, months, previous, expenses, whatsapp, tod
       )}
 
       <EditSheet row={editing} onClose={() => setEditing(null)} warehouses={plan.warehouses} />
-      <AddSheet open={adding} onClose={() => setAdding(false)} today={today} warehouses={plan.warehouses} />
+      <AddSheet open={adding} onClose={() => setAdding(false)} today={today} warehouses={plan.warehouses} from={addFrom} />
     </div>
   );
 }

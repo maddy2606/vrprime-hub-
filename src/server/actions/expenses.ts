@@ -78,13 +78,27 @@ export async function updateExpense(input: unknown): Promise<ActionResult> {
   return done(verdict === "payment" ? "Counted as an expense" : verdict === "not_payment" ? "Not counted" : status === "checked" ? "Marked checked" : status === "ignored" ? "Set aside" : "Saved");
 }
 
+/** A WhatsApp message id, as kept for messages that could not be read. */
+const LOCKED_ID = z.string().regex(/^[A-Za-z0-9]{8,64}$/);
+
 const addSchema = z.object({
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   amount: z.number().positive().max(100_000_000),
   category: z.enum(EXPENSE_CATEGORIES),
   reason: z.string().trim().min(1).max(2000),
   warehouseId: z.uuid().nullable().optional(),
+  /** Typed in for a WhatsApp message that could not be read: its exact time, and its id (no longer asked for again). */
+  at: z.iso.datetime({ offset: true }).optional(),
+  lockedId: LOCKED_ID.optional(),
 });
+
+/** Stops asking the phone for a WhatsApp message that could not be read (typed in by hand, or not a payment). */
+async function forgetLocked(id: string): Promise<string | null> {
+  const db = serverDb();
+  if (!db) return "The server is missing its Supabase secret key.";
+  const { error } = await db.from("whatsapp_locked").delete().eq("id", id);
+  return error ? error.message : null;
+}
 
 /** An expense not in the WhatsApp group (cash, say), added by hand. */
 export async function addExpense(input: unknown): Promise<ActionResult> {
@@ -92,9 +106,11 @@ export async function addExpense(input: unknown): Promise<ActionResult> {
   if (!me.ok) return me.result;
   const parsed = addSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Fill in the date, amount, type and what it was for." };
-  const { day, amount, category, reason, warehouseId } = parsed.data;
+  const { day, amount, category, reason, warehouseId, at, lockedId } = parsed.data;
+  // The message's own time when its day was kept, else noon on the day picked.
+  const sameDay = at && new Date(Date.parse(at) + 5.5 * 3_600_000).toISOString().slice(0, 10) === day;
   const { error } = await me.db.from("expenses").insert({
-    spent_at: `${day}T12:00:00+05:30`,
+    spent_at: sameDay ? at : `${day}T12:00:00+05:30`,
     warehouse_id: warehouseId ?? null,
     amount,
     amount_from: "typed",
@@ -106,7 +122,22 @@ export async function addExpense(input: unknown): Promise<ActionResult> {
     created_by: me.userId,
   });
   if (error) return dbError(error, "add the expense");
+  if (lockedId) {
+    const problem = await forgetLocked(lockedId);
+    if (problem) return done("Expense added, but the unread message still shows. Press Not a payment on it.");
+  }
   return done("Expense added");
+}
+
+/** A WhatsApp message that could not be read and was not a payment: stop showing it and asking for it. */
+export async function dismissLocked(id: unknown): Promise<ActionResult> {
+  const me = await owner();
+  if (!me.ok) return me.result;
+  const parsed = LOCKED_ID.safeParse(id);
+  if (!parsed.success) return { ok: false, message: "That message was not found." };
+  const problem = await forgetLocked(parsed.data);
+  if (problem) return dbError({ message: problem }, "set the message aside");
+  return done("Set aside");
 }
 
 /** Deletes an expense added by hand (ones from WhatsApp are set aside instead, so a fetch does not bring them back). */

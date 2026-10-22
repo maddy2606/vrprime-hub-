@@ -475,7 +475,7 @@ export async function linkWhatsApp(emit: (e: LinkEvent) => void, deadline: numbe
   }
 }
 
-async function store(db: Db, groupId: string, held: WAMessage[], me: string | null, deadline: number): Promise<string> {
+async function store(db: Db, groupId: string, held: WAMessage[], me: string | null, deadline: number, asked: Set<string> = new Set()): Promise<string> {
   const rows = new Map<string, MessageRow>();
   const changes: Change[] = [];
   for (const m of held) {
@@ -499,6 +499,9 @@ async function store(db: Db, groupId: string, held: WAMessage[], me: string | nu
       msg_key: { remoteJid: m.key.remoteJid, id: m.key.id, fromMe: Boolean(m.key.fromMe), participant: m.key.participant ?? m.participant ?? undefined },
       sent_at: toNumber(m.messageTimestamp) > 0 ? new Date(toNumber(m.messageTimestamp) * 1000).toISOString() : null,
       reason: locked.get(m.key.id!)?.slice(0, 200) ?? null,
+      // Every row carries the same columns: a bulk upsert fills a missing one with null.
+      tries: asked.has(m.key.id!) ? 1 : 0,
+      last_try: asked.has(m.key.id!) ? new Date().toISOString() : null,
     }));
   if (lockedRows.length) await db.from("whatsapp_locked").upsert([...new Map(lockedRows.map((r) => [r.id, r])).values()], { onConflict: "id", ignoreDuplicates: true });
   if (rows.size) await db.from("whatsapp_locked").delete().in("id", [...rows.keys()]);
@@ -550,6 +553,8 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
       return { ok: false, text: "WhatsApp is not linked any more. Link it again." };
     }
     const held: WAMessage[] = [];
+    // Locked messages first seen in this fetch whose resend was already asked for, so they are saved as tried once.
+    const asked = new Set<string>();
     let pendingDone = false;
     sock = open(session, await waVersion());
     sock.ev.on("messaging-history.set", ({ messages }) => held.push(...messages));
@@ -569,17 +574,21 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
     }
     // Messages that arrived while the site was away come first; then wait until they stop. A group message that could
     // not be decrypted is asked for again, so give WhatsApp time to send it once more.
-    const listenUntil = Math.min(deadline - 20_000, Date.now() + 60_000);
-    const locked = () => held.some((m) => m.key.remoteJid === st.group_id && !m.message && m.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT);
+    // The phone's answers may take until phoneUntil; after that the rest of the time goes to saving what came.
+    const phoneUntil = deadline - 25_000;
+    const listenUntil = Math.min(phoneUntil, Date.now() + 30_000);
+    const isLocked = (m: WAMessage) => m.key.remoteJid === st.group_id && Boolean(m.key.id) && !m.message && m.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT;
+    const readable = (id: string) => held.some((m) => m.key.id === id && m.message);
     let last = -1;
     let quiet = 0;
-    while (Date.now() < listenUntil && (quiet < (locked() ? 15 : 3) || !pendingDone) && quiet < 20) {
+    while (Date.now() < listenUntil && (quiet < (held.some(isLocked) ? 15 : 3) || !pendingDone) && quiet < 20) {
       await wait(1000);
       quiet = held.length === last ? quiet + 1 : 0;
       last = held.length;
     }
-    // Messages this device could not decrypt before: ask the phone to send each again (it has them readable). Its answer
-    // comes as a normal message, now or on the next connection.
+    // Messages this device could not decrypt: the ones that came locked just now, and the ones saved locked by earlier
+    // fetches. Ask the phone to send each again (it has them readable), in this same connection: its answer comes as a
+    // normal message while the site waits, or on the next connection.
     const { data: pending } = await db
       .from("whatsapp_locked")
       .select("id, msg_key, sent_at, tries")
@@ -587,8 +596,17 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
       .lt("tries", 12)
       .order("sent_at", { ascending: false })
       .limit(10);
-    const asking = ((pending ?? []) as { id: string; msg_key: Record<string, unknown>; sent_at: string | null; tries: number }[]).filter((p) => !held.some((m) => m.key.id === p.id && m.message));
-    if (asking.length && Date.now() < listenUntil - 10_000) {
+    const saved = (pending ?? []) as { id: string; msg_key: Record<string, unknown>; sent_at: string | null; tries: number }[];
+    const fresh = held
+      .filter((m) => isLocked(m) && !saved.some((p) => p.id === m.key.id))
+      .map((m) => ({
+        id: m.key.id!,
+        msg_key: { remoteJid: m.key.remoteJid, id: m.key.id, fromMe: Boolean(m.key.fromMe), participant: m.key.participant ?? m.participant ?? undefined } as Record<string, unknown>,
+        sent_at: toNumber(m.messageTimestamp) > 0 ? new Date(toNumber(m.messageTimestamp) * 1000).toISOString() : null,
+        tries: 0,
+      }));
+    const asking = [...new Map([...fresh, ...saved].map((p) => [p.id, p])).values()].filter((p) => !readable(p.id)).slice(0, 12);
+    if (asking.length && Date.now() < phoneUntil - 10_000) {
       await Promise.all(
         asking.map((p) =>
           sock!
@@ -596,10 +614,13 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
             .catch(() => undefined),
         ),
       );
-      for (const p of asking) await db.from("whatsapp_locked").update({ tries: p.tries + 1, last_try: new Date().toISOString() }).eq("id", p.id);
-      // Wait for the phone's answers, up to 20 seconds.
+      for (const p of asking) {
+        if (saved.some((s) => s.id === p.id)) await db.from("whatsapp_locked").update({ tries: p.tries + 1, last_try: new Date().toISOString() }).eq("id", p.id);
+        else asked.add(p.id);
+      }
+      // Wait for the answers, up to 45 seconds: the phone's copy, or the sender's phone sending it again with its new key.
       const askedAt = Date.now();
-      while (Date.now() < listenUntil && Date.now() - askedAt < 20_000 && !asking.every((p) => held.some((m) => m.key.id === p.id && m.message))) await wait(1000);
+      while (Date.now() < phoneUntil && Date.now() - askedAt < 45_000 && !asking.every((p) => readable(p.id))) await wait(1000);
     }
     // Then fills gaps: asks the phone for the group's 50 messages before the newest one (just arrived, or saved here), so
     // a message this device missed or could not decrypt comes again; ones already saved are skipped. Needs the phone online.
@@ -616,7 +637,7 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
         anchor = { id: newest.id, fromMe, participant: !fromMe && String(newest.sender_id).includes("@") ? newest.sender_id : undefined, at: Date.parse(newest.sent_at) };
       }
     }
-    if (anchor && Date.now() < listenUntil - 5_000) {
+    if (anchor && Date.now() < phoneUntil - 5_000) {
       const asked = await sock
         .fetchMessageHistory(50, { remoteJid: st.group_id, id: anchor.id, fromMe: anchor.fromMe, participant: anchor.participant }, anchor.at)
         .then(() => true)
@@ -625,7 +646,7 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
         // The phone's answer takes a few seconds: wait for it, up to 15 seconds.
         const before = held.length;
         const askedAt = Date.now();
-        while (Date.now() < listenUntil && Date.now() - askedAt < 15_000) {
+        while (Date.now() < phoneUntil && Date.now() - askedAt < 15_000) {
           const size = held.length;
           await wait(1000);
           // The answer comes in one go: once it has come and a second passes with nothing more, stop.
@@ -635,7 +656,7 @@ export async function fetchWhatsApp(deadline: number, auto = false): Promise<{ o
     }
     sock.end(undefined);
     await session.flush();
-    const text = await store(db, st.group_id, held, sock.user?.name ?? null, deadline);
+    const text = await store(db, st.group_id, held, sock.user?.name ?? null, deadline, asked);
     await release(db, { last_fetch_at: new Date().toISOString(), last_result: auto ? `Automatic fetch: ${text}` : text, last_error: null });
     return { ok: true, text };
   } catch (e) {

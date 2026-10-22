@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import type { BudgetLine, BudgetPlan } from "@/components/expenses/budget";
-import { ExpensesBoard, type ExpenseRow, type MonthTotal, type WhatsAppState } from "@/components/expenses/expenses-board";
+import { ExpensesBoard, type ExpenseRow, type MonthTotal, type StuckMessage, type WhatsAppState } from "@/components/expenses/expenses-board";
 import { requireUser } from "@/lib/auth";
 import { isLabour, nextMonth, previousMonth } from "@/lib/budget";
 import { counts, monthOf } from "@/lib/expenses";
 import { todayIST } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { warehouseColor } from "@/lib/theme";
+import { serverDb } from "@/server/service-db";
 
 export const metadata: Metadata = { title: "Expenses" };
 
@@ -146,5 +147,31 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   };
   const prev = months.find((m) => m.month < month) ?? null;
 
-  return <ExpensesBoard month={month} months={months} previous={prev} expenses={expenses} whatsapp={whatsapp} today={today} plan={plan} />;
+  // Group messages WhatsApp delivered locked (still being asked for again), sent this month. Server-only table.
+  const locked: StuckMessage[] = [];
+  const sdb = serverDb();
+  if (sdb) {
+    const { data } = await sdb
+      .from("whatsapp_locked")
+      .select("id, msg_key, sent_at, first_seen, tries")
+      .gte("first_seen", `${shiftDay(today, -14)}T00:00:00+05:30`)
+      .order("sent_at", { ascending: false })
+      .limit(50);
+    const rows = ((data ?? []) as { id: string; msg_key: { participant?: string; fromMe?: boolean } | null; sent_at: string | null; first_seen: string; tries: number }[]).filter(
+      (r) => monthOf(r.sent_at ?? r.first_seen) === month,
+    );
+    // The sender's name, from their last readable message in the group.
+    const ids = [...new Set(rows.map((r) => r.msg_key?.participant).filter((p): p is string => Boolean(p)))];
+    const names = new Map<string, string>();
+    if (ids.length) {
+      const { data: named } = await db.from("expense_messages").select("sender_id, sender").in("sender_id", ids).not("sender", "is", null).order("sent_at", { ascending: false }).limit(200);
+      for (const n of (named ?? []) as { sender_id: string; sender: string }[]) if (!names.has(n.sender_id)) names.set(n.sender_id, n.sender);
+    }
+    for (const r of rows) {
+      const p = r.msg_key?.participant;
+      locked.push({ id: r.id, sentAt: r.sent_at ?? r.first_seen, sender: r.msg_key?.fromMe ? "You" : p ? (names.get(p) ?? null) : null, tries: r.tries });
+    }
+  }
+
+  return <ExpensesBoard month={month} months={months} previous={prev} expenses={expenses} whatsapp={whatsapp} today={today} plan={plan} locked={locked} />;
 }

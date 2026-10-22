@@ -1,6 +1,6 @@
 // Made-up expenses for the local-only /dev/preview screen (?view=expenses). Never used in production.
 import type { BudgetPlan } from "@/components/expenses/budget";
-import type { ExpenseRow, MonthTotal, WhatsAppState } from "@/components/expenses/expenses-board";
+import type { ExpenseRow, MonthTotal, StuckMessage, WhatsAppState } from "@/components/expenses/expenses-board";
 import { warehouseColor } from "@/lib/theme";
 
 // Made-up warehouses (ids are fake).
@@ -78,3 +78,9 @@ export const FAKE_BUDGET_PLAN: BudgetPlan = {
   lastRunning: { [WH.bhw]: 3_900, [WH.del]: 2_100, [WH.kol]: 1_200, [WH.lko]: 700, general: 600 },
   lastLabel: "Sept 2026",
 };
+
+/** Made-up group messages WhatsApp delivered locked (?view=expenses). */
+export const FAKE_LOCKED: StuckMessage[] = [
+  { id: "FAKE0000LOCKED01", sentAt: at(21, 18), sender: "Fake Jigar", tries: 1 },
+  { id: "FAKE0000LOCKED02", sentAt: at(21, 18), sender: null, tries: 0 },
+];

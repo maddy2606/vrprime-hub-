@@ -468,7 +468,8 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
   );
 }
 
-/** Stock-outs with made-up reads: stocked out and back in stock at several locations. ?state=one (a single read) or none. */
+/** Stock-outs with made-up reads: stocked out and back in stock at several locations. ?state=one (a single read), none, or
+ *  inactive (only an inactive listing changed). */
 function FakeStockouts({ state, today }: { state: string | string[] | undefined; today: string }) {
   const warehouses = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   // Bangalore, Bhiwandi, Delhi, Kolkata, Lucknow. null = not listed there.
@@ -478,7 +479,9 @@ function FakeStockouts({ state, today }: { state: string | string[] | undefined;
   const listings =
     state === "none"
       ? [fake("FAKE-SKU-0001", "Nothing moved", [5, 0, 9, null, 3], [4, 0, 9, null, 3])]
-      : [
+      : state === "inactive"
+        ? [fake("FAKE-SKU-0020", null, [7, 7, 7, 7, 7], [7, 7, 0, 7, 7], "INACTIVE")]
+        : [
           fake("FAKE-SKU-0003", "Fake steel bottle, 1 litre, brushed finish", [14, 3, 0, null, 8], [0, 3, 25, null, 0]),
           fake("FAKE-SKU-WITH-A-VERY-LONG-CODE-0005-EXTRA-LONG-PART", "A pretend product with a very long title that has to wrap neatly onto more than one line in a narrow column", [2, 0, 40, 6, null], [0, 120000, 40, 6, null]),
           fake("FAKE-SKU-0011", "Fake lunch box set", [0, 9, 5, 0, 1], [6, 0, 5, 12, 1]),

@@ -30,17 +30,21 @@ export function StockoutsTab({ rows, warehouses, snapshotDate, previousDate, tod
   const [kind, setKind] = useState<Kind>("all");
   const [wh, setWh] = useState("");
   const [q, setQ] = useState("");
+  // On by default: an inactive listing running out does not cost a sale.
+  const [hide, setHide] = useState(true);
 
   const nameOf = (id: string) => warehouses.find((w) => w.id === id)?.name ?? "Unknown warehouse";
   const after = formatDate(snapshotDate, today);
   const before = previousDate ? formatDate(previousDate, today) : null;
 
+  // Everything below (counts, locations, sections, CSV) works from these.
+  const visible = useMemo(() => (hide ? rows.filter((r) => r.status !== "INACTIVE") : rows), [rows, hide]);
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return rows.filter(
+    return visible.filter(
       (r) => (kind === "all" || r.kind === kind) && (!wh || r.warehouseId === wh) && (!needle || `${r.sku} ${r.title ?? ""}`.toLowerCase().includes(needle)),
     );
-  }, [rows, kind, wh, q]);
+  }, [visible, kind, wh, q]);
 
   if (warehouses.length === 0) {
     return <EmptyState title="No warehouse is assigned to you" body="Stock is shown per warehouse. Ask the owner to add your warehouse to your account." />;
@@ -54,10 +58,11 @@ export function StockoutsTab({ rows, warehouses, snapshotDate, previousDate, tod
     );
   }
 
-  const inLocation = wh ? rows.filter((r) => r.warehouseId === wh) : rows;
-  const ofKind = kind === "all" ? rows : rows.filter((r) => r.kind === kind);
+  const inLocation = wh ? visible.filter((r) => r.warehouseId === wh) : visible;
+  const ofKind = kind === "all" ? visible : visible.filter((r) => r.kind === kind);
   const locationCount = (id: string) => ofKind.filter((r) => r.warehouseId === id).length;
-  const withRows = warehouses.filter((w) => rows.some((r) => r.warehouseId === w.id));
+  const withRows = warehouses.filter((w) => visible.some((r) => r.warehouseId === w.id));
+  const hiddenInactive = rows.length - visible.length;
   const gap = daysBetween(previousDate, snapshotDate);
 
   const columns: Column<StockChange>[] = [
@@ -120,20 +125,28 @@ export function StockoutsTab({ rows, warehouses, snapshotDate, previousDate, tod
           />
         ) : null}
         <SearchField value={q} onChange={setQ} placeholder="Search SKU or title" />
+        <label className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold sm:min-h-9">
+          <input type="checkbox" className="h-4 w-4 accent-(--accent)" checked={hide} onChange={(e) => setHide(e.target.checked)} />
+          Hide inactive
+        </label>
         <CsvButton onClick={exportCsv} disabled={shown.length === 0} />
         <InfoTip>
           <p>Stocked out = had units at that location in the stock read of {before}, 0 in the read of {after}.</p>
           <p className="mt-2">Back in stock = 0 at that location on {before}, units again on {after}.</p>
+          <p className="mt-2">Hide inactive (on when the tab opens) leaves out listings that are inactive on Flipkart. Untick it to see them, marked Inactive.</p>
           <p className="mt-2">Stock is read from Flipkart every day at 8:00 AM. A location where the SKU was not listed in one of the two reads is left out. The Stock tab has the full stock at every location.</p>
         </InfoTip>
       </Toolbar>
       <Caption>
         Changes between the stock reads of {before} and {after}
         {gap > 1 ? ` (no good read in between, so this covers ${gap} days)` : ""}
+        {hiddenInactive > 0 ? ` · ${formatNumber(hiddenInactive)} ${hiddenInactive === 1 ? "change" : "changes"} on inactive listings hidden` : ""}
       </Caption>
 
       {rows.length === 0 ? (
         <EmptyState title="Nothing stocked out or came back in stock" body={`Between ${before} and ${after}, no SKU went to 0 or came back from 0 at any location.`} />
+      ) : visible.length === 0 ? (
+        <EmptyState title="Only inactive listings changed" body="Every SKU that stocked out or came back in stock is inactive on Flipkart. Untick Hide inactive to see them." />
       ) : groups.length === 0 ? (
         <EmptyState title="Nothing matches" body="Try another location or change, or clear the search." />
       ) : (

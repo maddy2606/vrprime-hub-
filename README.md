@@ -411,8 +411,9 @@ Compares the latest good Flipkart stock read with the one before it (normally to
 lists, per location, each SKU that **stocked out** there (units before, 0 now) and each SKU that came **back in stock**
 there (0 before, units now). Nothing else: no totals, no full out-of-stock list (that is the Stock tab), no alerts. A
 location where the SKU was not listed in one of the two reads is left out. If a day's read failed, the caption says how
-many days the comparison covers. Filters: All, Stocked out or Back in stock, and a location; search by SKU or title; the
-CSV holds the rows on screen. Warehouse users see only their own warehouses. It reads the same snapshots as the Stock tab
+many days the comparison covers. Filters: All, Stocked out or Back in stock, and a location; search by SKU or title;
+**Hide inactive** (ticked when the tab opens) leaves out listings that are inactive on Flipkart, and the caption says how
+many changes it hides. The CSV holds the rows on screen. Warehouse users see only their own warehouses. It reads the same snapshots as the Stock tab
 (`stock_snapshot`), so it needs no database change; the logic is `src/lib/stock-changes.ts`.
 
 ### Forecasting by product (master SKUs)

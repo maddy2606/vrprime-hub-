@@ -6,6 +6,7 @@ import { NeedsAction } from "@/components/flipkart/needs-action";
 import { OrdersTab } from "@/components/flipkart/orders-tab";
 import { PricesTab } from "@/components/flipkart/prices-tab";
 import { ReturnsTab } from "@/components/flipkart/returns-tab";
+import { StockoutsTab } from "@/components/flipkart/stockouts-tab";
 import { StockDesk } from "@/components/stock/stock-desk";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { EmptyState } from "@/components/ui";
@@ -14,6 +15,7 @@ import { readForecast, WINDOWS } from "@/lib/forecast";
 import { inventoryByProduct } from "@/lib/inventory-report";
 import { defaultQuery, INITIAL_PAGE_SIZE, ordersQuerySchema, readCards, type OrdersQuery } from "@/lib/orders-view";
 import { defaultReturnsQuery, RETURNS_INITIAL_PAGE_SIZE } from "@/lib/returns-view";
+import { stockChanges } from "@/lib/stock-changes";
 import { defaultStockQuery, STOCK_INITIAL_PAGE_SIZE, stockQuerySchema } from "@/lib/stock-view";
 import { formatDate, todayIST } from "@/lib/format";
 import { SELLER_HUB } from "@/lib/seller-hub";
@@ -45,6 +47,7 @@ import {
 } from "@/server/flipkart-data";
 import { loadOrderCounts, loadOrdersView, pickWarehouseOf } from "@/server/orders-view";
 import { loadReturnsPage, loadReturnsSummary } from "@/server/returns-view";
+import { loadStockPage } from "@/server/stock-data";
 import { loadStockDesk } from "@/server/stock-view";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -168,6 +171,18 @@ export async function StockPanel({ user, sp }: { user: SessionUser; sp: Search }
       cover={{ state: desk.cover.state, limit: desk.coverLimit, warehouseNames: Object.fromEntries(desk.meta.warehouses.map((w) => [w.id, w.name])) }}
     />
   );
+}
+
+// --- Stock-outs ------------------------------------------------------------------------------------------------
+
+export async function StockoutsPanel({ user }: { user: SessionUser }) {
+  // The same two reads as the Stock tab (row level security decides the warehouses); only what changed is sent on.
+  const page = await loadStockPage(user, canSyncOrders(user));
+  if (page.kind === "empty") {
+    return <EmptyState title="No stock numbers yet" body="Stock-outs come from the daily Flipkart stock read. Once the Stock tab has two days of reads, they show here." />;
+  }
+  const { data } = page;
+  return <StockoutsTab rows={stockChanges(data)} warehouses={data.warehouses} snapshotDate={data.snapshotDate} previousDate={data.previousDate} today={data.today} />;
 }
 
 // --- Returns ---------------------------------------------------------------------------------------------------

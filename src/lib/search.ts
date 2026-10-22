@@ -18,6 +18,7 @@ const PAGES: (SearchHit & { roles?: Role[]; words: string })[] = [
   { kind: "page", id: "p-flipkart", label: "Flipkart", sub: "Needs action, orders, stock, returns", href: "/flipkart", words: "flipkart needs action" },
   { kind: "page", id: "p-orders", label: "Flipkart · Orders", sub: "Orders waiting to be dispatched", href: "/flipkart?tab=orders", words: "orders dispatch late pending" },
   { kind: "page", id: "p-stock", label: "Flipkart · Stock", sub: "Stock across the warehouses", href: "/flipkart?tab=stock", words: "stock inventory out of stock low" },
+  { kind: "page", id: "p-stockouts", label: "Flipkart · Stock-outs", sub: "What stocked out or came back in stock since the day before", href: "/flipkart?tab=stockouts", words: "stock outs stockouts out of stock back in stock restocked location daily" },
   { kind: "page", id: "p-returns", label: "Flipkart · Returns", sub: "Returns and return rates", href: "/flipkart?tab=returns", words: "returns" },
   { kind: "page", id: "p-prices", label: "Flipkart · Prices", sub: "Selling prices and price changes", href: "/flipkart?tab=prices", words: "prices mrp", roles: ["owner", "admin"] },
   { kind: "page", id: "p-forecast", label: "Forecast", sub: "Expected dispatches and days of cover", href: "/flipkart?tab=forecast", words: "forecast cover demand" },

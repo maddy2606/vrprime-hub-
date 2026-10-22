@@ -5,7 +5,7 @@ import { PanelSkeleton } from "@/components/flipkart/panel-skeleton";
 import { isTabKey, TabBar, tabsFor, type TabKey } from "@/components/flipkart/tab-bar";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { ForecastPanel, HealthPanel, MastersPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockPanel } from "./panels";
+import { ForecastPanel, HealthPanel, MastersPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockoutsPanel, StockPanel } from "./panels";
 
 export const metadata: Metadata = { title: "Flipkart" };
 
@@ -17,6 +17,7 @@ const SUB: Record<TabKey, string> = {
   needs: "What to look at today",
   orders: "Orders waiting to be dispatched, and cancellations",
   stock: "Flipkart stock across the warehouses",
+  stockouts: "SKUs that stocked out or came back in stock since the day before",
   returns: "Returns and return rates",
   prices: "Selling prices, MRP and price changes",
   health: "Listings with problems to fix",
@@ -43,6 +44,7 @@ export default async function FlipkartPage({ searchParams }: { searchParams: Pro
         {tab === "needs" ? <NeedsPanel user={user} /> : null}
         {tab === "orders" ? <OrdersPanel user={user} sp={sp} /> : null}
         {tab === "stock" ? <StockPanel user={user} sp={sp} /> : null}
+        {tab === "stockouts" ? <StockoutsPanel user={user} /> : null}
         {tab === "returns" ? <ReturnsPanel user={user} /> : null}
         {tab === "prices" ? <PricesPanel /> : null}
         {tab === "health" ? <HealthPanel /> : null}

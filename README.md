@@ -307,6 +307,7 @@ four, for their own warehouses only (enforced in the database); owner and admin 
 | Needs action | A short list, each line with a button: Active orders about to miss dispatch (today or tomorrow, most urgent first), SKUs empty at a warehouse that has Active orders waiting, price errors, new inactive listings, SKUs with a high return rate, SKUs running out soon. Upcoming and Under Processing orders never appear here |
 | Orders | Seller Hub's tabs per warehouse, orders grouped by SKU, an order list, a pick list, upcoming vs stock, and cancellations. See [The Orders tab](#the-orders-tab) |
 | Stock | The Phase 3 stock desk, plus a **Days left** column |
+| Stock-outs | Only what changed since the day before, location by location. See [The Stock-outs tab](#the-stock-outs-tab) |
 | Returns | Courier and customer returns with reason and SKU, and return rate per SKU. **Raise ticket** from a return pre-fills the SKU, Flipkart and "Wrong return" |
 | Prices | Selling price, MRP, discount, last change and the history of changes, with flags for selling price at or above MRP, a big overnight drop, and a missing price |
 | Listing health | One row per SKU with its problems: missing package size or weight, slow dispatch SLA, a space at the start or end of the SKU, missing HSN or tax code |
@@ -403,6 +404,16 @@ Views:
 | Pick list | One warehouse: SKU x units still to pack (To Accept and To Pack, not on hold) for Active orders due today or late, or all Active; stock next to it; sortable, CSV |
 | Upcoming vs stock | Per SKU and warehouse: units in Upcoming orders against current stock, shortfalls first ("Short of stock" filter), with when the first becomes Active |
 | Cancelled | Cancellations in 30 days, seller and buyer apart, counts per day |
+
+### The Stock-outs tab
+
+Compares the latest good Flipkart stock read with the one before it (normally today's and yesterday's 8:00 AM reads) and
+lists, per location, each SKU that **stocked out** there (units before, 0 now) and each SKU that came **back in stock**
+there (0 before, units now). Nothing else: no totals, no full out-of-stock list (that is the Stock tab), no alerts. A
+location where the SKU was not listed in one of the two reads is left out. If a day's read failed, the caption says how
+many days the comparison covers. Filters: All, Stocked out or Back in stock, and a location; search by SKU or title; the
+CSV holds the rows on screen. Warehouse users see only their own warehouses. It reads the same snapshots as the Stock tab
+(`stock_snapshot`), so it needs no database change; the logic is `src/lib/stock-changes.ts`.
 
 ### Forecasting by product (master SKUs)
 

@@ -2,13 +2,14 @@ import Link from "next/link";
 import { SHOW_LISTING_HEALTH } from "@/lib/feature-flags";
 
 // The order of the tabs. "health" (Listing health) is only shown while SHOW_LISTING_HEALTH is on.
-export const TAB_KEYS = ["needs", "orders", "stock", "returns", "prices", "health", "forecast", "overfill", "masters"] as const;
+export const TAB_KEYS = ["needs", "orders", "stock", "stockouts", "returns", "prices", "health", "forecast", "overfill", "masters"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 export const TAB_LABEL: Record<TabKey, string> = {
   needs: "Needs action",
   orders: "Orders",
   stock: "Stock",
+  stockouts: "Stock-outs",
   returns: "Returns",
   prices: "Prices",
   health: "Listing health",

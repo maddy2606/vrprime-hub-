@@ -20,6 +20,9 @@ export type Column<T> = {
   screenOnly?: boolean;
   /** A minor column: not in the table on a wide screen (open the row's arrow to see it), but on every phone card. */
   minor?: boolean;
+  /** A fixed width on a wide screen (a Tailwind class such as "w-40"). Columns without one share the rest, so tables
+   *  stacked one under another line up. */
+  width?: string;
 };
 
 type Props<T> = {
@@ -115,7 +118,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                     key={c.key}
                     scope="col"
                     aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
-                    className={`bg-panel2 p-0 font-bold ${i === 0 ? "sticky left-0 z-10" : ""} ${c.align === "right" ? "text-right" : "text-left"}`}
+                    className={`bg-panel2 p-0 font-bold ${i === 0 ? "sticky left-0 z-10" : ""} ${c.align === "right" ? "text-right" : "text-left"} ${c.width ?? ""}`}
                   >
                     {c.sort ? (
                       <button
@@ -131,7 +134,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                         </span>
                       </button>
                     ) : (
-                      <span className="flex min-h-11 items-center px-2 text-xs uppercase text-muted">{c.label}</span>
+                      <span className={`flex min-h-11 items-center px-2 text-xs uppercase text-muted ${c.align === "right" ? "justify-end text-right" : ""}`}>{c.label}</span>
                     )}
                   </th>
                 );

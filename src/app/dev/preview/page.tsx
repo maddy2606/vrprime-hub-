@@ -17,6 +17,7 @@ import { OrdersTab } from "@/components/flipkart/orders-tab";
 import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { PricesTab } from "@/components/flipkart/prices-tab";
 import { ReturnsTab } from "@/components/flipkart/returns-tab";
+import { StockoutsTab } from "@/components/flipkart/stockouts-tab";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
 import { DispatchChart, Hero, Movers, OrdersByStage, OrdersTrend, PriorityQueue, Pulses, StockByWarehouse, StockHealth, TodayDispatch, Warehouses } from "@/components/deck/sections";
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
@@ -57,6 +58,8 @@ import {
 import { addDays, todayIST } from "@/lib/format";
 import { defaultQuery, type OrderView, type StatusFilter } from "@/lib/orders-view";
 import { EMPTY_POST } from "@/lib/post-options";
+import type { DeskListing } from "@/lib/stock-analysis";
+import { stockChanges } from "@/lib/stock-changes";
 import { buildStockView, defaultStockQuery, stockMeta } from "@/lib/stock-view";
 import { isViewKey } from "@/lib/stock-views";
 import { emptyTicket } from "@/lib/ticket-options";
@@ -87,6 +90,7 @@ const VIEWS = [
   "forders",
   "flist",
   "foverfill",
+  "fstockouts",
   "fprocessing",
   "fcancelled",
   "freturns",
@@ -322,7 +326,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
   const today = todayIST();
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
-  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : "health";
+  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : view === "fstockouts" ? "stockouts" : "health";
   const ordersView = FAKE_ORDER_VIEW[view]?.view ?? "sku";
   const needs = view === "fneeds" ? fakeNeedsAction() : null;
   const health = view === "fhealth" ? fakeHealthRows() : null;
@@ -363,6 +367,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
           ]}
         />
       ) : null}
+      {view === "fstockouts" ? <FakeStockouts state={sp.state} today={today} /> : null}
       {view === "fforecast" ? (
         <ForecastTab
           meta={{ today, windowStart: addDays(today, -24), windowEnd: addDays(today, -1), days: 24, asked: 30, historyFrom: addDays(today, -24), snapshot: today }}
@@ -461,4 +466,24 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
       {health ? <HealthTab rows={health.rows} total={health.total} taxUnread={0} slaLimit={2} /> : null}
     </>
   );
+}
+
+/** Stock-outs with made-up reads: stocked out and back in stock at several locations. ?state=one (a single read) or none. */
+function FakeStockouts({ state, today }: { state: string | string[] | undefined; today: string }) {
+  const warehouses = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
+  // Bangalore, Bhiwandi, Delhi, Kolkata, Lucknow. null = not listed there.
+  const fake = (sku: string, title: string | null, prev: (number | null)[], now: (number | null)[], status = "ACTIVE"): DeskListing => ({
+    sku, title, status, listingId: null, inactiveSince: null, beforeTracking: false, dims: null, prev, now, prevStatus: status,
+  });
+  const listings =
+    state === "none"
+      ? [fake("FAKE-SKU-0001", "Nothing moved", [5, 0, 9, null, 3], [4, 0, 9, null, 3])]
+      : [
+          fake("FAKE-SKU-0003", "Fake steel bottle, 1 litre, brushed finish", [14, 3, 0, null, 8], [0, 3, 25, null, 0]),
+          fake("FAKE-SKU-WITH-A-VERY-LONG-CODE-0005-EXTRA-LONG-PART", "A pretend product with a very long title that has to wrap neatly onto more than one line in a narrow column", [2, 0, 40, 6, null], [0, 120000, 40, 6, null]),
+          fake("FAKE-SKU-0011", "Fake lunch box set", [0, 9, 5, 0, 1], [6, 0, 5, 12, 1]),
+          fake("FAKE-SKU-0020", null, [7, 7, 7, 7, 7], [7, 7, 0, 7, 7], "INACTIVE"),
+        ];
+  const previousDate = state === "one" ? null : addDays(today, -1);
+  return <StockoutsTab rows={stockChanges({ warehouses, listings, previousDate })} warehouses={warehouses} snapshotDate={today} previousDate={previousDate} today={today} />;
 }

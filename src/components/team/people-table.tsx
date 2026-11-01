@@ -14,7 +14,10 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const by = new Map(warehouses.map((w) => [w.id, w]));
-  const sorted = [...people].sort((a, b) => (by.get(a.warehouseId)?.name ?? "").localeCompare(by.get(b.warehouseId)?.name ?? "") || a.name.localeCompare(b.name));
+  const place = (p: PersonView) => (p.warehouseId ? by.get(p.warehouseId) : undefined);
+  const placeName = (p: PersonView) => place(p)?.name ?? (p.remote ? "Remote · attendance only" : "Unknown warehouse");
+  // Warehouses A to Z, remote people last.
+  const sorted = [...people].sort((a, b) => Number(a.remote) - Number(b.remote) || placeName(a).localeCompare(placeName(b)) || a.name.localeCompare(b.name));
   const salaryTotal = people.filter((p) => p.active).reduce((n, p) => n + (p.salary ?? 0), 0);
   if (people.length === 0) return null;
   const toggle = (p: PersonView) => startTransition(async () => void toast.result(await setStaffActive(p.id, !p.active)));
@@ -35,7 +38,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
       {/* Phone: one card per person, no sideways scrolling. */}
       <ul className="flex flex-col gap-2 sm:hidden">
         {sorted.map((p) => {
-          const w = by.get(p.warehouseId);
+          const w = place(p);
           return (
             <li key={p.id} className={`rounded-xl border border-line-soft bg-surface/60 p-3 ${p.active ? "" : "opacity-60"}`}>
               <div className="flex items-start gap-2">
@@ -43,7 +46,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">{p.name}</p>
                   <p className="text-xs text-muted">
-                    {w?.name ?? "Unknown warehouse"}
+                    {placeName(p)}
                     {isOwner && p.salary !== null ? <span className="font-mono tabular-nums"> · {formatINR(p.salary)}</span> : null}
                   </p>
                 </div>
@@ -95,7 +98,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
           </thead>
           <tbody>
             {sorted.map((p) => {
-              const w = by.get(p.warehouseId);
+              const w = place(p);
               return (
                 <tr key={p.id} className={`border-b border-line-soft ${p.active ? "" : "opacity-60"}`}>
                   <th scope="row" className="py-2 pr-3 text-left font-bold">
@@ -103,7 +106,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
                       <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: w?.color }} />
                       <span>
                         {p.name}
-                        <span className="block text-[11px] font-normal text-muted">{w?.name ?? "Unknown warehouse"}</span>
+                        <span className="block text-[11px] font-normal text-muted">{placeName(p)}</span>
                       </span>
                       {!p.active ? <Chip tone="neutral">Removed</Chip> : null}
                     </span>

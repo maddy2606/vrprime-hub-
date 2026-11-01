@@ -7,7 +7,7 @@ import { buttonClass } from "@/components/ui";
 import type { CapacitySettings } from "@/lib/capacity";
 import { formatINR, formatNumber } from "@/lib/format";
 import { matchWarehouse, parseTeamSheet } from "@/lib/team-sheet";
-import { importTeamSheet, saveTeamSettings } from "@/server/actions/team";
+import { addPerson, importTeamSheet, saveTeamSettings } from "@/server/actions/team";
 
 type Warehouse = { id: string; name: string };
 
@@ -32,6 +32,9 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
   const [low, setLow] = useState(String(settings.low));
   const [high, setHigh] = useState(String(settings.high));
   const [lead, setLead] = useState(String(settings.leadDays));
+  const [newName, setNewName] = useState("");
+  const [newPlace, setNewPlace] = useState("");
+  const [newSalary, setNewSalary] = useState("");
 
   const readFile = (file: File | undefined) => {
     if (!file) return;
@@ -92,6 +95,17 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
     });
   };
 
+  const addOne = () => {
+    startTransition(async () => {
+      const result = await addPerson(newName, newPlace, newSalary.trim() === "" ? null : Number(newSalary.replace(/[,\s₹]/g, "")));
+      if (toast.result(result)) {
+        setNewName("");
+        setNewSalary("");
+        router.refresh();
+      }
+    });
+  };
+
   const saveSettings = () => {
     startTransition(async () => {
       if (toast.result(await saveTeamSettings(Number(low), Number(high), Number(lead)))) router.refresh();
@@ -143,6 +157,46 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
           </div>
         ) : null}
       </div>
+
+      <form
+        className="border-t border-line-soft pt-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          addOne();
+        }}
+      >
+        <h3 className="text-sm font-bold">Add one person</h3>
+        <p className="mb-3 mt-0.5 text-xs text-muted">
+          Choose their warehouse. <span className="font-bold">Remote</span> is for office staff who work from home: they get attendance only and are never counted as packers.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="text-sm font-bold">
+            Name
+            <input className="input mt-1" value={newName} maxLength={100} onChange={(e) => setNewName(e.target.value)} />
+          </label>
+          <label className="text-sm font-bold">
+            Where they work
+            <select className="input mt-1" value={newPlace} onChange={(e) => setNewPlace(e.target.value)}>
+              <option value="" disabled>
+                Choose…
+              </option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+              <option value="remote">Remote (attendance only)</option>
+            </select>
+          </label>
+          <label className="text-sm font-bold">
+            Monthly salary <span className="font-normal text-muted">(optional)</span>
+            <input className="input mt-1" inputMode="numeric" value={newSalary} onChange={(e) => setNewSalary(e.target.value)} />
+          </label>
+        </div>
+        <button type="submit" disabled={pending || !newName.trim() || !newPlace} className={buttonClass("outline", "mt-3")}>
+          Add person
+        </button>
+      </form>
 
       <form
         className="border-t border-line-soft pt-5"

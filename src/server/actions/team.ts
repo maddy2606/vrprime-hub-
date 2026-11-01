@@ -170,6 +170,45 @@ export async function saveTeamSettings(low: unknown, high: unknown, leadDays: un
   return { ok: true, message: "Planning numbers saved" };
 }
 
+/**
+ * Owner: one new person, at a warehouse or "remote" (office staff who work from home: on the page for attendance only,
+ * never counted in capacity). Someone already there with that exact name is put back on the team instead of added twice.
+ */
+export async function addPerson(name: unknown, place: unknown, salary: unknown): Promise<ActionResult> {
+  const user = await ownerUser();
+  if (isResult(user)) return user;
+  const n = typeof name === "string" ? name.trim().replace(/\s+/g, " ") : "";
+  if (!n || n.length > 100) return { ok: false, message: "Type the person's name." };
+  const remote = place === "remote";
+  if (!remote && (typeof place !== "string" || !UUID.test(place))) return { ok: false, message: "Choose a warehouse or Remote." };
+  const pay = salary === null || salary === undefined || salary === "" ? null : Number(salary);
+  if (pay !== null && (!Number.isInteger(pay) || pay < 0 || pay > 10_000_000)) return { ok: false, message: "The salary was not understood." };
+
+  const db = (await createClient()) as unknown as Loose;
+  const lookup = db.from("staff").select("id").eq("name", n);
+  const found = await (remote ? lookup.eq("remote", true) : lookup.eq("warehouse_id", place)).maybeSingle();
+  if (found.error) return dbError(found.error, "read the team");
+  let id = (found.data as { id: string } | null)?.id ?? null;
+  if (id) {
+    const back = await db.from("staff").update({ active: true }).eq("id", id);
+    if (back.error) return dbError(back.error, "update the team");
+  } else {
+    const made = await db
+      .from("staff")
+      .insert({ name: n, warehouse_id: remote ? null : place, remote, active: true })
+      .select("id")
+      .single();
+    if (made.error) return dbError(made.error, "add the person");
+    id = (made.data as { id: string }).id;
+  }
+  if (pay !== null) {
+    const r = await db.from("staff_pay").upsert({ staff_id: id, monthly_salary: pay, updated_at: new Date().toISOString() }, { onConflict: "staff_id" });
+    if (r.error) return dbError(r.error, "save the salary");
+  }
+  revalidatePath("/team");
+  return { ok: true, message: remote ? `${n} added as remote (attendance only)` : `${n} added` };
+}
+
 /** Owner: a person who has left (or come back). Their past attendance is kept. */
 export async function setStaffActive(staffId: unknown, active: unknown): Promise<ActionResult> {
   const user = await ownerUser();

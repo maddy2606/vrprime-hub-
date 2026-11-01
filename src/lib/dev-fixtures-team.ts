@@ -31,6 +31,7 @@ export function fakeTeam(): TeamData {
       id: `fake-person-${wi}-${k}`,
       name: `Fake Packer ${String.fromCharCode(65 + wi)}${k + 1}`,
       warehouseId: s.w.id,
+      remote: false,
       active: !(wi === 0 && k === 4),
       status: MARKS[(wi * 3 + k) % MARKS.length],
       month: { present: 14 - k, half: k % 2, absent: k % 3, leave: k === 1 ? 2 : 0 },

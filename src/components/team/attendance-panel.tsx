@@ -8,7 +8,7 @@ import type { AttendanceStatus } from "@/lib/capacity";
 import { addDays, formatDate } from "@/lib/format";
 import { markAttendance, markWarehousePresent } from "@/server/actions/team";
 
-type Person = { id: string; name: string; warehouseId: string; status: AttendanceStatus | null };
+type Person = { id: string; name: string; warehouseId: string | null; status: AttendanceStatus | null };
 type Warehouse = { id: string; name: string; color: string };
 
 const OPTIONS: { status: AttendanceStatus; label: string; on: string }[] = [
@@ -37,12 +37,29 @@ export function AttendancePanel({ day, today, warehouses, people }: { day: strin
       if (!result.ok) toast.show(result.message, "bad");
     });
   };
-  const allPresent = (warehouseId: string) => {
+  const allPresent = (warehouseId: string | null) => {
     startTransition(async () => {
-      for (const p of people) if (p.warehouseId === warehouseId && marks[p.id] == null) setMark({ id: p.id, status: "present" });
-      toast.result(await markWarehousePresent(warehouseId, day));
+      const rest = people.filter((p) => p.warehouseId === warehouseId && marks[p.id] == null);
+      for (const p of rest) setMark({ id: p.id, status: "present" });
+      if (warehouseId) {
+        toast.result(await markWarehousePresent(warehouseId, day));
+        return;
+      }
+      // Remote people belong to no warehouse: mark them one by one.
+      for (const p of rest) {
+        const result = await markAttendance(p.id, day, "present");
+        if (!result.ok) return void toast.show(result.message, "bad");
+      }
+      toast.show(`${rest.length} marked present`, "ok");
     });
   };
+  // Warehouses first, then the remote people (office staff working from home, attendance only) if there are any.
+  const groups: { key: string; id: string | null; name: string; color: string; note?: string }[] = [
+    ...warehouses.map((w) => ({ key: w.id, id: w.id, name: w.name, color: w.color })),
+    ...(people.some((p) => p.warehouseId === null)
+      ? [{ key: "remote", id: null, name: "Remote", color: "var(--color-muted, #8a8f98)", note: "attendance only, not counted in capacity" }]
+      : []),
+  ];
 
   const prev = addDays(day, -1);
   const next = addDays(day, 1);
@@ -72,20 +89,21 @@ export function AttendancePanel({ day, today, warehouses, people }: { day: strin
         </nav>
       </header>
 
-      {warehouses.length === 0 ? (
+      {groups.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">Add your team first.</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {warehouses.map((w) => {
+          {groups.map((w) => {
             const here = people.filter((p) => p.warehouseId === w.id);
             const marked = here.filter((p) => marks[p.id] != null).length;
             const inCount = here.filter((p) => marks[p.id] === "present" || marks[p.id] === "half").length;
             return (
-              <div key={w.id} className="rounded-xl border border-line-soft p-3">
+              <div key={w.key} className="rounded-xl border border-line-soft p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <h3 className="flex items-center gap-2 text-sm font-bold">
                     <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: w.color }} />
                     {w.name}
+                    {w.note ? <span className="text-xs font-normal text-muted">· {w.note}</span> : null}
                   </h3>
                   <span className="flex items-center gap-2">
                     <Chip tone={marked === here.length ? "ok" : "neutral"}>{marked === here.length ? `${inCount} of ${here.length} in` : `${marked} of ${here.length} marked`}</Chip>

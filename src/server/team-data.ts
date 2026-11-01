@@ -54,7 +54,9 @@ const whole = (v: unknown, fallback: number, min: number, max: number): number =
 export type PersonView = {
   id: string;
   name: string;
-  warehouseId: string;
+  /** Null for a remote person (office staff working from home): attendance only, never counted in capacity. */
+  warehouseId: string | null;
+  remote: boolean;
   active: boolean;
   /** The mark on the chosen day, if any. */
   status: AttendanceStatus | null;
@@ -124,7 +126,7 @@ function readSettings(rows: { key: string; value: unknown }[]): CapacitySettings
  */
 export async function loadTeamCapacity(db: Loose, today: string): Promise<{ staff: number; comfortable: number } | null> {
   const [staffRes, markRes, setRes] = await Promise.all([
-    db.from("staff").select("id, warehouse_id").eq("active", true),
+    db.from("staff").select("id, warehouse_id").eq("active", true).not("warehouse_id", "is", null),
     db.from("attendance").select("staff_id, status").gte("day", shiftDay(today, -14)).lte("day", today),
     db.from("app_settings").select("key, value").in("key", [...SETTING_KEYS]),
   ]);
@@ -163,7 +165,7 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
 
   const [whRes, staffRes, payRes, markRes, setRes, loadRes, lateRes] = await Promise.all([
     db.from("warehouses").select("id, name, sort_order").order("sort_order"),
-    db.from("staff").select("id, name, warehouse_id, active").order("name"),
+    db.from("staff").select("id, name, warehouse_id, remote, active").order("name"),
     isOwner ? db.from("staff_pay").select("staff_id, monthly_salary") : Promise.resolve({ data: [], error: null }),
     db.from("attendance").select("staff_id, day, status").gte("day", from).lte("day", to),
     db.from("app_settings").select("key, value").in("key", [...SETTING_KEYS]),
@@ -186,7 +188,7 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
   const settings = readSettings((setRes.data ?? []) as { key: string; value: unknown }[]);
 
   const warehouses = (whRes.data ?? []) as { id: string; name: string }[];
-  const staff = (staffRes.data ?? []) as { id: string; name: string; warehouse_id: string; active: boolean }[];
+  const staff = (staffRes.data ?? []) as { id: string; name: string; warehouse_id: string | null; remote: boolean | null; active: boolean }[];
   const pay = new Map(((payRes.data ?? []) as { staff_id: string; monthly_salary: number }[]).map((p) => [p.staff_id, p.monthly_salary]));
   const marks = (markRes.data ?? []) as { staff_id: string; day: string; status: AttendanceStatus }[];
   const orders = (Array.isArray(loadRes.data) ? loadRes.data : []) as OrderRow[];
@@ -201,6 +203,7 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
       id: s.id,
       name: s.name,
       warehouseId: s.warehouse_id,
+      remote: s.remote === true,
       active: s.active,
       status: mine.find((m) => m.day === day)?.status ?? null,
       month,

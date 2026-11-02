@@ -1,13 +1,15 @@
 # Installs the Review tracker's counter on this PC (see review-counter.mts): copies it to
-# %LOCALAPPDATA%\VRPrime\review-counter, asks once for the Supabase secret key (hidden, kept only in that folder),
-# and registers a Windows task that runs it every 5 days at 10 am, or as soon as the PC is on after a missed time.
+# %LOCALAPPDATA%\VRPrime\review-counter and registers a Windows task that runs it every 5 days at 10 am, or as soon as
+# the PC is on after a missed time. It saves through the Supabase CLI where it is already signed in and linked (the
+# vrprime-db-setup folder next to the repo, or -CliDir), so no key is kept; without that it asks once for the Supabase
+# secret key (hidden, kept only in that folder).
 #
 #   powershell -ExecutionPolicy Bypass -File scripts\install-review-counter.ps1            install or update
 #   powershell -ExecutionPolicy Bypass -File scripts\install-review-counter.ps1 -RunNow    and count right away
-#   powershell -ExecutionPolicy Bypass -File scripts\install-review-counter.ps1 -NewKey    ask for the key again
+#   powershell -ExecutionPolicy Bypass -File scripts\install-review-counter.ps1 -NewKey    use a secret key instead
 #   powershell -ExecutionPolicy Bypass -File scripts\install-review-counter.ps1 -Remove    remove the task and folder
 
-param([switch]$RunNow, [switch]$NewKey, [switch]$Remove)
+param([switch]$RunNow, [switch]$NewKey, [switch]$Remove, [string]$CliDir = '')
 $ErrorActionPreference = 'Stop'
 $TaskName = 'VR Prime review counter'
 $repo = Split-Path $PSScriptRoot -Parent
@@ -29,9 +31,14 @@ Copy-Item (Join-Path $repo 'scripts\review-counter.mts') $dir -Force
 Copy-Item (Join-Path $repo 'src\lib\review-count.ts') $dir -Force
 [IO.File]::WriteAllText((Join-Path $dir 'package.json'), '{ "type": "module" }')
 
-# The settings: the project address from the repo's .env.local, and the secret key typed here.
+# The settings: the signed-in Supabase CLI folder when there is one; else the project address from the repo's
+# .env.local and the secret key typed here.
 $envFile = Join-Path $dir '.env'
-if ($NewKey -or -not (Test-Path $envFile)) {
+if (-not $CliDir) { $CliDir = Join-Path (Split-Path $repo -Parent) 'vrprime-db-setup' }
+if (-not $NewKey -and (Test-Path (Join-Path $CliDir 'supabase\.temp\linked-project.json'))) {
+    [IO.File]::WriteAllLines($envFile, [string[]]@("SUPABASE_CLI_DIR=$((Resolve-Path $CliDir).Path)"))
+    Write-Host "Saving through the Supabase CLI signed in at $CliDir (no key needed)." -ForegroundColor Green
+} elseif ($NewKey -or -not (Test-Path $envFile)) {
     $url = (Get-Content (Join-Path $repo '.env.local') | Where-Object { $_ -match '^NEXT_PUBLIC_SUPABASE_URL=' } | Select-Object -First 1) -replace '^NEXT_PUBLIC_SUPABASE_URL=', ''
     if (-not $url) { Write-Host "NEXT_PUBLIC_SUPABASE_URL is not in $repo\.env.local." -ForegroundColor Red; exit 1 }
     Write-Host ''

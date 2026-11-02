@@ -7,14 +7,18 @@
 //
 //   node scripts/review-counter.mts            read every link and save
 //   node scripts/review-counter.mts --dry-run  read and print, save nothing
-//   node scripts/review-counter.mts --dry-run --links links.json   the same, with the links from a file (no key needed)
+//   node scripts/review-counter.mts --dry-run --links links.json   the same, with the links from a file (no settings)
 //
-// Settings: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY, from a .env file next to this script (the installed copy)
-// or else the repo's .env.local. The secret key never leaves this PC.
+// Settings, from a .env file next to this script (the installed copy) or else the repo's .env.local, one of:
+//   SUPABASE_CLI_DIR             a folder where the Supabase CLI is signed in and linked to the project: saves through
+//                                `supabase db query --linked`, so no key is kept for the counter at all
+//   NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY   saves through Supabase's REST API with the secret key
 
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { execFile } from "node:child_process";
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 const here = dirname(fileURLToPath(import.meta.url));
 // The installed copy has review-count.ts beside it; in the repo it is in src/lib.
@@ -25,17 +29,22 @@ const dryRun = process.argv.includes("--dry-run");
 const NOTE = "Counted on the PC (every 5 days)";
 const LOG = join(here, "review-counter.log");
 
-function settings(): { url: string; key: string } {
+/** Where the links come from and today's check goes: the signed-in Supabase CLI, or the REST API with the secret key. */
+type Store = { links: () => Promise<Link[]>; save: (day: string, all: number[], counts: Map<number, number | null>) => Promise<void> };
+
+function store(): Store {
   const file = [join(here, ".env"), join(here, "..", ".env.local")].find((f) => existsSync(f));
   const env: Record<string, string> = {};
   for (const line of file ? readFileSync(file, "utf8").split(/\r?\n/) : []) {
     const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
     if (m) env[m[1]] = m[2].replace(/^(["'])(.*)\1$/, "$2");
   }
+  const cli = process.env.SUPABASE_CLI_DIR ?? env.SUPABASE_CLI_DIR;
+  if (cli) return cliStore(cli);
   const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
   const key = process.env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SECRET_KEY ?? "";
-  if (!url || !key) throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY are not set (.env next to the script, or the repo's .env.local).");
-  return { url, key };
+  if (!url || !key) throw new Error("Set SUPABASE_CLI_DIR, or NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY (.env next to the script, or the repo's .env.local).");
+  return restStore({ url, key });
 }
 
 /** One line in the log next to the script, which keeps its last 200 lines. */
@@ -51,17 +60,68 @@ function log(text: string) {
   }
 }
 
-// ---- Supabase (its REST API, with the secret key) ----------------------------------------------------------------------
+// ---- Supabase through the signed-in CLI (no key kept) ------------------------------------------------------------------
 
-async function rest<T>(s: { url: string; key: string }, path: string, init: RequestInit & { prefer?: string } = {}): Promise<T> {
-  const res = await fetch(`${s.url}/rest/v1/${path}`, {
-    ...init,
-    headers: { apikey: s.key, authorization: `Bearer ${s.key}`, "content-type": "application/json", ...(init.prefer ? { prefer: init.prefer } : {}) },
-    signal: AbortSignal.timeout(30_000),
-  });
-  const body = await res.text();
-  if (!res.ok) throw new Error(`Supabase answered ${res.status} for ${path.split("?")[0]}: ${body.slice(0, 200)}`);
-  return (body ? JSON.parse(body) : null) as T;
+const run = promisify(execFile);
+/** npx as Node ships it, next to node.exe. */
+const NPX = join(dirname(process.execPath), "node_modules", "npm", "bin", "npx-cli.js");
+
+function cliStore(dir: string): Store {
+  // The SQL goes in a file; npx runs through this same Node, with no shell in between to mangle the arguments.
+  const query = async <T,>(sql: string): Promise<T[]> => {
+    const file = join(here, `query-${process.pid}.sql`);
+    writeFileSync(file, sql);
+    try {
+      const { stdout } = await run(process.execPath, [NPX, "--yes", "supabase", "db", "query", "--linked", "-o", "json", "-f", file], { cwd: dir, windowsHide: true, maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
+      const at = stdout.indexOf("{");
+      if (at < 0) throw new Error(`The Supabase CLI gave no answer: ${stdout.slice(0, 200)}`);
+      return (JSON.parse(stdout.slice(at)) as { rows?: T[] }).rows ?? [];
+    } finally {
+      rmSync(file, { force: true });
+    }
+  };
+  return {
+    links: () => query<Link>("select row_no, sku, url from public.review_links where active order by row_no;"),
+    // One statement: today's check made, or its note marked "(updated)"; a new check gets every link (null where not
+    // read), an existing one only the links read now. Every value is a number or a fixed text, so nothing is quoted in.
+    save: async (day, all, counts) => {
+      const values = all.map((r) => `(${Math.trunc(r)}, ${counts.get(r) == null ? "null" : Math.trunc(counts.get(r)!)}::integer)`).join(", ");
+      await query(`with chk as (
+  insert into public.review_checks (checked_on, note) values ('${day}', '${NOTE}')
+  on conflict (checked_on) do update set note = '${NOTE} (updated)'
+  returning id, (xmax <> 0) as existed
+)
+insert into public.review_counts (check_id, row_no, reviews)
+select chk.id, v.row_no, v.reviews from chk, (values ${values}) as v(row_no, reviews)
+where v.reviews is not null or not chk.existed
+on conflict (check_id, row_no) do update set reviews = excluded.reviews;`);
+    },
+  };
+}
+
+// ---- Supabase through its REST API, with the secret key ----------------------------------------------------------------
+
+function restStore(s: { url: string; key: string }): Store {
+  const rest = async <T,>(path: string, init: RequestInit & { prefer?: string } = {}): Promise<T> => {
+    const res = await fetch(`${s.url}/rest/v1/${path}`, {
+      ...init,
+      headers: { apikey: s.key, authorization: `Bearer ${s.key}`, "content-type": "application/json", ...(init.prefer ? { prefer: init.prefer } : {}) },
+      signal: AbortSignal.timeout(30_000),
+    });
+    const body = await res.text();
+    if (!res.ok) throw new Error(`Supabase answered ${res.status} for ${path.split("?")[0]}: ${body.slice(0, 200)}`);
+    return (body ? JSON.parse(body) : null) as T;
+  };
+  return {
+    links: () => rest<Link[]>("review_links?select=row_no,sku,url&active=eq.true&order=row_no"),
+    save: async (day, all, counts) => {
+      const existing = await rest<{ id: string }[]>(`review_checks?select=id&checked_on=eq.${day}`);
+      const checkId = existing[0]?.id ?? (await rest<{ id: string }[]>("review_checks?select=id", { method: "POST", prefer: "return=representation", body: JSON.stringify({ checked_on: day, note: NOTE }) }))[0].id;
+      const rows = (existing.length ? all.filter((r) => counts.get(r) != null) : all).map((r) => ({ check_id: checkId, row_no: r, reviews: counts.get(r) ?? null }));
+      await rest("review_counts?on_conflict=check_id,row_no", { method: "POST", prefer: "resolution=merge-duplicates,return=minimal", body: JSON.stringify(rows) });
+      if (existing.length) await rest(`review_checks?id=eq.${checkId}`, { method: "PATCH", prefer: "return=minimal", body: JSON.stringify({ note: `${NOTE} (updated)` }) });
+    },
+  };
 }
 
 // ---- Reading the pages (as the site's Sync does) ------------------------------------------------------------------------
@@ -119,8 +179,8 @@ async function countFor(link: Link): Promise<number | null> {
 async function main() {
   // A dry run can take the links from a JSON file instead ([{row_no, sku, url}]), so reading can be tried without the key.
   const from = process.argv.indexOf("--links");
-  const s = dryRun && from > 0 ? null : settings();
-  const links = s ? await rest<Link[]>(s, "review_links?select=row_no,sku,url&active=eq.true&order=row_no") : (JSON.parse(readFileSync(process.argv[from + 1], "utf8")) as Link[]);
+  const s = dryRun && from > 0 ? null : store();
+  const links = s ? await s.links() : (JSON.parse(readFileSync(process.argv[from + 1], "utf8")) as Link[]);
   if (!links.length) throw new Error("There are no links to check.");
 
   // One page at a time, 3 seconds apart: it runs in the background, so it can be gentle with both sites.
@@ -149,12 +209,7 @@ async function main() {
 
   // Today's check (India date): made if missing; if it is there, only the links read now change.
   const day = new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
-  const existing = await rest<{ id: string }[]>(s, `review_checks?select=id&checked_on=eq.${day}`);
-  let checkId = existing[0]?.id;
-  if (!checkId) checkId = (await rest<{ id: string }[]>(s, "review_checks?select=id", { method: "POST", prefer: "return=representation", body: JSON.stringify({ checked_on: day, note: NOTE }) }))[0].id;
-  const rows = (existing.length ? read : links.map((l) => l.row_no)).map((r) => ({ check_id: checkId, row_no: r, reviews: counts.get(r) ?? null }));
-  await rest(s, "review_counts?on_conflict=check_id,row_no", { method: "POST", prefer: "resolution=merge-duplicates,return=minimal", body: JSON.stringify(rows) });
-  await rest(s, `review_checks?id=eq.${checkId}`, { method: "PATCH", prefer: "return=minimal", body: JSON.stringify({ note: existing.length ? `${NOTE} (updated)` : NOTE }) });
+  await s.save(day, links.map((l) => l.row_no), counts);
   log(`Saved ${day}: ${summary}`);
 }
 

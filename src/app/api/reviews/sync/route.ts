@@ -10,6 +10,7 @@ export async function POST(request: Request) {
   const user = await getActiveUser();
   if (!user) return Response.json({ ok: false, text: "Sign in again." }, { status: 401 });
   if (!canManage(user)) return Response.json({ ok: false, text: "Only the owner or an admin can sync reviews." }, { status: 403 });
-  const result = await syncReviews(Date.now() + (maxDuration - 8) * 1000, "Sync now");
+  // 45 seconds of reading, well inside the function's limit: a slow or blocked site must not end in a timeout.
+  const result = await syncReviews(Date.now() + 45_000, "Sync now");
   return Response.json(result, { headers: { "Cache-Control": "no-store" } });
 }

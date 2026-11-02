@@ -647,7 +647,7 @@ function EveryLink({ lines, prevDay, filters, setFilters }: { lines: ReviewLine[
 
 // ---- Sync now --------------------------------------------------------------------------------------------------------
 
-/** Sync now: the site opens every link and saves today's counts. Takes about a minute. */
+/** Sync now: the site reads the links it can reach (under a minute) and adds them to today's counts. */
 function SyncButton() {
   const router = useRouter();
   const toast = useToast();
@@ -667,7 +667,7 @@ function SyncButton() {
   return (
     <button type="button" className={buttonClass("primary")} disabled={busy} onClick={() => void sync()} title="Read the links the site can reach now and update today's counts">
       <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
-      {busy ? "Syncing… about a minute" : "Sync now"}
+      {busy ? "Syncing… under a minute" : "Sync now"}
     </button>
   );
 }
@@ -804,7 +804,7 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
           <SyncButton />
         </div>
       </header>
-      <p className="-mt-2 text-xs text-muted">Every 5 days the counts are read in Aman&apos;s Chrome and saved here. Sync now updates the links the site itself can read; links it can&apos;t read keep their latest count.</p>
+      <p className="-mt-2 text-xs text-muted">Every 5 days the counts are read on Aman&apos;s PC (Flipkart and Shopsy block the site&apos;s own server) and saved here. Sync now tries from the site and adds what it can read; links it can&apos;t read keep their latest count.</p>
       {view.day ? (
         <>
           <Headline view={view} onPlatform={(p) => setFilters({ ...filters, platform: p })} />

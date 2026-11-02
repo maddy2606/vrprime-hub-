@@ -30,7 +30,7 @@ async function page(url: string, deadline: number): Promise<{ status: number; ht
     const left = deadline - Date.now();
     if (left < 2_000) return null;
     try {
-      const res = await fetch(url, { headers: HEADERS, redirect: "follow", cache: "no-store", signal: AbortSignal.timeout(Math.min(15_000, left)) });
+      const res = await fetch(url, { headers: HEADERS, redirect: "follow", cache: "no-store", signal: AbortSignal.timeout(Math.min(10_000, left)) });
       const html = await res.text();
       if ((res.status === 429 || res.status === 503) && attempt === 0) {
         await wait(4_000);
@@ -66,17 +66,24 @@ export async function syncReviews(deadline: number, note: string): Promise<Revie
   const links = (data ?? []) as Link[];
   if (!links.length) return { ok: false, text: "There are no links to check." };
 
-  // Two at a time with a pause between pages, Flipkart and Shopsy mixed, so neither site sees a burst.
+  // Two at a time with a pause between pages, Flipkart and Shopsy mixed, so neither site sees a burst. No new link is
+  // started in the last 12 seconds, so the answer always comes back in time to be saved and shown.
   const counts = new Map<number, number | null>();
   const queue = [...links];
   await Promise.all(
     Array.from({ length: 2 }, async () => {
-      for (let link = queue.shift(); link; link = queue.shift()) {
+      for (let link = queue.shift(); link && deadline - Date.now() > 12_000; link = queue.shift()) {
         counts.set(link.row_no, await countFor(link, deadline));
         await wait(400);
       }
     }),
   );
+  if ([...counts.values()].every((n) => n == null)) {
+    // Flipkart and Shopsy usually block the site's server; say when the PC counter last saved, so the page is not a mystery.
+    const { data: last } = await db.from("review_checks").select("checked_on, note").order("checked_on", { ascending: false }).limit(1).maybeSingle();
+    const when = last ? ` The latest counts are from ${new Date(`${last.checked_on}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}${last.note ? ` (${last.note})` : ""}.` : "";
+    return { ok: false, text: `Flipkart and Shopsy did not answer the site's server just now, so nothing changed.${when} The PC counter reads them every 5 days.`, read: 0, missed: links.map((l) => l.row_no) };
+  }
   return saveCounts(links.map((l) => l.row_no), counts, note);
 }
 

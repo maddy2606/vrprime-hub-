@@ -66,3 +66,28 @@ test("days a campaign ran inside a scan's period", async () => {
   assert.equal(daysActive("2026-09-21", "2026-10-19", "2026-10-19"), 1);
   assert.equal(daysActive("2026-09-21", "2026-10-19", "2026-11-01"), 29);
 });
+
+test("the daily report: one row per campaign per day, report kind detected, FSN coverage checked", async () => {
+  const { adsReportKind, readAdsDailyReport, fsnCoverage } = await import("./ads-report.ts");
+  const csv = [
+    "Start Time, 2026-11-08 00:00:00",
+    "End Time, 2026-11-09 23:59:59",
+    "Campaign ID,Campaign Name,Date,Ad Spend,Views,Clicks,Total converted units,Total Revenue (Rs.),ROI",
+    "0153m9gmba09,Top Selling HSS 7,2026-11-08,277.20,2315,35,1,211.0000,0.76",
+    "0153M9GMBA09,Top Selling HSS 7,2026-11-09,\"1,000.50\",100,5,2,500.0000,0.5",
+    "ZZZ,Outside,2026-11-12,99,1,1,0,0,0",
+  ].join("\n");
+  assert.equal(adsReportKind(csv), "daily");
+  assert.equal(adsReportKind("Start Time, x\nEnd Time, y\nCampaign ID,Sku Id,Ad Spend\n"), "fsn");
+  assert.equal(adsReportKind("a,b\n1,2"), null);
+  const r = readAdsDailyReport(csv);
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.equal(r.report.rows.length, 2, "a line outside the report's dates is left out");
+  assert.equal(r.report.rows[0].campaign_id, "0153M9GMBA09");
+  assert.equal(r.report.spend, 1277.7);
+  assert.equal(r.report.rows[1].units, 2);
+  assert.deepEqual(fsnCoverage(146087, 339795), { pct: 43, complete: false });
+  assert.deepEqual(fsnCoverage(325077, 325077), { pct: 100, complete: true });
+  assert.equal(fsnCoverage(100, null), null);
+});

@@ -142,3 +142,59 @@ export function readAdsCampaignReport(text: string): { ok: true; report: AdsCamp
   const list = [...byKey.values()];
   return { ok: true, report: { from, to, days, rows: list, spend: round2(list.reduce((n, r) => n + r.spend, 0)), lines } };
 }
+
+// ---- The Consolidated Daily Report: every campaign, day by day (the true spend) ---------------------------------------
+
+export type AdDailyRow = { day: string; campaign_id: string; campaign_name: string; spend: number; views: number; clicks: number; units: number; revenue: number };
+export type AdsDailyReport = { from: string; to: string; days: number; rows: AdDailyRow[]; spend: number };
+
+/** Which Seller Hub ads report a file is: the per-SKU FSN report, the per-day campaign report, or neither. */
+export function adsReportKind(text: string): "fsn" | "daily" | null {
+  const head = csvRows(text.slice(0, 4000)).find((r) => r.some((f) => f.trim() === "Campaign ID"))?.map((f) => f.trim()) ?? [];
+  if (head.includes("Sku Id") && head.includes("Ad Spend")) return "fsn";
+  if (head.includes("Date") && head.includes("Ad Spend")) return "daily";
+  return null;
+}
+
+/** Reads the PLA Consolidated Daily Report: one row per campaign per day. Lines outside the report's own dates are left out. */
+export function readAdsDailyReport(text: string): { ok: true; report: AdsDailyReport } | { ok: false; error: string } {
+  const rows = csvRows(text);
+  const period = (label: string) => rows.find((r) => r[0]?.trim().toLowerCase() === label)?.[1]?.trim().slice(0, 10) ?? "";
+  const from = period("start time");
+  const to = period("end time");
+  const h = rows.findIndex((r) => r.some((f) => f.trim() === "Campaign ID") && r.some((f) => f.trim() === "Date") && r.some((f) => f.trim() === "Ad Spend"));
+  if (h < 0) return { ok: false, error: "This is not a PLA Consolidated Daily Report: it has no Campaign ID, Date and Ad Spend columns." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return { ok: false, error: "The report's Start Time and End Time lines are missing, so its period is not known." };
+  const days = daysBetween(from, to);
+  if (days < 1 || days > 92) return { ok: false, error: `The report runs from ${from} to ${to}. Download it for one month or less.` };
+  const head = rows[h].map((f) => f.trim());
+  const at = (name: string) => head.indexOf(name);
+  const i = { id: at("Campaign ID"), name: at("Campaign Name"), day: at("Date"), spend: at("Ad Spend"), views: at("Views"), clicks: at("Clicks"), units: at("Total converted units"), revenue: at("Total Revenue (Rs.)") };
+  const out: AdDailyRow[] = [];
+  for (const r of rows.slice(h + 1)) {
+    const campaign_id = (r[i.id] ?? "").trim().toUpperCase();
+    const d = (r[i.day] ?? "").trim().slice(0, 10);
+    if (!campaign_id || !/^\d{4}-\d{2}-\d{2}$/.test(d) || d < from || d > to) continue;
+    out.push({
+      day: d,
+      campaign_id,
+      campaign_name: (i.name >= 0 ? r[i.name] : "")?.trim() || campaign_id,
+      spend: round2(num(r[i.spend])),
+      views: i.views >= 0 ? num(r[i.views]) : 0,
+      clicks: i.clicks >= 0 ? num(r[i.clicks]) : 0,
+      units: i.units >= 0 ? num(r[i.units]) : 0,
+      revenue: i.revenue >= 0 ? round2(num(r[i.revenue])) : 0,
+    });
+  }
+  return { ok: true, report: { from, to, days, rows: out, spend: round2(out.reduce((n, r) => n + r.spend, 0)) } };
+}
+
+/**
+ * Whether an FSN (per-SKU) report holds all the spend: its total against the daily report's for the same days. Null when the
+ * daily record does not cover those days. A report under 95% of the true spend is called incomplete.
+ */
+export function fsnCoverage(fsnSpend: number, dailySpend: number | null): { pct: number; complete: boolean } | null {
+  if (dailySpend === null || dailySpend <= 0) return null;
+  const pct = Math.round((fsnSpend / dailySpend) * 100);
+  return { pct, complete: pct >= 95 };
+}

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { readAdsCampaignReport } from "@/lib/ads-report";
+import { adsReportKind, daysBetween, fsnCoverage, readAdsCampaignReport, readAdsDailyReport } from "@/lib/ads-report";
 import { canManage, getActiveUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
@@ -31,14 +31,34 @@ async function staff(): Promise<Staff> {
   return { ok: true, user, db: (await createClient()) as unknown as Loose };
 }
 
+/** The true spend, all campaigns, per day for a range: null unless the daily record has every one of those days. */
+async function dailySpend(db: Loose, from: string, to: string): Promise<number | null> {
+  const { data, error } = await db.rpc("ads_daily_totals", { p_from: from, p_to: to });
+  if (error || !Array.isArray(data)) return null;
+  const rows = data as { day: string; spend: number }[];
+  if (rows.length < daysBetween(from, to)) return null;
+  return rows.reduce((n, r) => n + Number(r.spend), 0);
+}
+
 /**
- * Sync: reads a PLA Consolidated FSN Report (CSV text) and saves it as one scan. A second sync of the same period replaces
- * the first. Campaigns found on tracked SKUs are added to the campaign log.
+ * Sync takes either Seller Hub ads report (CSV text):
+ *  - the PLA Consolidated Daily Report: every campaign's spend per day, the true numbers. Its days replace any saved before.
+ *  - the PLA Consolidated FSN Report: the split per SKU, saved as one scan (a second sync of the same period replaces the
+ *    first) and checked against the daily record. Campaigns found on tracked SKUs are added to the campaign log.
  */
 export async function syncAdsReport(text: unknown, filename: unknown): Promise<ActionResult> {
   const s = await staff();
   if (!s.ok) return s.error;
   if (typeof text !== "string" || text.length === 0 || text.length > 8_000_000) return { ok: false, message: "That file is empty or too large. Upload the report as downloaded (CSV)." };
+  if (adsReportKind(text) === "daily") {
+    const daily = readAdsDailyReport(text);
+    if (!daily.ok) return { ok: false, message: daily.error };
+    const { from, to, rows, spend } = daily.report;
+    const { error } = await s.db.rpc("ads_save_daily", { p_from: from, p_to: to, p_rows: rows });
+    if (error) return dbError(error, "save the daily ads report");
+    revalidatePath("/ads");
+    return { ok: true, message: `Synced daily spend ${day(from)} to ${day(to)}: ₹${Math.round(spend).toLocaleString("en-IN")} across ${new Set(rows.map((r) => r.campaign_id)).size} campaigns` };
+  }
   const read = readAdsCampaignReport(text);
   if (!read.ok) return { ok: false, message: read.error };
   const { from, to, rows, spend } = read.report;
@@ -68,6 +88,13 @@ export async function syncAdsReport(text: unknown, filename: unknown): Promise<A
   if (error) return dbError(error, "save the ads report");
   revalidatePath("/ads");
   const trackedSpend = rows.filter((r) => tracked.has(r.sku)).reduce((n, r) => n + r.spend, 0);
+  const cover = fsnCoverage(spend, await dailySpend(s.db, from, to));
+  if (cover && !cover.complete) {
+    return {
+      ok: false,
+      message: `Saved, but this SKU report looks incomplete: it has ₹${Math.round(spend).toLocaleString("en-IN")}, only ${cover.pct}% of the true spend for ${day(from)} to ${day(to)}. Download the Consolidated FSN Report again and sync it.`,
+    };
+  }
   return {
     ok: true,
     message: `Synced ${day(from)} to ${day(to)}: ₹${Math.round(trackedSpend).toLocaleString("en-IN")} on tracked SKUs (₹${Math.round(spend).toLocaleString("en-IN")} in the whole report)${fresh ? `, ${fresh} new ${fresh === 1 ? "campaign" : "campaigns"} added to the log` : ""}`,

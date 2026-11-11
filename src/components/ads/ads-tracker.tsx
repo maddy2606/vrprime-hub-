@@ -46,7 +46,21 @@ export type AdsView = {
   skus: string[];
   rows: ScanRow[];
   trend: { id: string; from: string; to: string; days: number; spend: number; avg: number }[];
+  /** "week": 7-day blocks from the daily record; "scan": one bar per scan (no daily record yet). */
+  trendBy: "week" | "scan";
   log: CampaignLogRow[];
+  /** The true spend from the Consolidated Daily Report (every campaign), when synced. */
+  daily: {
+    /** The last day with daily spend, and how many days ago that was. */
+    to: string | null;
+    staleDays: number | null;
+    /** All campaigns for the chosen scan's days; null unless the daily record has every one of them. */
+    scan: { spend: number; revenue: number; units: number } | null;
+    /** The chosen scan's FSN total (all SKUs) and its share of the true spend. */
+    fsnTotal: number;
+    coverage: { pct: number; complete: boolean } | null;
+    lastWeek: { from: string; to: string; spend: number; revenue: number; units: number } | null;
+  };
 };
 
 // ---- Small helpers ---------------------------------------------------------------------------------------------------
@@ -140,28 +154,64 @@ function HowToSync() {
       <summary className="focus-ring cursor-pointer rounded font-bold">How Sync works</summary>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
         <li>In Seller Hub open Ads, Reports, Other Reports.</li>
-        <li>Choose PLA and Consolidated FSN Report, pick the dates (the last 7 days is usual) and press Download.</li>
-        <li>Press Sync here and choose that file. Syncing the same dates again replaces them.</li>
+        <li>
+          Choose PLA and <b>Consolidated Daily Report</b>, pick the dates (This Week, Last Week or Last Month) and press Download. This is the true spend of every campaign,
+          day by day: the totals, average and trend come from it.
+        </li>
+        <li>For the split per SKU, also download the <b>Consolidated FSN Report</b> for the same dates.</li>
+        <li>Press Sync here and choose each file. Syncing the same dates again replaces them, so uploading a day twice never counts it twice.</li>
       </ol>
       <p className="mt-2 text-xs text-muted">
-        The weekly scan does this by itself every Tuesday morning. Campaigns found on tracked SKUs are added to the campaign log; add their daily budget and start date there so
-        Avg / day is exact.
+        Each SKU report is checked against the daily report: if it holds less than 95% of the true spend for its days, it was an incomplete download and the page says so.
+        Campaigns found on tracked SKUs are added to the campaign log.
       </p>
     </details>
   );
 }
 
+/** How fresh the true spend is, and whether the chosen SKU report holds all of it. */
+function DataNotices({ daily, scan }: { daily: AdsView["daily"]; scan: AdsView["scans"][number] | null }) {
+  const notes: { tone: "bad" | "warn" | "ok"; text: string }[] = [];
+  if (!daily.to) notes.push({ tone: "warn", text: "No daily report synced yet, so the numbers below come from the SKU report alone and may be short. Sync the Consolidated Daily Report (see How Sync works)." });
+  else if ((daily.staleDays ?? 0) > 1) notes.push({ tone: "warn", text: `Spend is synced up to ${dayYear(daily.to)}, ${daily.staleDays} days ago. Sync this week's Consolidated Daily Report to bring it up to date.` });
+  if (daily.lastWeek)
+    notes.push({
+      tone: "ok",
+      text: `Last 7 days synced (${day(daily.lastWeek.from)} to ${day(daily.lastWeek.to)}): ${short(daily.lastWeek.spend)} spent, ${rs(daily.lastWeek.spend / 7)} a day, ROI ${roiText(daily.lastWeek.spend > 0 ? daily.lastWeek.revenue / daily.lastWeek.spend : null)}.`,
+    });
+  if (scan && daily.coverage && !daily.coverage.complete)
+    notes.push({
+      tone: "bad",
+      text: `This SKU report (${day(scan.from)} to ${day(scan.to)}) is incomplete: it has ${short(daily.fsnTotal)}, only ${daily.coverage.pct}% of the true ${short(daily.scan?.spend ?? 0)}. The per-SKU figures below are too low. Download the Consolidated FSN Report for these dates again and sync it.`,
+    });
+  if (scan && daily.to && !daily.scan)
+    notes.push({ tone: "warn", text: `The daily report does not cover all of ${day(scan.from)} to ${day(scan.to)}, so these totals come from the SKU report and cannot be checked.` });
+  if (!notes.length) return null;
+  const TONE = { bad: "border-bad/40 bg-bad-soft text-bad", warn: "border-warn/40 bg-warn-soft text-warn", ok: "border-line-soft bg-surface2/50 text-ink" } as const;
+  return (
+    <div className="flex flex-col gap-2" role="status">
+      {notes.map((n) => (
+        <p key={n.text} className={`rounded-xl border px-3 py-2 text-sm font-semibold ${TONE[n.tone]}`}>
+          {n.text}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 // ---- Headline figures and the attention list -------------------------------------------------------------------------
 
-function Kpis({ summary, rows, scan }: { summary: SkuSummary[]; rows: ScanRow[]; scan: AdsView["scans"][number] | null }) {
-  const spend = summary.reduce((n, s) => n + s.spend, 0);
-  const revenue = summary.reduce((n, s) => n + s.revenue, 0);
-  const units = summary.reduce((n, s) => n + s.units, 0);
-  const avg = summary.reduce((n, s) => n + s.avg, 0);
+function Kpis({ summary, rows, scan, truth }: { summary: SkuSummary[]; rows: ScanRow[]; scan: AdsView["scans"][number] | null; truth: AdsView["daily"]["scan"] }) {
+  // The true spend for the period (every campaign, daily report) when synced; otherwise the tracked SKUs' report lines.
+  const spend = truth ? truth.spend : summary.reduce((n, s) => n + s.spend, 0);
+  const revenue = truth ? truth.revenue : summary.reduce((n, s) => n + s.revenue, 0);
+  const units = truth ? truth.units : summary.reduce((n, s) => n + s.units, 0);
+  const days = scan?.days ?? 1;
   const withAds = summary.filter((s) => s.rows.length).length;
+  const source = truth ? "every campaign" : "tracked SKUs, SKU report";
   const tiles: [string, string, string][] = [
-    ["Ad spend", short(spend), scan ? `${scan.days} days` : ""],
-    ["Avg daily spend", rs(avg), "all campaigns added up"],
+    ["Ad spend", short(spend), scan ? `${scan.days} days · ${source}` : ""],
+    ["Avg daily spend", rs(spend / Math.max(1, days)), `spend ÷ ${days} days`],
     ["Ad revenue", short(revenue), `${formatNumber(units)} units sold`],
     ["ROI", spend > 0 ? roiText(revenue / spend) : "—", "revenue ÷ spend"],
     ["SKUs with ads", `${withAds} / ${summary.length}`, `${summary.length - withAds} with no ad activity`],
@@ -407,10 +457,14 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
 
 // ---- Trend -----------------------------------------------------------------------------------------------------------
 
-function Trend({ trend, scanId }: { trend: AdsView["trend"]; scanId: string | null }) {
+function Trend({ trend, scanId, by }: { trend: AdsView["trend"]; scanId: string | null; by: AdsView["trendBy"] }) {
   const max = Math.max(1, ...trend.map((t) => t.avg)) * 1.18;
   return (
-    <Section id="ads-trend" title="Average daily spend, scan by scan" sub={trend.length < 2 ? "The trend fills in from the second scan." : `Last ${trend.length} scans, tracked SKUs only`}>
+    <Section
+      id="ads-trend"
+      title={by === "week" ? "Average daily spend, week by week" : "Average daily spend, scan by scan"}
+      sub={by === "week" ? `Last ${trend.length} weeks, every campaign (daily report)` : trend.length < 2 ? "The trend fills in from the second scan." : `Last ${trend.length} scans, tracked SKUs only`}
+    >
       {trend.length ? (
         <div className="flex h-44 items-end gap-3 overflow-x-auto" role="img" aria-label={`Average daily spend: ${trend.map((t) => `${day(t.to)} ${rs(t.avg)}`).join(", ")}`}>
           {trend.map((t) => (
@@ -735,10 +789,11 @@ export function AdsTracker({ view }: { view: AdsView | null }) {
         </div>
       </header>
       <HowToSync />
-      <Kpis summary={summary} rows={view.rows} scan={scan} />
+      <DataNotices daily={view.daily} scan={scan} />
+      <Kpis summary={summary} rows={view.rows} scan={scan} truth={view.daily.scan} />
       <Attention summary={summary} />
       <SkuTable summary={summary} />
-      <Trend trend={view.trend} scanId={view.scanId} />
+      <Trend trend={view.trend} scanId={view.scanId} by={view.trendBy} />
       <CampaignLog log={view.log} />
       <TrackedSkus skus={view.skus} active={active} />
     </div>

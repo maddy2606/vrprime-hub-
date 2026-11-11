@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AdsTracker, type AdsView, type CampaignLogRow, type ScanRow } from "@/components/ads/ads-tracker";
-import { daysActive } from "@/lib/ads-report";
+import { daysBetween, fsnCoverage } from "@/lib/ads-report";
 import { canManage, requireUser } from "@/lib/auth";
+import { todayIST } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import type { AdCampaignRecord, AdScanRecord, AdScanRowRecord } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Ads tracker" };
 
 // The tables are newer than the generated types.
-type Loose = { from: (table: string) => any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 type DbErr = { code?: string; message?: string } | null;
+type Loose = {
+  from: (table: string) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: DbErr }>;
+};
+type DayTotal = { day: string; spend: number; revenue: number; units: number; campaigns: number };
+const shiftDay = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 
 /** The tables are not there yet: the migration has not been applied to this database. */
 const missingTable = (e: DbErr) => !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|schema cache/i.test(e.message ?? ""));
@@ -36,11 +42,33 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
   const db = (await createClient()) as unknown as Loose;
   const sp = await searchParams;
 
-  const [skuRes, campRes, scanRes] = await Promise.all([
+  const today = todayIST();
+  const [skuRes, campRes, scanRes, dailyRes] = await Promise.all([
     db.from("ad_tracked_skus").select("sku").order("sku"),
     db.from("ad_campaigns").select("*").order("updated_at", { ascending: false }).limit(2000),
     db.from("ad_scans").select("id, period_start, period_end, days, filename, uploaded_by, created_at").order("period_end", { ascending: false }).limit(200),
+    // The true spend per day, all campaigns (Consolidated Daily Report), the last 6 months.
+    db.rpc("ads_daily_totals", { p_from: shiftDay(today, -183), p_to: today }),
   ]);
+  const daily: DayTotal[] = (Array.isArray(dailyRes.data) ? dailyRes.data : []).map((r: Record<string, unknown>) => ({
+    day: String(r.day),
+    spend: Number(r.spend),
+    revenue: Number(r.revenue),
+    units: Number(r.units),
+    campaigns: Number(r.campaigns),
+  }));
+  const byDay = new Map(daily.map((d) => [d.day, d]));
+  /** All campaigns added up for a range of days, or null unless every one of those days is in the daily record. */
+  const range = (from: string, to: string) => {
+    const days: DayTotal[] = [];
+    for (let d = from; d <= to; d = shiftDay(d, 1)) {
+      const t = byDay.get(d);
+      if (!t) return null;
+      days.push(t);
+    }
+    return { spend: days.reduce((n, t) => n + t.spend, 0), revenue: days.reduce((n, t) => n + t.revenue, 0), units: days.reduce((n, t) => n + t.units, 0) };
+  };
+  const dataTo = daily.length ? daily[daily.length - 1].day : null;
   if (missingTable(skuRes.error) || missingTable(campRes.error) || missingTable(scanRes.error)) {
     return <AdsTracker view={null} />;
   }
@@ -72,7 +100,8 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
       clicks: Number(r.clicks),
       units: Number(r.units),
       revenue: Number(r.revenue),
-      days: daysActive(s.period_start, s.period_end, c?.start_date),
+      // Average a day over the whole period (the report's days), so per-SKU figures add up to the headline.
+      days: s.days,
       budget: c?.daily_budget == null ? null : Number(c.daily_budget),
       shared: Boolean(c?.shared_budget) || (c?.skus.length ?? 0) > 1 || (skusPerCampaign.get(r.campaign_id)?.size ?? 0) > 1,
       status: c?.status ?? null,
@@ -98,14 +127,32 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
             .order("campaign_id"),
         )
       : [];
-  const trend = recent
+  // With the daily record, the trend is week by week from it (exact, all campaigns); without it, scan by scan as before.
+  const weeks = dataTo
+    ? Array.from({ length: 8 }, (_, k) => {
+        const to = shiftDay(dataTo, -7 * k);
+        const from = shiftDay(to, -6);
+        const t = range(from, to);
+        return t ? { id: `week-${from}`, from, to, days: 7, spend: t.spend, avg: t.spend / 7 } : null;
+      })
+        .filter((w): w is NonNullable<typeof w> => w !== null)
+        .reverse()
+    : [];
+  const scanTrend = recent
     .map((s) => {
       const mine = trendRows.filter((r) => r.scan_id === s.id);
       const spend = mine.reduce((n, r) => n + Number(r.spend), 0);
-      const avg = mine.reduce((n, r) => n + Number(r.spend) / daysActive(s.period_start, s.period_end, byId.get(r.campaign_id)?.start_date), 0);
-      return { id: s.id, from: s.period_start, to: s.period_end, days: s.days, spend, avg };
+          // Average a day over the whole period: all of the scan's spend, divided by its days.
+      return { id: s.id, from: s.period_start, to: s.period_end, days: s.days, spend, avg: spend / Math.max(1, s.days) };
     })
     .reverse();
+  const trend = weeks.length >= 2 ? weeks : scanTrend;
+
+  // The chosen scan against the true spend for its days: the headline numbers, and whether its SKU split is complete.
+  const truth = scan ? range(scan.period_start, scan.period_end) : null;
+  const fsnTotal = scanRows.reduce((n, r) => n + Number(r.spend), 0);
+  const coverage = truth ? fsnCoverage(fsnTotal, truth.spend) : null;
+  const lastWeek = dataTo ? range(shiftDay(dataTo, -6), dataTo) : null;
 
   // The campaign log, with each campaign's numbers in the chosen scan (tracked SKUs only).
   const inScan = new Map<string, { spend: number; revenue: number; units: number }>();
@@ -143,7 +190,16 @@ export default async function AdsPage({ searchParams }: { searchParams: Promise<
     skus,
     rows,
     trend,
+    trendBy: trend === weeks && weeks.length >= 2 ? "week" : "scan",
     log,
+    daily: {
+      to: dataTo,
+      staleDays: dataTo ? daysBetween(dataTo, today) - 1 : null,
+      scan: truth,
+      fsnTotal,
+      coverage,
+      lastWeek: lastWeek && dataTo ? { from: shiftDay(dataTo, -6), to: dataTo, ...lastWeek } : null,
+    },
   };
   return <AdsTracker view={view} />;
 }

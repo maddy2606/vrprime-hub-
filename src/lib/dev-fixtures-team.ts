@@ -36,6 +36,15 @@ export function fakeTeam(): TeamData {
       status: MARKS[(wi * 3 + k) % MARKS.length],
       month: { present: 14 - k, half: k % 2, absent: k % 3, leave: k === 1 ? 2 : 0 },
       salary: 14000 + k * 1500,
+      // Made-up advances and expenses for the first two people of each warehouse.
+      money:
+        k < 2
+          ? [
+              { id: `fake-m-${wi}-${k}-1`, staffId: `fake-person-${wi}-${k}`, kind: "advance" as const, day: "2026-10-12", amount: 3000, note: "Fake advance" },
+              { id: `fake-m-${wi}-${k}-2`, staffId: `fake-person-${wi}-${k}`, kind: "recovered" as const, day: "2026-10-31", amount: 1000, note: "Cut from salary" },
+              { id: `fake-m-${wi}-${k}-3`, staffId: `fake-person-${wi}-${k}`, kind: "expense" as const, day: "2026-11-05", amount: 450, note: "Fake petrol" },
+            ]
+          : [],
     })),
   );
 

@@ -296,6 +296,7 @@ export function TeamBoard({ d }: { d: TeamData }) {
         isOwner={d.isOwner}
         warehouses={d.warehouses.map((w) => ({ id: w.id, name: w.name, color: w.color }))}
         people={d.people}
+        today={d.today}
       />
       {d.isOwner && d.total.staff > 0 ? (
         <section className="sp-card p-4 sm:p-5" aria-labelledby="tools-title">

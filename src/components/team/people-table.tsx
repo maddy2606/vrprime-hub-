@@ -1,17 +1,23 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useToast } from "@/components/toast";
 import { Chip } from "@/components/ui";
 import { formatINR } from "@/lib/format";
 import type { PersonView } from "@/server/team-data";
 import { setStaffActive } from "@/server/actions/team";
+import { AdvanceDue, StaffMoneySheet } from "./staff-money";
 
 type Warehouse = { id: string; name: string; color: string };
 
-/** Everyone on the books with this month's attendance. Salary and the remove button are for the owner only. */
-export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { monthLabel: string; isOwner: boolean; warehouses: Warehouse[]; people: PersonView[] }) {
+/**
+ * Everyone on the books with this month's attendance. Salary, advances and expenses, and the remove button are for the
+ * owner only.
+ */
+export function PeopleTable({ monthLabel, isOwner, warehouses, people, today }: { monthLabel: string; isOwner: boolean; warehouses: Warehouse[]; people: PersonView[]; today: string }) {
   const toast = useToast();
+  const [open, setOpen] = useState<PersonView | null>(null);
+  const month = today.slice(0, 7);
   const [pending, startTransition] = useTransition();
   const by = new Map(warehouses.map((w) => [w.id, w]));
   const place = (p: PersonView) => (p.warehouseId ? by.get(p.warehouseId) : undefined);
@@ -49,6 +55,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
                     {placeName(p)}
                     {isOwner && p.salary !== null ? <span className="font-mono tabular-nums"> · {formatINR(p.salary)}</span> : null}
                   </p>
+                  {isOwner && p.money ? <AdvanceDue entries={p.money} month={month} /> : null}
                 </div>
                 {!p.active ? <Chip tone="neutral">Removed</Chip> : null}
                 {isOwner ? (
@@ -77,6 +84,11 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
                   </div>
                 ))}
               </dl>
+              {isOwner ? (
+                  <button type="button" onClick={() => setOpen(p)} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line text-sm font-bold text-accent-text hover:bg-accent-soft">
+                    Advance / expense
+                  </button>
+                ) : null}
             </li>
           );
         })}
@@ -107,6 +119,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
                       <span>
                         {p.name}
                         <span className="block text-[11px] font-normal text-muted">{placeName(p)}</span>
+                        {isOwner && p.money ? <AdvanceDue entries={p.money} month={month} /> : null}
                       </span>
                       {!p.active ? <Chip tone="neutral">Removed</Chip> : null}
                     </span>
@@ -117,7 +130,10 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
                   <td className="px-2 text-right font-mono tabular-nums text-info">{p.month.leave}</td>
                   {isOwner ? <td className="px-2 text-right font-mono tabular-nums">{p.salary === null ? "—" : formatINR(p.salary)}</td> : null}
                   {isOwner ? (
-                    <td className="pl-2 text-right">
+                    <td className="whitespace-nowrap pl-2 text-right">
+                      <button type="button" onClick={() => setOpen(p)} className="focus-ring min-h-9 rounded-lg px-2 text-xs font-bold text-accent-text hover:bg-accent-soft">
+                        Advance / expense
+                      </button>
                       <button
                         type="button"
                         disabled={pending}
@@ -134,6 +150,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people }: { month
           </tbody>
         </table>
       </div>
+      {isOwner ? <StaffMoneySheet person={open} entries={open?.money ?? []} today={today} onClose={() => setOpen(null)} /> : null}
     </section>
   );
 }

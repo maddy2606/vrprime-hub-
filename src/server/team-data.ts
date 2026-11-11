@@ -23,6 +23,7 @@ import { formatDate, todayIST } from "@/lib/format";
 import { logError } from "@/lib/redact";
 import { createClient } from "@/lib/supabase/server";
 import { warehouseColor } from "@/lib/theme";
+import type { StaffMoneyEntry } from "@/lib/staff-money";
 import type { SessionUser } from "@/lib/types";
 
 // Owner and admin only: everyone else gets "not found". Salaries are owner only, and the database enforces that on its
@@ -64,6 +65,8 @@ export type PersonView = {
   month: { present: number; half: number; absent: number; leave: number };
   /** Monthly salary. Only ever filled in for the owner. */
   salary: number | null;
+  /** Advances, expenses and recoveries, every date. Only ever filled in for the owner. */
+  money: StaffMoneyEntry[] | null;
 };
 
 export type WarehouseView = {
@@ -163,7 +166,7 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
   const from = [monthStart(day), shiftDay(today, -14)].sort()[0];
   const to = [monthEnd(day), today].sort().reverse()[0];
 
-  const [whRes, staffRes, payRes, markRes, setRes, loadRes, lateRes] = await Promise.all([
+  const [whRes, staffRes, payRes, markRes, setRes, loadRes, lateRes, moneyRes] = await Promise.all([
     db.from("warehouses").select("id, name, sort_order").order("sort_order"),
     db.from("staff").select("id, name, warehouse_id, remote, active").order("name"),
     isOwner ? db.from("staff_pay").select("staff_id, monthly_salary") : Promise.resolve({ data: [], error: null }),
@@ -179,8 +182,9 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
       .eq("hold", false)
       .lt("dispatch_by", new Date().toISOString())
       .limit(20000),
+    isOwner ? db.from("staff_money").select("id, staff_id, kind, day, amount, note").order("day", { ascending: false }).limit(10000) : Promise.resolve({ data: [], error: null }),
   ]);
-  for (const [where, r] of [["warehouses", whRes], ["staff", staffRes], ["pay", payRes], ["attendance", markRes], ["settings", setRes]] as const) {
+  for (const [where, r] of [["warehouses", whRes], ["staff", staffRes], ["pay", payRes], ["attendance", markRes], ["settings", setRes], ["advances", moneyRes]] as const) {
     if (r.error) fail(where, r.error);
   }
   if (loadRes.error) fail("order load", loadRes.error);
@@ -190,6 +194,9 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
   const warehouses = (whRes.data ?? []) as { id: string; name: string }[];
   const staff = (staffRes.data ?? []) as { id: string; name: string; warehouse_id: string | null; remote: boolean | null; active: boolean }[];
   const pay = new Map(((payRes.data ?? []) as { staff_id: string; monthly_salary: number }[]).map((p) => [p.staff_id, p.monthly_salary]));
+  const money = ((moneyRes.data ?? []) as { id: string; staff_id: string; kind: StaffMoneyEntry["kind"]; day: string; amount: number; note: string | null }[]).map(
+    (m): StaffMoneyEntry => ({ id: m.id, staffId: m.staff_id, kind: m.kind, day: m.day, amount: Number(m.amount), note: m.note }),
+  );
   const marks = (markRes.data ?? []) as { staff_id: string; day: string; status: AttendanceStatus }[];
   const orders = (Array.isArray(loadRes.data) ? loadRes.data : []) as OrderRow[];
 
@@ -208,6 +215,7 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
       status: mine.find((m) => m.day === day)?.status ?? null,
       month,
       salary: isOwner ? (pay.get(s.id) ?? null) : null,
+      money: isOwner ? money.filter((m) => m.staffId === s.id) : null,
     };
   });
 

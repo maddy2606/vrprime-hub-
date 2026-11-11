@@ -220,3 +220,32 @@ export async function setStaffActive(staffId: unknown, active: unknown): Promise
   revalidatePath("/team");
   return { ok: true, message: active ? "Back on the team" : "Removed from the plan" };
 }
+
+/** Owner: an advance, expense or recovered amount for one person, on a date (not in the future). */
+export async function addStaffMoney(staffId: unknown, kind: unknown, day: unknown, amount: unknown, note: unknown): Promise<ActionResult> {
+  const user = await ownerUser();
+  if (isResult(user)) return user;
+  if (typeof staffId !== "string" || !UUID.test(staffId)) return { ok: false, message: "That person was not found." };
+  if (kind !== "advance" && kind !== "expense" && kind !== "recovered") return { ok: false, message: "Choose Advance, Expense or Recovered." };
+  if (typeof day !== "string" || !DAY.test(day) || day > todayIST() || day < "2020-01-01") return { ok: false, message: "Choose a date, today or earlier." };
+  const n = typeof amount === "number" ? amount : Number(String(amount ?? "").replace(/[,₹\s]/g, ""));
+  if (!Number.isFinite(n) || n <= 0 || n > 10_000_000) return { ok: false, message: "Type the amount in rupees." };
+  const text = typeof note === "string" ? note.trim().slice(0, 200) : "";
+  const db = (await createClient()) as unknown as Loose;
+  const { error } = await db.from("staff_money").insert({ staff_id: staffId, kind, day, amount: Math.round(n * 100) / 100, note: text || null, created_by: user.id });
+  if (error) return dbError(error, "save the entry");
+  revalidatePath("/team");
+  return { ok: true, message: kind === "advance" ? "Advance saved" : kind === "expense" ? "Expense saved" : "Recovery saved" };
+}
+
+/** Owner: removes one advance, expense or recovered entry (a wrong one). */
+export async function deleteStaffMoney(id: unknown): Promise<ActionResult> {
+  const user = await ownerUser();
+  if (isResult(user)) return user;
+  if (typeof id !== "string" || !UUID.test(id)) return { ok: false, message: "That entry was not found." };
+  const db = (await createClient()) as unknown as Loose;
+  const { error } = await db.from("staff_money").delete().eq("id", id);
+  if (error) return dbError(error, "delete the entry");
+  revalidatePath("/team");
+  return { ok: true, message: "Entry deleted" };
+}

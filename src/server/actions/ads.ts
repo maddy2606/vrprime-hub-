@@ -198,7 +198,7 @@ const termRow = z.object({
   revenue: z.number().min(0),
 });
 const termsSchema = z.object({
-  kind: z.enum(["st", "kw"]),
+  kind: z.enum(["st", "kw", "pl"]),
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   rows: z.array(termRow).max(5000),
@@ -217,7 +217,7 @@ export async function saveAdTerms(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, message: "That report could not be read. Download it again from Seller Hub." };
   const p = parsed.data;
   const { error } = await s.db.rpc("ads_save_terms", { p_kind: p.kind, p_from: p.from, p_to: p.to, p_rows: p.rows, p_append: p.append, p_lines: p.lines });
-  if (error) return dbError(error, p.kind === "st" ? "save the Search Term report" : "save the Keyword report");
+  if (error) return dbError(error, p.kind === "st" ? "save the Search Term report" : p.kind === "kw" ? "save the Keyword report" : "save the Placement report");
   revalidatePath("/ads/desk");
   return { ok: true, message: "Saved" };
 }

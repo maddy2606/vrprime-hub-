@@ -87,6 +87,7 @@ test("the database's answer is read into named rows", () => {
     fsn: { from: "2026-11-01", to: "2026-11-07", at: "x", rows: [["SKU1", "C1", "Camp", 5, 50, 2, 1, 40]] },
     st: { from: "2026-11-01", to: "2026-11-07", at: "x", lines: 9, rows: [["C1", "Camp", "rat spray", 100, 4, 20, 1, 99]], rest: [["C1", 10, 2, 6, 3]] },
     kw: null,
+    pl: null,
     neg: [["C1", "free", "added"]],
   });
   assert.deepEqual(d.daily[0], { day: "2026-11-01", cid: "C1", name: "Camp", spend: 10.5, views: 100, clicks: 4, units: 1, rev: 99 });
@@ -94,5 +95,18 @@ test("the database's answer is read into named rows", () => {
   assert.deepEqual([d.st?.rows[0].term, d.st?.rest[0].terms, d.st?.lines], ["rat spray", 3, 9]);
   assert.equal(d.kw, null);
   assert.deepEqual(d.neg, [{ cid: "C1", term: "free", status: "added" }]);
-  assert.deepEqual(readDeskData(null), { daily: [], fsn: null, st: null, kw: null, neg: [] });
+  assert.deepEqual(readDeskData(null), { daily: [], fsn: null, st: null, kw: null, pl: null, neg: [] });
+});
+
+test("placements: page order, short names, and product-page leaks under break-even", async () => {
+  const { placements, productPageLeaks } = await import("./ads-desk.ts");
+  const rows = [
+    { cid: "A", name: "A", pl: "Product Page", ...m(600, 1200, 4) },
+    { cid: "A", name: "A", pl: "Top of Search Listings Page", ...m(400, 4000, 20) },
+    { cid: "B", name: "B", pl: "Product Page", ...m(100, 0, 0) },
+    { cid: "B", name: "B", pl: "Home Page", ...m(50, 500, 2) },
+  ];
+  assert.deepEqual(placements(rows, S).map((p) => [p.short, p.spend]), [["Top of search", 400], ["Product pages", 700], ["Home page", 50]]);
+  assert.deepEqual(placements(rows, S, "B").map((p) => p.short), ["Product pages", "Home page"]);
+  assert.deepEqual(productPageLeaks(rows, S).map((x) => [x.cid, x.roi]), [["A", 2]], "B spent under ₹150 there");
 });

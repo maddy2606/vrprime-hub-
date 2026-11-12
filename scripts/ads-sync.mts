@@ -7,7 +7,7 @@
 //   node scripts/ads-sync.mts --dry               read and report only, save nothing
 //
 // It reads every CSV, tells which report it is from its columns (Consolidated Daily, Consolidated FSN, Search Term,
-// Keyword), and saves through the Supabase CLI where it is already signed in and linked (the vrprime-db-setup folder
+// Keyword, Placement Performance), and saves through the Supabase CLI where it is already signed in and linked (the vrprime-db-setup folder
 // next to the repo, or SUPABASE_CLI_DIR), so no key is kept. A Search Term report is tens of megabytes: only its lines
 // with a click, spend or sale are saved, added up per campaign and term.
 
@@ -103,7 +103,7 @@ try {
         if (seen.has(key)) continue;
         seen.add(key);
         if (!dry) for (let i = 0; i < Math.max(1, rows.length); i += 4000) await sql(`select public.ads_save_terms('${kind}', '${from}', '${to}', ${jsonb(rows.slice(i, i + 4000))}, ${i > 0}, ${lines});`);
-        done.push(`${kind === "st" ? "Search Term" : "Keyword"} ${from} to ${to}: ${rupees(spend)}, ${rows.length} terms kept of ${lines} lines`);
+        done.push(`${kind === "st" ? "Search Term" : kind === "kw" ? "Keyword" : "Placement"} ${from} to ${to}: ${rupees(spend)}, ${rows.length} terms kept of ${lines} lines`);
       }
     } catch (e) {
       failed = true;

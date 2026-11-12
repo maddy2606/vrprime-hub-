@@ -15,6 +15,8 @@ import {
   flow,
   keywords as keywordRows,
   negatives as negativeRows,
+  placements as placementRows,
+  productPageLeaks,
   products as productRows,
   rangeFor,
   readDeskData,
@@ -89,6 +91,42 @@ function Panel({ title, sub, action, children }: { title: string; sub?: string; 
   );
 }
 const Note = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted">{children}</p>;
+
+// ---- Placements: where on Flipkart the money was spent -----------------------------------------------------------------
+
+const PLACE_COLOR = ["var(--accent)", "color-mix(in srgb, var(--accent) 55%, var(--surface2))", "var(--warn-mark)", "var(--info)", "color-mix(in srgb, var(--info) 55%, var(--surface2))", "var(--ok)"];
+const placeColor = (order: number) => PLACE_COLOR[order] ?? "var(--muted)";
+
+function PlacementBar({ rows }: { rows: ReturnType<typeof placementRows> }) {
+  const spend = rows.reduce((n, r) => n + r.spend, 0) || 1;
+  const search = rows.filter((r) => r.search).reduce((n, r) => n + r.spend, 0);
+  return (
+    <div>
+      <div className="flex h-3 overflow-hidden rounded-full bg-surface2" role="img" aria-label={rows.map((r) => `${r.short} ${rs(r.spend)}, ROI ${roi2(r.roi)}`).join("; ")}>
+        {rows
+          .filter((r) => r.spend > 0)
+          .map((r) => (
+            <span key={r.pl} title={`${r.short}: ${rs(r.spend)} (${pct(r.spend / spend)}), ROI ${roi2(r.roi)}`} style={{ flex: `${r.spend / spend} 1 0`, background: placeColor(r.order) }} />
+          ))}
+      </div>
+      <ul className="mt-3 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+        {rows.map((r) => (
+          <li key={r.pl} className="flex items-baseline gap-2">
+            <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 translate-y-0.5 rounded-full" style={{ background: placeColor(r.order) }} />
+            <span className="font-bold">{r.short}</span>
+            <span className="font-mono tabular-nums">{inr(r.spend)}</span>
+            <span className="text-muted">
+              {pct(r.spend / spend, 0)} · ROI <b style={{ color: roiColor(r.roi) }}>{roi2(r.roi)}</b> · CPC {rs2(r.cpc)}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-xs text-muted">
+        Search placements: {inr(search)} of {inr(spend)} ({pct(search / spend, 0)}). Keywords and search terms only explain that part; the rest is product pages, browse and the home page.
+      </p>
+    </div>
+  );
+}
 
 // ---- A table that sorts, filters by result and shows more on request ----------------------------------------------------
 
@@ -207,7 +245,7 @@ function SyncButton() {
             continue;
           }
           done.push(kind === "daily" ? "Daily" : "SKU (FSN)");
-        } else if (kind === "st" || kind === "kw") {
+        } else if (kind === "st" || kind === "kw" || kind === "pl") {
           const read = readAdsTermReport(text);
           if (!read.ok) {
             toast.result({ ok: false, message: read.error });
@@ -216,15 +254,15 @@ function SyncButton() {
           const { from, to, rows, lines } = read.report;
           let ok = true;
           for (let i = 0; i < Math.max(1, rows.length) && ok; i += 2500) {
-            setBusy(`Saving ${kind === "st" ? "search terms" : "keywords"}: ${Math.min(rows.length, i + 2500).toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")}`);
+            setBusy(`Saving ${kind === "st" ? "search terms" : kind === "kw" ? "keywords" : "placements"}: ${Math.min(rows.length, i + 2500).toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")}`);
             const r = await saveAdTerms({ kind, from, to, rows: rows.slice(i, i + 2500), append: i > 0, lines });
             if (!r.ok) {
               toast.result(r);
               ok = false;
             }
           }
-          if (ok) done.push(kind === "st" ? "Search Term" : "Keyword");
-        } else toast.result({ ok: false, message: `${file.name} is not one of the four reports (Consolidated Daily, Consolidated FSN, Search Term, Keyword).` });
+          if (ok) done.push(kind === "st" ? "Search Term" : kind === "kw" ? "Keyword" : "Placement");
+        } else toast.result({ ok: false, message: `${file.name} is not one of the ads reports (Consolidated Daily, Consolidated FSN, Search Term, Keyword, Placement Performance).` });
       }
       if (done.length) toast.result({ ok: true, message: `Synced: ${done.join(", ")}` });
     } catch {
@@ -317,6 +355,8 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
   const terms = useMemo(() => (data.st ? termRows(data.st.rows, S) : []), [data]);
   const kws = useMemo(() => (data.kw ? keywordRows(data.kw.rows, S) : []), [data]);
   const negs = useMemo(() => (data.st ? negativeRows(data.st.rows, data.neg, S) : []), [data]);
+  const places = useMemo(() => (data.pl ? placementRows(data.pl.rows, S) : []), [data]);
+  const ppLeaks = useMemo(() => (data.pl ? productPageLeaks(data.pl.rows, S) : []), [data]);
   const filterOf = (k: string) => filters[k] ?? "all";
   const setFilter = (k: string) => (v: Verdict | "all") => setFilters((f) => ({ ...f, [k]: v }));
   const goTo = (t: Tab, v?: Verdict) => {
@@ -357,7 +397,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
       <div className="flex min-w-0 flex-col gap-5">
         {header}
         <Panel title="Start by syncing the reports" sub="Seller Hub → Ads → Reports → Other Reports → PLA">
-          <Note>Download the Consolidated Daily, Consolidated FSN, Search Term and Keyword reports for the same dates, then press Sync reports and choose all four files.</Note>
+          <Note>Download the Consolidated Daily, Consolidated FSN, Search Term, Keyword and Placement Performance reports for the same dates, then press Sync reports and choose all the files.</Note>
         </Panel>
       </div>
     );
@@ -429,7 +469,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
 
       <p className={`rounded-xl border px-3 py-2 text-xs font-semibold ${staleDays > 3 ? "border-warn/40 bg-warn-soft text-warn" : "border-line-soft bg-surface2/50 text-muted"}`} role="status">
         Daily spend synced up to {dm(range.max)}
-        {staleDays > 3 ? ` (${staleDays} days ago; sync is due)` : ""} · {snapNote("Products", data.fsn)} · {snapNote("Search terms", data.st)} · {snapNote("Keywords", data.kw)}. Results use break-even ROI {S.be}, good ROI{" "}
+        {staleDays > 3 ? ` (${staleDays} days ago; sync is due)` : ""} · {snapNote("Products", data.fsn)} · {snapNote("Search terms", data.st)} · {snapNote("Keywords", data.kw)} · {snapNote("Placements", data.pl)}. Results use break-even ROI {S.be}, good ROI{" "}
         {S.good}, and need ₹{S.minSpend} spend or {S.minClicks} clicks before judging.
       </p>
 
@@ -539,6 +579,10 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
             )}
           </Panel>
 
+          <Panel title="By placement" sub={data.pl ? `All campaigns · ${span(data.pl.from, data.pl.to)} · where on Flipkart the ads showed` : "Sync the Placement Performance report to see where the money was spent"}>
+            {places.length ? <PlacementBar rows={places} /> : <Note>Not synced yet.</Note>}
+          </Panel>
+
           <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
             <div className="flex min-w-0 flex-col gap-5">
               <Panel title="Losing money" sub={`ROI under ${S.be} · the worst keywords (KW) and search terms (ST) inside each`} action={losing.length > 8 ? <button type="button" className="text-xs font-bold text-accent-text" onClick={() => goTo("campaigns", "losing")}>All {losing.length} →</button> : null}>
@@ -640,6 +684,22 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                   onClick={data.st ? () => goTo("negatives") : undefined}
                   right={<b className="text-bad">{data.st ? inr(zeroSpend) : "—"}</b>}
                 />
+                <Row
+                  title="Product pages under break-even"
+                  sub={data.pl ? `${ppLeaks.length} campaigns · ROI under ${S.be} on product pages · ${span(data.pl.from, data.pl.to)}` : "Sync the Placement report"}
+                  onClick={ppLeaks.length ? () => setOpen(ppLeaks[0].cid) : undefined}
+                  right={<b className="text-bad">{data.pl ? inr(ppLeaks.reduce((n, x) => n + x.spend, 0)) : "—"}</b>}
+                >
+                  {ppLeaks.length ? (
+                    <span className="mt-1 flex flex-col gap-0.5 text-xs text-muted">
+                      {ppLeaks.slice(0, 4).map((x) => (
+                        <span key={x.cid} className="truncate">
+                          {x.name} · {rs(x.spend)} · {x.units ? `ROI ${roi2(x.roi)}` : "0 sales"}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                </Row>
                 <Row title="Negative keywords to add" sub={`${todo.length} terms in campaigns, ₹${S.minSpend}+ each`} onClick={data.st ? () => goTo("negatives") : undefined} right={<b className="text-bad">{data.st ? inr(todo.reduce((n, x) => n + x.spend, 0)) : "—"}</b>} />
               </Panel>
               <Panel title="Spend spikes" sub="A day at 1.5× the campaign's usual day">
@@ -968,6 +1028,9 @@ function CampaignSheet({ cid, onClose, data, camps, kws, from, to, min, max }: {
       ) : (
         <Note>No daily spend synced for this campaign.</Note>
       )}
+
+      <h3 className={h3}>Placements {data.pl ? <span className="font-normal text-muted">{span(data.pl.from, data.pl.to)}</span> : null}</h3>
+      {data.pl && placementRows(data.pl.rows, S, cid).length ? <PlacementBar rows={placementRows(data.pl.rows, S, cid)} /> : <Note>{data.pl ? "No placement lines for this campaign." : "Sync the Placement Performance report."}</Note>}
 
       <h3 className={h3}>Products {data.fsn ? <span className="font-normal text-muted">{span(data.fsn.from, data.fsn.to)}</span> : null}</h3>
       {prods.length ? <MiniTable head={["SKU", "Spend", "ROI", "Units"]} rows={prods.slice(0, 12).map((p) => [p.sku, rs(p.spend), <Roi key="r" r={p} />, n0(p.units)])} /> : <Note>{data.fsn ? "No products for this campaign in the SKU report." : "Sync the Consolidated FSN Report."}</Note>}

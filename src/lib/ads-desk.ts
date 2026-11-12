@@ -64,6 +64,7 @@ export type DailyRow = Metrics & { day: string; cid: string; name: string };
 export type FsnRow = Metrics & { sku: string; cid: string; name: string };
 export type TermRow = Metrics & { cid: string; name: string; term: string };
 export type KwRow = Metrics & { cid: string; name: string; kw: string; mt: string };
+export type PlRow = Metrics & { cid: string; name: string; pl: string };
 export type Snapshot<R> = { from: string; to: string; at: string; rows: R[] };
 export type DeskData = {
   daily: DailyRow[];
@@ -71,6 +72,7 @@ export type DeskData = {
   /** `rest`: per campaign, the search terms too small to list (no sale and under ₹10), added up. */
   st: (Snapshot<TermRow> & { lines: number; rest: { cid: string; views: number; clicks: number; spend: number; terms: number }[] }) | null;
   kw: Snapshot<KwRow> | null;
+  pl: Snapshot<PlRow> | null;
   neg: { cid: string; term: string; status: "added" | "ignored" }[];
 };
 
@@ -88,9 +90,38 @@ export function readDeskData(raw: unknown): DeskData {
     daily: arr(d.daily).map((r) => ({ day: String(r[0]), cid: String(r[1]), name: String(r[2]), spend: N(r[3]), views: N(r[4]), clicks: N(r[5]), units: N(r[6]), rev: N(r[7]) })),
     fsn: snap(d.fsn as Raw, (r): FsnRow => ({ sku: String(r[0]), cid: String(r[1]), name: String(r[2]), spend: N(r[3]), views: N(r[4]), clicks: N(r[5]), units: N(r[6]), rev: N(r[7]) })),
     st: stSnap ? { ...stSnap, lines: N(st?.lines), rest: arr(st?.rest).map((r) => ({ cid: String(r[0]), views: N(r[1]), clicks: N(r[2]), spend: N(r[3]), terms: N(r[4]) })) } : null,
+    pl: snap(d.pl as Raw, (r): PlRow => ({ cid: String(r[0]), name: String(r[1]), pl: String(r[2]), views: N(r[3]), clicks: N(r[4]), spend: N(r[5]), units: N(r[6]), rev: N(r[7]) })),
     kw: snap(d.kw as Raw, (r): KwRow => ({ cid: String(r[0]), name: String(r[1]), kw: String(r[2]), mt: String(r[3]), views: N(r[4]), clicks: N(r[5]), spend: N(r[6]), units: N(r[7]), rev: N(r[8]) })),
     neg: arr(d.neg).map((r) => ({ cid: String(r[0]), term: String(r[1]), status: r[2] === "ignored" ? "ignored" : "added" })),
   };
+}
+
+// ---- Placements ------------------------------------------------------------------------------------------------------------
+
+/** Flipkart's placement names, in page order, with a short name. Search placements are the only ones keywords and search terms explain. */
+export const PLACES: { name: string; short: string; search: boolean }[] = [
+  { name: "Top of Search Listings Page", short: "Top of search", search: true },
+  { name: "Rest of Search Listings Page", short: "Rest of search", search: true },
+  { name: "Product Page", short: "Product pages", search: false },
+  { name: "Top of Browse Listings Page", short: "Top of browse", search: false },
+  { name: "Rest of Browse Listings Page", short: "Rest of browse", search: false },
+  { name: "Home Page", short: "Home page", search: false },
+];
+export function placeInfo(name: string): { short: string; order: number; search: boolean } {
+  const i = PLACES.findIndex((p) => p.name.toLowerCase() === name.trim().toLowerCase());
+  return i >= 0 ? { short: PLACES[i].short, order: i, search: PLACES[i].search } : { short: name || "Other", order: 99, search: /search/i.test(name) };
+}
+
+/** Spend and sales per placement, in page order; for one campaign when `cid` is given. */
+export function placements(rows: PlRow[], s: DeskSettings, cid?: string) {
+  return groupBy(cid ? rows.filter((r) => r.cid === cid) : rows, (r) => r.pl, (r) => ({ pl: r.pl, ...placeInfo(r.pl) }), s).sort((a, b) => a.order - b.order);
+}
+
+/** Campaigns whose product-page placement spent the minimum or more under break-even: a leak to bid down. */
+export function productPageLeaks(rows: PlRow[], s: DeskSettings) {
+  return groupBy(rows.filter((r) => placeInfo(r.pl).order === 2), (r) => r.cid, (r) => ({ cid: r.cid, name: r.name }), s)
+    .filter((x) => x.spend >= s.minSpend && x.roi < s.be)
+    .sort((a, b) => b.spend - a.spend);
 }
 
 // ---- Dates ---------------------------------------------------------------------------------------------------------------

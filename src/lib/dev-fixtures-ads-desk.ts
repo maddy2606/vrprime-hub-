@@ -46,6 +46,15 @@ export function fakeAdsDesk(): unknown {
       ["FAKECAMP0003", "FAKE Polish Phrase", "fake wax", "PHRASE", ...row(2400, 0, 0, 260)],
       ["FAKECAMP0005", "FAKE Glue Keyword", "fake glue", "EXACT", ...row(9000, 7.4, 150, 1300)],
     ] },
+    pl: { from: day(18), to: day(27), at: new Date().toISOString(), rows: [
+      ["FAKECAMP0001", "FAKE Spray Auto", "Top of Search Listings Page", 90000, 3000, 18000, 240, 160000],
+      ["FAKECAMP0001", "FAKE Spray Auto", "Rest of Search Listings Page", 60000, 1500, 7000, 80, 52000],
+      ["FAKECAMP0001", "FAKE Spray Auto", "Product Page", 70000, 900, 5000, 20, 14000],
+      ["FAKECAMP0003", "FAKE Polish Phrase", "Top of Search Listings Page", 80000, 1600, 13000, 70, 26000],
+      ["FAKECAMP0003", "FAKE Polish Phrase", "Product Page", 90000, 1200, 9000, 12, 5400],
+      ["FAKECAMP0004", "FAKE Trap Auto", "Top of Browse Listings Page", 40000, 400, 3000, 0, 0],
+      ["FAKECAMP0005", "FAKE Glue Keyword", "Home Page", 30000, 300, 1500, 20, 9000],
+    ] },
     neg: [["FAKECAMP0003", "fake cheap polish", "ignored"]],
   };
 }

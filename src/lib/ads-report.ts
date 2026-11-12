@@ -202,11 +202,12 @@ export function fsnCoverage(fsnSpend: number, dailySpend: number | null): { pct:
 // ---- The Search Term and Keyword reports (Ads Desk) --------------------------------------------------------------------
 
 export type AdTermRow = { campaign_id: string; campaign_name: string; term: string; match_type: string; views: number; clicks: number; spend: number; units: number; revenue: number };
-export type AdsTermReport = { kind: "st" | "kw"; from: string; to: string; rows: AdTermRow[]; spend: number; lines: number };
+export type AdsTermReport = { kind: "st" | "kw" | "pl"; from: string; to: string; rows: AdTermRow[]; spend: number; lines: number };
 
-/** Which of the four Seller Hub ads reports a file is. */
-export function adsFileKind(text: string): "fsn" | "daily" | "st" | "kw" | null {
+/** Which of the Seller Hub ads reports a file is. */
+export function adsFileKind(text: string): "fsn" | "daily" | "st" | "kw" | "pl" | null {
   const head = csvRows(text.slice(0, 6000)).find((r) => r.some((f) => f.trim() === "Campaign ID"))?.map((f) => f.trim()) ?? [];
+  if (head.includes("Placement Type")) return "pl";
   if (head.includes("Query")) return "st";
   if (head.includes("attributed_keyword")) return "kw";
   return adsReportKind(text);
@@ -224,11 +225,11 @@ export function readAdsTermReport(text: string): { ok: true; report: AdsTermRepo
   const h = rows.findIndex((r) => r.some((f) => f.trim() === "Campaign ID") && r.some((f) => f.trim() === "Clicks"));
   const head = h < 0 ? [] : rows[h].map((f) => f.trim());
   const at = (name: string) => head.indexOf(name);
-  const kind = head.includes("Query") ? "st" : head.includes("attributed_keyword") ? "kw" : null;
-  if (!kind) return { ok: false, error: "This is not a Search Term or Keyword report: it has no Query or attributed_keyword column." };
+  const kind = head.includes("Placement Type") ? "pl" : head.includes("Query") ? "st" : head.includes("attributed_keyword") ? "kw" : null;
+  if (!kind) return { ok: false, error: "This is not a Search Term, Keyword or Placement report: it has no Query, attributed_keyword or Placement Type column." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) return { ok: false, error: "The report's Start Time and End Time lines are missing, so its period is not known." };
   const i = {
-    id: at("Campaign ID"), name: at("Campaign Name"), term: kind === "st" ? at("Query") : at("attributed_keyword"), mt: at("keyword_match_type"),
+    id: at("Campaign ID"), name: at("Campaign Name"), term: kind === "pl" ? at("Placement Type") : kind === "st" ? at("Query") : at("attributed_keyword"), mt: at("keyword_match_type"),
     views: at("Views"), clicks: at("Clicks"), spend: at("SUM(cost)") >= 0 ? at("SUM(cost)") : at("Ad Spend"),
     du: at("Direct Units Sold"), iu: at("Indirect Units Sold"), dr: at("Direct Revenue"), ir: at("Indirect Revenue"),
   };
@@ -238,7 +239,9 @@ export function readAdsTermReport(text: string): { ok: true; report: AdsTermRepo
   for (let n = h + 1; n < rows.length; n++) {
     const r = rows[n];
     const campaign_id = (r[i.id] ?? "").trim().toUpperCase();
-    const term = (r[i.term] ?? "").trim().toLowerCase().slice(0, 200);
+    // Placements keep their names as Flipkart writes them ("Top of Search Listings Page"); terms are matched in lower case.
+    const raw = (r[i.term] ?? "").trim().slice(0, 200);
+    const term = kind === "pl" ? raw : raw.toLowerCase();
     if (!campaign_id || !term) continue;
     lines++;
     const clicks = num(r[i.clicks]);

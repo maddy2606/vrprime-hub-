@@ -769,6 +769,7 @@ export function AdsTracker({ view }: { view: AdsView | null }) {
         <div className="min-w-0">
           <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Flipkart &amp; Shopsy · PLA ads</p>
           <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Ads tracker</h1>
+          <a href="/ads/desk" className="text-sm font-semibold text-accent-text underline-offset-2 hover:underline">Ads Desk: where the money went and what to fix →</a>
           <p className="mt-0.5 text-sm text-muted">
             {scan
               ? `${scan.days}-day period, ${dayYear(scan.from)} to ${dayYear(scan.to)} · synced ${new Date(scan.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}`

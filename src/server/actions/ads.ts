@@ -183,3 +183,55 @@ export async function removeTrackedSku(sku: unknown): Promise<ActionResult> {
   revalidatePath("/ads");
   return { ok: true, message: `Stopped tracking ${sku}` };
 }
+
+// ---- Ads Desk ---------------------------------------------------------------------------------------------------------
+
+const termRow = z.object({
+  campaign_id: z.string().min(1).max(40),
+  campaign_name: z.string().max(300),
+  term: z.string().min(1).max(200),
+  match_type: z.string().max(20),
+  views: z.number().min(0),
+  clicks: z.number().min(0),
+  spend: z.number().min(0),
+  units: z.number().min(0),
+  revenue: z.number().min(0),
+});
+const termsSchema = z.object({
+  kind: z.enum(["st", "kw"]),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  rows: z.array(termRow).max(5000),
+  append: z.boolean(),
+  lines: z.number().int().min(0).max(100_000_000),
+});
+
+/**
+ * One part of a Search Term or Keyword report, read in the browser (the file is far too large to send whole) and sent
+ * a few thousand rows at a time: the first part replaces that period, the rest add to it.
+ */
+export async function saveAdTerms(input: unknown): Promise<ActionResult> {
+  const s = await staff();
+  if (!s.ok) return s.error;
+  const parsed = termsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "That report could not be read. Download it again from Seller Hub." };
+  const p = parsed.data;
+  const { error } = await s.db.rpc("ads_save_terms", { p_kind: p.kind, p_from: p.from, p_to: p.to, p_rows: p.rows, p_append: p.append, p_lines: p.lines });
+  if (error) return dbError(error, p.kind === "st" ? "save the Search Term report" : "save the Keyword report");
+  revalidatePath("/ads/desk");
+  return { ok: true, message: "Saved" };
+}
+
+/** What was done about a wasteful search term in a campaign: added as a negative in Flipkart, ignored, or back to "to add". */
+export async function setAdNegative(campaignId: unknown, term: unknown, status: unknown): Promise<ActionResult> {
+  const s = await staff();
+  if (!s.ok) return s.error;
+  const parsed = z.object({ campaignId: z.string().min(1).max(40), term: z.string().min(1).max(200), status: z.enum(["todo", "added", "ignored"]) }).safeParse({ campaignId, term, status });
+  if (!parsed.success) return { ok: false, message: "That was not understood." };
+  const { campaignId: cid, term: t, status: st } = parsed.data;
+  const q = st === "todo" ? s.db.from("ad_negatives").delete().eq("campaign_id", cid).eq("term", t) : s.db.from("ad_negatives").upsert({ campaign_id: cid, term: t, status: st, updated_by: s.user.id, updated_at: new Date().toISOString() }, { onConflict: "campaign_id,term" });
+  const { error } = await q;
+  if (error) return dbError(error, "save the negative keyword");
+  revalidatePath("/ads/desk");
+  return { ok: true, message: st === "added" ? "Marked as added" : st === "ignored" ? "Ignored" : "Back to the list" };
+}

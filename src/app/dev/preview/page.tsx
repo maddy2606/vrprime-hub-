@@ -23,6 +23,8 @@ import { DispatchChart, Hero, Movers, OrdersByStage, OrdersTrend, PriorityQueue,
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
 import { fakeTeam } from "@/lib/dev-fixtures-team";
 import { TeamBoard } from "@/components/team/board";
+import { AdsDesk } from "@/components/ads/ads-desk";
+import { fakeAdsDesk } from "@/lib/dev-fixtures-ads-desk";
 import { ExpensesBoard } from "@/components/expenses/expenses-board";
 import { FAKE_BUDGET_PLAN, FAKE_EXPENSE_MONTHS, FAKE_EXPENSES, FAKE_LOCKED, FAKE_WHATSAPP } from "@/lib/dev-fixtures-expenses";
 import { StockDesk } from "@/components/stock/stock-desk";
@@ -262,6 +264,7 @@ export default async function PreviewPage({
         </div>
       ) : null}
       {view === "team" ? <TeamBoard d={fakeTeam()} /> : null}
+      {view === "adsdesk" ? <AdsDesk raw={fakeAdsDesk()} today="2026-11-11" /> : null}
       {view === "expenses" ? (
         <ExpensesBoard month="2026-10" months={FAKE_EXPENSE_MONTHS} previous={FAKE_EXPENSE_MONTHS[1]} expenses={FAKE_EXPENSES} whatsapp={sp.wa === "none" ? { ...FAKE_WHATSAPP, linkedAs: null, groupId: null, groupName: null } : FAKE_WHATSAPP} today={today} plan={sp.budget === "none" ? { ...FAKE_BUDGET_PLAN, lines: [] } : FAKE_BUDGET_PLAN} locked={sp.locked === "none" ? [] : FAKE_LOCKED} />
       ) : null}

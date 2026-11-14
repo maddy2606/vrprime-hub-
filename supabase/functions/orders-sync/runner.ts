@@ -65,6 +65,15 @@ export const RESULT_CAP_WARNING = 4900;
 
 const NOT_RUNNING = /run is not running|run is at step/;
 
+/**
+ * How often a working run renews its lease and asks whether another sync is working. Both used to happen after every
+ * page of 20 orders: about 20,000 extra database requests a day, most of this project's log quota. The lease lasts
+ * 3 minutes (LEASE_MS in index.ts) and the watchdog only steps in once it has run out, so a renewal every minute always
+ * leaves at least 2 minutes in hand.
+ */
+export const LEASE_RENEW_MS = 60_000;
+export const OTHER_SYNC_CHECK_MS = 30_000;
+
 export async function processRun(runId: string, deps: RunnerDeps): Promise<RunOutcome> {
   const { store, log } = deps;
 
@@ -92,19 +101,26 @@ export async function processRun(runId: string, deps: RunnerDeps): Promise<RunOu
     let next = run.next_path;
     let lastPage = "";
     let readInPart = 0;
+    // acquireLease has just set the lease, so the first renewal is due a minute from now.
+    let lastRenew = startedAt;
+    let lastBusyCheck = Number.NEGATIVE_INFINITY;
 
     while (step < run.plan.length) {
+      const at = deps.now();
       if (run.kind === "backfill" && !run.notes?.history && !deps.isNight()) {
         log("The backfill only runs at night: going back to sleep");
         await store.pause(runId, "Waiting for the night (22:15 to 06:45 IST)");
         return "paused";
       }
-      if (await store.otherSyncActive(runId)) {
-        log("A stock sync or another order run is working: waiting");
-        await store.pause(runId, "Waiting for another sync to finish");
-        return "paused";
+      if (at - lastBusyCheck >= OTHER_SYNC_CHECK_MS) {
+        lastBusyCheck = at;
+        if (await store.otherSyncActive(runId)) {
+          log("A stock sync or another order run is working: waiting");
+          await store.pause(runId, "Waiting for another sync to finish");
+          return "paused";
+        }
       }
-      if (deps.now() - startedAt >= deps.budgetMs) {
+      if (at - startedAt >= deps.budgetMs) {
         log(`Time budget used at part ${step + 1} of ${run.plan.length}: handing over`);
         await store.releaseLease(runId);
         await deps.chain(runId);
@@ -134,7 +150,10 @@ export async function processRun(runId: string, deps: RunnerDeps): Promise<RunOu
       } else {
         next = page.next;
       }
-      await store.renewLease(runId);
+      if (at - lastRenew >= LEASE_RENEW_MS) {
+        lastRenew = at;
+        await store.renewLease(runId);
+      }
     }
 
     const result = await store.finish(runId);

@@ -301,3 +301,36 @@ test("stops, instead of saving a cut-short list as complete, when a part reaches
   assert.match(run.failed ?? "", /stops a search at 5,000 results/);
   assert.ok(n <= 246, "it did not carry on past the limit");
 });
+
+test("renews the lease and asks about other syncs on a timer, not after every page", async () => {
+  const { store } = fakeStore(PENDING_PLAN);
+  const { flipkart } = fakeFlipkart(40); // 80 pages in all
+  let clock = 0;
+  let renewals = 0;
+  let checks = 0;
+  const counted: OrdersStore = {
+    ...store,
+    renewLease: async () => {
+      renewals += 1;
+    },
+    otherSyncActive: async () => {
+      checks += 1;
+      return false;
+    },
+  };
+  // Each page takes one second: 80 pages take 80 seconds.
+  const { d } = deps({ store: counted, flipkart, now: () => (clock += 1_000) });
+  assert.equal(await processRun("run-1", d), "done");
+  assert.equal(renewals, 1, "one renewal in 80 seconds (every 60 s), not 80");
+  assert.equal(checks, 3, "asked at the start and every 30 s after, not 80 times");
+});
+
+test("still stops within 30 seconds when another sync starts in the middle of a run", async () => {
+  const { store, run, pages } = fakeStore(PENDING_PLAN);
+  const { flipkart } = fakeFlipkart(40);
+  let clock = 0;
+  const { d } = deps({ store: { ...store, otherSyncActive: async () => pages.length >= 5 }, flipkart, now: () => (clock += 1_000) });
+  assert.equal(await processRun("run-1", d), "paused");
+  assert.equal(run.status, "paused");
+  assert.ok(pages.length >= 5 && pages.length <= 35, `paused after ${pages.length} pages`);
+});

@@ -1,6 +1,7 @@
 "use client";
-
+import { usePathname } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { BellIcon } from "@/components/icons";
 import { usePush } from "@/components/notifications/use-push";
 import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
@@ -18,22 +19,21 @@ function recentlyDismissed(): boolean {
 }
 
 /**
- * The one-time offer to turn on notifications, shown on the first visits after sign-in.
- * "Not now" hides it for a week. It also keeps this device registered (see usePush).
+ * The one-time offer to turn on notifications: a single line on the Command Deck only, so it never covers another
+ * page. "Not now" hides it for a week. It also keeps this device registered (see usePush). The full explanation and
+ * the on/off switch live on the Notifications page.
  */
 export function PushPrompt({ userId }: { userId: string }) {
+  const pathname = usePathname();
   const { state, enable } = usePush(userId);
   const toast = useToast();
   const [hidden, setHidden] = useState(true);
   const [pending, startTransition] = useTransition();
-
   useEffect(() => {
     // Read after mount: the server cannot know what this browser has stored.
     void Promise.resolve().then(() => setHidden(recentlyDismissed()));
   }, []);
-
-  if (hidden || (state !== "off" && state !== "needs-install")) return null;
-
+  if (pathname !== "/" || hidden || (state !== "off" && state !== "needs-install")) return null;
   const dismiss = () => {
     try {
       localStorage.setItem(DISMISSED_KEY, String(Date.now()));
@@ -42,21 +42,18 @@ export function PushPrompt({ userId }: { userId: string }) {
     }
     setHidden(true);
   };
-
   return (
-    <section aria-label="Turn on notifications" className="mb-4 rounded-xl border border-accent bg-accent-soft p-4">
-      <p className="text-base font-extrabold text-accent-text">Get alerts on this phone?</p>
-      <p className="mt-1 text-sm">
-        We will tell you at once when stock is running out, orders may miss their dispatch time, a sync stops working or
-        there are more orders than people to pack them, and when work is assigned to you. You can turn this off at any time.
+    <section aria-label="Turn on notifications" className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-line bg-surface px-3 py-2">
+      <BellIcon className="h-5 w-5 shrink-0 text-accent-text" />
+      <p className="min-w-0 flex-1 text-sm">
+        <span className="font-semibold">Get alerts on this phone?</span>{" "}
+        <span className="text-muted">
+          {state === "needs-install"
+            ? "On iPhone, add the app to your Home Screen first (Share, then Add to Home Screen), then turn alerts on from Notifications."
+            : "Stock running out, orders at risk, sync problems and work assigned to you, even when the app is closed."}
+        </span>
       </p>
-      {state === "needs-install" ? (
-        <p className="mt-2 text-sm font-semibold">
-          On iPhone this only works after you add the app to your Home Screen: tap Share, then Add to Home Screen, and open
-          it from there.
-        </p>
-      ) : null}
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+      <span className="flex shrink-0 gap-2">
         {state === "off" ? (
           <button
             type="button"
@@ -66,15 +63,15 @@ export function PushPrompt({ userId }: { userId: string }) {
                 if (toast.result(await enable())) setHidden(true);
               })
             }
-            className={buttonClass("primary")}
+            className={buttonClass("primary", "min-h-9 px-3 text-xs")}
           >
-            {pending ? "Turning on…" : "Turn on notifications"}
+            {pending ? "Turning on…" : "Turn on"}
           </button>
         ) : null}
-        <button type="button" onClick={dismiss} className={buttonClass("secondary")}>
+        <button type="button" onClick={dismiss} className={buttonClass("ghost", "min-h-9 px-3 text-xs")}>
           Not now
         </button>
-      </div>
+      </span>
     </section>
   );
 }

@@ -60,7 +60,7 @@ function SyncControl({ since, scope, canSync }: { since: string | null; scope: s
   const stale = age !== null && age > 60 * 60_000;
   const label = !at ? "Not synced yet" : age === null ? "Synced" : `Synced ${ago(age)}`;
   const short = !at ? "—" : age === null ? "" : ago(age).replace(" ago", "");
-  const dot = `sp-dot h-2 w-2 shrink-0 rounded-full ${stale || !at ? "bg-warn text-warn" : "bg-cyan text-cyan"}`;
+  const dot = `sp-dot h-2 w-2 shrink-0 rounded-full ${stale || !at ? "bg-warn-mark text-warn-mark" : "bg-ok text-ok"}`;
   return (
     <>
       <div className="hidden min-w-0 items-center gap-2 text-xs text-muted sm:flex" role="status" aria-label={`${label}, ${scope}`}>
@@ -114,11 +114,11 @@ function SyncNowButton({ short, label: synced, dot }: { short: string; label: st
       onClick={run}
       disabled={state === "busy"}
       aria-label={`Sync everything now. ${synced}`}
-      className="focus-ring flex h-11 items-center justify-center gap-1.5 rounded-xl border border-line bg-surface/60 px-2.5 text-sm font-bold text-ink transition hover:border-accent/50 disabled:opacity-60 md:px-3"
+      className="focus-ring flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-sm font-semibold text-ink transition-colors hover:bg-surface2 disabled:opacity-60 md:px-3"
     >
       <RefreshIcon className={`h-5 w-5 ${state === "busy" ? "animate-spin" : ""}`} />
       {/* Phone: how long ago, with the green/amber dot. Wide screens: the words. */}
-      <span className="flex items-center gap-1 font-mono text-xs font-semibold text-muted sm:hidden">
+      <span className="flex items-center gap-1 font-mono text-xs font-medium text-muted sm:hidden">
         {state === "idle" ? (
           <>
             <span aria-hidden="true" className={dot} />
@@ -157,7 +157,7 @@ function AlertBell({ unread }: { unread: number }) {
       onClick={() => window.dispatchEvent(new Event(ALERTS_OPEN_EVENT))}
       aria-haspopup="dialog"
       aria-label={count ? `Alerts and notifications, ${count} unread` : "Alerts and notifications"}
-      className="focus-ring relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface2 hover:text-ink"
+      className="focus-ring relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface2 hover:text-ink"
     >
       <BellIcon className="h-6 w-6" />
       {count ? (
@@ -202,13 +202,13 @@ function AccountMenu({ name, sub, children }: { name: string; sub: string; child
         aria-label="Account menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="focus-ring flex h-11 w-11 items-center justify-center rounded-full bg-accent-soft text-sm font-extrabold text-accent-text ring-1 ring-accent/40 transition hover:ring-accent"
+        className="focus-ring flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-[13px] font-bold text-accent-text transition-colors hover:bg-accent/20"
       >
         {initials(name)}
       </button>
       {open ? (
-        <div className="sp-card absolute right-0 top-12 z-50 w-64 bg-surface2 p-3" onClick={() => setOpen(false)}>
-          <p className="truncate text-sm font-bold">{name}</p>
+        <div className="sp-pop absolute right-0 top-12 z-50 w-64 p-3" onClick={() => setOpen(false)}>
+          <p className="truncate text-sm font-semibold">{name}</p>
           <p className="truncate text-xs text-muted">{sub}</p>
           <div className="mt-3 flex flex-col gap-2">{children}</div>
         </div>
@@ -246,21 +246,21 @@ export function CommandBar({
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-line-soft bg-canvas/75 pt-[env(safe-area-inset-top)] backdrop-blur-md">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-1.5 px-3 min-[400px]:px-4 sm:gap-2 lg:px-8">
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center gap-1.5 px-3 min-[400px]:px-4 sm:gap-2 lg:px-8">
           {/* Phones have no side rail, so the logo (home) sits here. */}
           <Link
             prefetch={false}
             href="/"
             aria-label="VR Prime Ops, Command Deck"
-            className="focus-ring sp-glow font-display flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-semibold text-accent-ink max-[339px]:hidden min-[561px]:hidden"
+            className="focus-ring font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-ink text-[13px] font-bold text-canvas max-[339px]:hidden min-[561px]:hidden"
           >
             VR
           </Link>
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-line bg-surface/60 text-muted transition hover:border-accent/50 sm:hidden"
+            className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface2 sm:hidden"
             aria-label="Search"
             aria-haspopup="dialog"
           >
@@ -269,7 +269,7 @@ export function CommandBar({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="focus-ring hidden min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl border border-line bg-surface px-3 text-left text-sm text-faint transition hover:border-accent/50 sm:flex md:max-w-md"
+            className="focus-ring hidden min-h-10 min-w-0 flex-1 items-center gap-3 rounded-lg border border-line bg-surface px-3 text-left text-sm text-faint transition-colors hover:bg-surface2 sm:flex md:max-w-sm"
             aria-label="Search (Ctrl K)"
             aria-haspopup="dialog"
           >
@@ -284,7 +284,7 @@ export function CommandBar({
               prefetch={false}
               href="/posts/new"
               aria-label="New post"
-              className="focus-ring sp-glow flex h-11 w-11 items-center justify-center gap-1.5 rounded-xl bg-accent text-sm font-bold text-accent-ink transition hover:brightness-110 sm:w-auto sm:px-4"
+              className="focus-ring flex h-10 w-10 items-center justify-center gap-1.5 rounded-lg bg-accent text-sm font-semibold text-accent-ink transition hover:brightness-110 sm:w-auto sm:px-3.5"
             >
               <PlusIcon className="h-5 w-5" />
               <span className="hidden sm:inline">Post</span>

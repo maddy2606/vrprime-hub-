@@ -96,7 +96,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
               {fields.map((c) => (
                 <div key={c.key} className="min-w-0">
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{c.label}</dt>
+                  <dt className="text-[11px] font-medium text-muted">{c.label}</dt>
                   <dd className="mt-0.5 min-w-0 break-words font-mono text-sm tabular-nums">{c.cell(row)}</dd>
                 </div>
               ))}
@@ -108,9 +108,9 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
 
       {/* Wider screens: table */}
       <div className="hidden max-h-[75vh] overflow-auto sp-card min-[481px]:block">
-        <table className="w-full border-collapse text-sm">
+        <table className="ledger">
           <thead className="sticky top-0 z-20">
-            <tr className="border-b border-line bg-panel2">
+            <tr className="bg-panel2">
               {main.map((c, i) => {
                 const active = c.sort && c.key === sortKey;
                 return (
@@ -118,13 +118,13 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                     key={c.key}
                     scope="col"
                     aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
-                    className={`bg-panel2 p-0 font-bold ${i === 0 ? "sticky left-0 z-10" : ""} ${c.align === "right" ? "text-right" : "text-left"} ${c.width ?? ""}`}
+                    className={`bg-panel2 !p-0 ${i === 0 ? "sticky left-0 z-10" : ""} ${c.align === "right" ? "text-right" : "text-left"} ${c.width ?? ""}`}
                   >
                     {c.sort ? (
                       <button
                         type="button"
                         onClick={() => onSort(c.key)}
-                        className={`focus-ring flex min-h-11 w-full items-center gap-0.5 px-2 text-xs uppercase leading-tight ${
+                        className={`focus-ring flex min-h-10 w-full items-center gap-0.5 px-2.5 text-xs font-semibold leading-tight ${
                           c.align === "right" ? "justify-end text-right" : "justify-start text-left"
                         } ${active ? "text-ink" : "text-muted hover:text-ink"}`}
                       >
@@ -134,7 +134,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                         </span>
                       </button>
                     ) : (
-                      <span className={`flex min-h-11 items-center px-2 text-xs uppercase text-muted ${c.align === "right" ? "justify-end text-right" : ""}`}>{c.label}</span>
+                      <span className={`flex min-h-10 items-center px-2.5 text-xs font-semibold text-muted ${c.align === "right" ? "justify-end text-right" : ""}`}>{c.label}</span>
                     )}
                   </th>
                 );
@@ -148,12 +148,12 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
               const expanded = open.has(key);
               return (
                 <RowPair key={key}>
-                  <tr className="group border-b border-line last:border-b-0 hover:bg-surface2/60">
+                  <tr className="group hover:bg-surface2/50">
                     {main.map((c, i) => (
                       <td
                         key={c.key}
-                        className={`px-2 py-2 align-top ${i === 0 ? "sticky left-0 z-10 max-w-[12.5rem] bg-surface group-hover:bg-surface2" : ""} ${
-                          c.align === "right" ? "text-right font-mono tabular-nums" : "text-left"
+                        className={`${i === 0 ? "sticky left-0 z-10 max-w-[12.5rem] bg-surface group-hover:bg-surface2" : ""} ${
+                          c.align === "right" ? "num" : "text-left"
                         }`}
                       >
                         {c.cell(row)}
@@ -174,12 +174,12 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                     ) : null}
                   </tr>
                   {expanded && minor.length ? (
-                    <tr className="border-b border-line bg-canvas/50">
-                      <td colSpan={main.length + 1} className="px-3 py-3">
+                    <tr className="bg-canvas/50">
+                      <td colSpan={main.length + 1} className="!px-3 !py-3">
                         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
                           {minor.map((c) => (
                             <div key={c.key} className="min-w-0">
-                              <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{c.label}</dt>
+                              <dt className="text-[11px] font-medium text-muted">{c.label}</dt>
                               <dd className="mt-0.5 break-words font-mono text-sm tabular-nums">{c.cell(row)}</dd>
                             </div>
                           ))}

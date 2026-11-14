@@ -30,7 +30,7 @@ export function Segmented<K extends string>({
   onChange: (key: K) => void;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-panel2 p-0.5">
+    <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-lg border border-line bg-surface p-0.5">
       {options.map((o) => {
         const on = value === o.key;
         return (
@@ -39,12 +39,12 @@ export function Segmented<K extends string>({
             type="button"
             aria-pressed={on}
             onClick={() => onChange(o.key)}
-            className={`focus-ring flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-sm font-semibold transition sm:min-h-9 ${
-              on ? "bg-accent text-accent-ink sp-glow" : "text-muted hover:text-ink"
+            className={`focus-ring flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-semibold transition-colors sm:min-h-8 ${
+              on ? "bg-ink text-canvas" : "text-muted hover:bg-surface2 hover:text-ink"
             }`}
           >
             {o.label}
-            {o.count !== undefined ? <span className={`font-mono text-xs font-medium tabular-nums ${on ? "text-accent-ink/80" : "text-faint"}`}>{formatNumber(o.count)}</span> : null}
+            {o.count !== undefined ? <span className={`font-mono text-xs font-medium tabular-nums ${on ? "text-canvas/70" : "text-faint"}`}>{formatNumber(o.count)}</span> : null}
           </button>
         );
       })}
@@ -65,7 +65,7 @@ export function Dropdown({
 }) {
   const id = useId();
   return (
-    <div className="flex min-h-11 min-w-[9.5rem] flex-1 items-center gap-1.5 sp-card pl-2.5 sm:min-h-9 sm:flex-none">
+    <div className="flex min-h-11 min-w-[9.5rem] flex-1 items-center gap-1.5 rounded-lg border border-line bg-surface pl-2.5 sm:min-h-9 sm:flex-none">
       <label htmlFor={id} className="shrink-0 text-xs font-semibold text-muted">
         {label}
       </label>
@@ -165,7 +165,7 @@ export function Picker({
             show();
           }
         }}
-        className="focus-ring flex min-h-11 w-full items-center gap-1.5 sp-card pl-2.5 pr-2 text-left sm:min-h-9"
+        className="focus-ring flex min-h-11 w-full items-center gap-1.5 rounded-lg border border-line bg-surface pl-2.5 pr-2 text-left sm:min-h-9"
       >
         <span className="shrink-0 text-xs font-semibold text-muted">{label}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink sm:max-w-44">{current?.label}</span>
@@ -180,7 +180,7 @@ export function Picker({
           aria-label={label}
           aria-activedescendant={`${id}-opt-${active}`}
           onKeyDown={onListKey}
-          className="absolute left-0 z-50 mt-1 max-h-72 min-w-full overflow-auto rounded-xl border border-line bg-panel2 p-1 shadow-[0_16px_36px_-14px_rgba(28,37,80,0.45)] focus:outline-none"
+          className="sp-pop absolute left-0 z-50 mt-1 max-h-72 min-w-full overflow-auto p-1 focus:outline-none"
         >
           {options.map((o, i) => {
             const selected = o.value === value;
@@ -229,7 +229,7 @@ export function SearchField({ value, onChange, placeholder, label }: { value: st
 }
 
 const OUTLINE_BUTTON =
-  "focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 sp-card px-3 text-sm font-semibold transition hover:-translate-y-px hover:bg-surface2 disabled:opacity-50 sm:min-h-9";
+  "focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-semibold transition-colors hover:bg-surface2 disabled:opacity-50 sm:min-h-9";
 
 export function CsvButton({ href, onClick, disabled }: { href?: string; onClick?: () => void; disabled?: boolean }) {
   if (href) {
@@ -256,7 +256,7 @@ export function InfoTip({ children, label = "More about this" }: { children: Rea
       >
         <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-xs font-bold leading-none">i</span>
       </summary>
-      <div className="absolute right-0 z-30 mt-1 w-72 max-w-[85vw] rounded-xl border border-line bg-surface2 p-3 text-xs leading-relaxed shadow-xl sm:left-0 sm:right-auto">{children}</div>
+      <div className="sp-pop absolute right-0 z-30 mt-1 w-72 max-w-[85vw] p-3 text-xs leading-relaxed sm:left-0 sm:right-auto">{children}</div>
     </details>
   );
 }
@@ -269,7 +269,7 @@ export function Caption({ children }: { children: ReactNode }) {
 export function PageSection({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
   return (
     <section className="mb-6">
-      <h2 className="mb-2 flex items-baseline gap-2 text-base font-extrabold">
+      <h2 className="mb-2 flex items-baseline gap-2 font-display text-[1.0625rem] font-semibold tracking-[-0.01em]">
         {title}
         {count !== undefined ? <span className="text-sm font-semibold text-muted">{formatNumber(count)}</span> : null}
       </h2>
@@ -282,9 +282,9 @@ export function PageSection({ title, count, children }: { title: string; count?:
 export function StatTile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "bad" | "warn" | "ok" }) {
   const color = tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : tone === "ok" ? "text-ok" : "";
   return (
-    <div className="min-w-0 sp-card p-3">
-      <span className="block text-xs font-semibold leading-tight text-muted">{label}</span>
-      <span className={`mt-1 block font-mono text-xl font-bold leading-none tabular-nums ${color}`}>{value}</span>
+    <div className="min-w-0 border-l border-line pl-3 first:border-l-0 first:pl-0">
+      <span className="block text-xs font-medium leading-tight text-muted">{label}</span>
+      <span className={`mt-1 block font-mono text-2xl font-semibold leading-none tracking-[-0.03em] tabular-nums ${color}`}>{value}</span>
       {sub ? <span className="mt-1 block text-xs text-muted">{sub}</span> : null}
     </div>
   );

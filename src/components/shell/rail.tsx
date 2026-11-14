@@ -1,5 +1,4 @@
 "use client";
-
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
@@ -7,33 +6,43 @@ import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreI
 import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
+type Group = { label: string; items: Item[] };
 
 /**
- * The rail, in order: Command Deck, Dashboard (owner), Work board, Tickets, Flipkart, Forecast, Ads tracker, Review tracker and Team (owner and admin), Expenses, P&L, People, Settings (owner).
+ * The navigation, in three groups. Operate: Command Deck, Dashboard (owner), Work board, Tickets, Team (owner and
+ * admin). Marketplace: Flipkart, Forecast, Ads tracker and Review tracker (owner and admin). Admin (owner): P&L,
+ * People, Settings. Who sees what is exactly as before; only the grouping and the labels are new.
  * On a phone it is a bottom bar of five: Deck, Flipkart, Forecast and Team, with the rest under More.
  */
-function items(isOwner: boolean, isStaff: boolean): Item[] {
-  return [
+function groups(isOwner: boolean, isStaff: boolean): Group[] {
+  const operate: Item[] = [
     { key: "deck", href: "/", label: "Command Deck", icon: DeckIcon },
     ...(isOwner ? [{ key: "dashboard", href: "/dashboard", label: "Dashboard", icon: DashIcon }] : []),
     { key: "work", href: "/work", label: "Work board", icon: BoardIcon },
     { key: "tickets", href: "/tickets", label: "Tickets", icon: TicketIcon },
+    ...(isStaff ? [{ key: "team", href: "/team", label: "Team", icon: GaugeIcon }] : []),
+  ];
+  const marketplace: Item[] = [
     { key: "flipkart", href: "/flipkart", label: "Flipkart", icon: BoxIcon },
     { key: "forecast", href: "/flipkart?tab=forecast", label: "Forecast", icon: TrendIcon },
     ...(isStaff
       ? [
           { key: "ads", href: "/ads", label: "Ads tracker", icon: MegaphoneIcon },
           { key: "reviews", href: "/reviews", label: "Review tracker", icon: StarIcon },
-          { key: "team", href: "/team", label: "Team", icon: GaugeIcon },
         ]
       : []),
-    ...(isOwner
-      ? [
-          { key: "pnl", href: "/pnl", label: "P&L", icon: RupeeIcon },
-          { key: "people", href: "/admin/users", label: "People", icon: UsersIcon },
-          { key: "settings", href: "/admin/settings", label: "Settings", icon: SlidersIcon },
-        ]
-      : []),
+  ];
+  const admin: Item[] = isOwner
+    ? [
+        { key: "pnl", href: "/pnl", label: "P&L", icon: RupeeIcon },
+        { key: "people", href: "/admin/users", label: "People", icon: UsersIcon },
+        { key: "settings", href: "/admin/settings", label: "Settings", icon: SlidersIcon },
+      ]
+    : [];
+  return [
+    { label: "Operate", items: operate },
+    { label: "Marketplace", items: marketplace },
+    ...(admin.length ? [{ label: "Admin", items: admin }] : []),
   ];
 }
 
@@ -56,46 +65,52 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
   const pathname = usePathname();
   const tab = useSearchParams().get("tab");
   const active = activeKey(pathname, tab);
-  const list = items(isOwner, isStaff);
+  const list = groups(isOwner, isStaff);
+  const flat = list.flatMap((g) => g.items);
   return (
     <>
-      {/* The left edge: moving the pointer here slides the rail in (computers with a mouse; see .vr-rail in globals.css). */}
-      <div aria-hidden="true" className="vr-rail-zone fixed inset-y-0 left-0 z-40 w-3">
-        <span className="absolute left-1 top-1/2 h-14 w-1 -translate-y-1/2 rounded-full bg-accent/60" />
-      </div>
-      {/* Slim icon rail, 72px, from 561px up */}
-      <aside className="vr-rail fixed inset-y-0 left-0 z-40 hidden w-[72px] flex-col items-center border-r border-line-soft bg-panel2/95 py-4 backdrop-blur min-[561px]:flex">
-        <Link href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring font-display mb-6 flex h-11 w-11 items-center justify-center rounded-2xl bg-accent text-base font-semibold text-accent-ink sp-glow">
-          VR
+      {/* Sidebar: a 72px icon rail from 561px, the full labelled sidebar from 1100px (see .vr-rail in globals.css). */}
+      <aside className="vr-rail fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line bg-panel2 min-[561px]:flex">
+        <Link href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring mx-3 mt-4 flex h-11 items-center gap-3 rounded-lg px-1.5">
+          <span className="font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-ink text-[13px] font-bold tracking-tight text-canvas">VR</span>
+          <span className="vr-rail-label font-display text-[15px] font-semibold tracking-tight">VR Prime Ops</span>
         </Link>
-        <nav aria-label="Main" className="flex flex-1 flex-col items-center gap-2">
-          {list.map((item) => {
-            const on = active === item.key;
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-label={item.label}
-                aria-current={on ? "page" : undefined}
-                className={`focus-ring group relative flex h-12 w-12 items-center justify-center rounded-2xl transition ${
-                  on ? "bg-accent-soft text-accent-text" : "text-muted hover:-translate-y-px hover:bg-surface2 hover:text-ink"
-                }`}
-              >
-                {on ? <span aria-hidden="true" className="absolute -left-[12px] h-6 w-[3px] rounded-r-full bg-madder" /> : null}
-                <item.icon className="h-[22px] w-[22px]" />
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute left-[58px] z-50 whitespace-nowrap rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-accent-ink opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-visible:opacity-100"
-                >
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
+        <nav aria-label="Main" className="mt-5 flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
+          {list.map((g) => (
+            <div key={g.label}>
+              <p className="vr-rail-group mb-1.5 px-2 text-[11px] font-semibold text-faint">{g.label}</p>
+              <ul className="flex flex-col gap-0.5">
+                {g.items.map((item) => {
+                  const on = active === item.key;
+                  return (
+                    <li key={item.key}>
+                      <Link
+                        href={item.href}
+                        aria-label={item.label}
+                        aria-current={on ? "page" : undefined}
+                        className={`focus-ring group relative flex h-11 items-center gap-3 rounded-lg px-2.5 text-sm font-semibold transition-colors ${
+                          on ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface2 hover:text-ink"
+                        }`}
+                      >
+                        {on ? <span aria-hidden="true" className="absolute -left-3 h-6 w-[3px] rounded-r-full bg-accent" /> : null}
+                        <item.icon className="h-[21px] w-[21px] shrink-0" />
+                        <span className="vr-rail-label truncate">{item.label}</span>
+                        <span
+                          role="tooltip"
+                          className="sp-pop pointer-events-none absolute left-[58px] z-50 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 min-[1100px]:hidden"
+                        >
+                          {item.label}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </nav>
       </aside>
-
-      <BottomBar list={list} active={active} />
+      <BottomBar list={flat} active={active} />
     </>
   );
 }
@@ -116,18 +131,13 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
   const { bar, more } = splitForPhone(list);
   const moreActive = more.some((i) => i.key === active);
   const slots = bar.length + (more.length ? 1 : 0);
-
   const slotClass = (on: boolean) =>
-    `focus-ring flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-bold transition ${on ? "text-accent-text" : "text-muted active:text-ink"}`;
-  const pill = (on: boolean) => `flex h-8 w-14 items-center justify-center rounded-full transition ${on ? "bg-accent-soft" : ""}`;
-
+    `focus-ring flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors ${on ? "text-accent-text" : "text-muted active:text-ink"}`;
+  const pill = (on: boolean) => `flex h-8 w-14 items-center justify-center rounded-full transition-colors ${on ? "bg-accent-soft" : ""}`;
   return (
     <>
       {/* Bottom bar, 560px and under */}
-      <nav
-        aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel2/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md min-[561px]:hidden"
-      >
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel2 pb-[env(safe-area-inset-bottom)] min-[561px]:hidden">
         <ul className="grid" style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}>
           {bar.map((item) => {
             const on = active === item.key;
@@ -154,9 +164,8 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
           ) : null}
         </ul>
       </nav>
-
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
-        <ul className="grid grid-cols-2 gap-2.5 pb-2">
+        <ul className="grid grid-cols-2 gap-2 pb-2">
           {more.map((item) => {
             const on = active === item.key;
             return (
@@ -165,13 +174,11 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
                   href={item.href}
                   onClick={() => setMoreOpen(false)}
                   aria-current={on ? "page" : undefined}
-                  className={`focus-ring flex min-h-[4.5rem] items-center gap-3 rounded-2xl border px-3.5 py-3 text-sm font-bold transition ${
-                    on ? "border-accent/60 bg-accent-soft text-accent-text" : "border-line bg-surface text-ink active:bg-surface2"
+                  className={`focus-ring flex min-h-14 items-center gap-3 rounded-lg border px-3.5 py-3 text-sm font-semibold transition-colors ${
+                    on ? "border-accent/50 bg-accent-soft text-accent-text" : "border-line bg-surface text-ink active:bg-surface2"
                   }`}
                 >
-                  <span aria-hidden="true" className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${on ? "bg-accent text-accent-ink" : "bg-surface2 text-muted"}`}>
-                    <item.icon className="h-5 w-5" />
-                  </span>
+                  <item.icon className="h-5 w-5 shrink-0 text-muted" />
                   {item.label}
                 </Link>
               </li>

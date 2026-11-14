@@ -13,7 +13,8 @@ import { readThemeMode, THEME_COOKIE } from "@/lib/theme-mode";
 import type { NotificationRow, SessionUser } from "@/lib/types";
 
 /**
- * The shell: a 72px icon rail that slides in from the left edge (a bottom bar on phones), the command bar on top of every page, and the page.
+ * The shell: the sidebar on the left (an icon rail on tablets, a bottom bar on phones), the top bar on every page,
+ * and the page itself.
  */
 export async function AppShell({
   user,
@@ -39,7 +40,7 @@ export async function AppShell({
 }) {
   const theme = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <div className="vr-shell">
+    <div className="vr-shell min-h-dvh">
       <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} />
       <CommandBar
         user={{ name: user.name, role: user.role, sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}
@@ -64,7 +65,8 @@ export async function AppShell({
           </>
         }
       />
-      <main className="mx-auto w-full max-w-6xl px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-5 min-[561px]:pb-12 lg:px-8 lg:pt-7">
+      <main className="mx-auto w-full max-w-[1280px] px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-5 min-[561px]:pb-12 lg:px-8 lg:pt-6">
+        {/* The offer to turn on alerts: one line, on the Command Deck only (the component checks the route). */}
         {user.id ? <PushPrompt userId={user.id} /> : null}
         {children}
       </main>

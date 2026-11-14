@@ -1,34 +1,35 @@
 @import "tailwindcss";
 
-/* NOIR: the one source of truth for colour. Black and white with purple and red; crisp, lightly frosted cards over a faint mesh
-   (--paper). Two modes; the mode is chosen by data-theme="light" | "dark" on <html> (set from the theme cookie in
-   layout.tsx); with no attribute ("Auto") the device decides, via prefers-color-scheme. Charts read these variables, so
-   they follow the mode. Text tokens are solid and stay readable over the mesh because cards are blurred and tinted. */
+/* LEDGER: the one source of truth for colour. A warm paper grey by day, charcoal by night; one accent (ultramarine
+   ink) for links, primary buttons and the active place in the navigation; red, amber and green mean status and
+   nothing else. The mode is chosen by data-theme="light" | "dark" on <html> (set from the theme cookie in layout.tsx);
+   with no attribute ("Auto") the device decides through prefers-color-scheme. Charts read these variables, so they
+   follow the mode. Cards are flat with a hairline; numbers sit in a mono face; nothing glows. */
 :root {
-  --canvas: #f4f4f5;
+  --canvas: #f4f3ef;
   --surface: #ffffff;
-  --panel2: #f7f7f8;
-  --surface2: #ececef;
-  --line: #dcdce1;
-  --line-soft: #eaeaee;
-  --ink: #0a0a0a;
-  --muted: #52525b;
-  --faint: #6b6b76;
-  --accent: #6d28d9;
+  --panel2: #f9f8f5;
+  --surface2: #ecebe6;
+  --line: #d9d7d0;
+  --line-soft: #e8e6df;
+  --ink: #141416;
+  --muted: #5d5c58;
+  --faint: #8a8882;
+  --accent: #4f3ed7;
   --accent-ink: #ffffff;
-  --accent-soft: #efe7fe;
-  --accent-text: #5b21b6;
-  --madder: #e11d48;
-  --cyan: #6d28d9;
-  --cyan-soft: #f1e9fe;
-  --bad: #c4122f;
-  --bad-soft: #fde3e6;
+  --accent-soft: #e9e6fb;
+  --accent-text: #3f31b5;
+  --madder: #d6283c;
+  --cyan: #4f3ed7;
+  --cyan-soft: #e9e6fb;
+  --bad: #c81e30;
+  --bad-soft: #fbe3e5;
   --warn: #8a5a00;
-  --warn-soft: #fbebc5;
-  --ok: #1f7a4a;
-  --ok-soft: #dcf3e6;
-  --info: #6d28d9;
-  --info-soft: #f1e9fe;
+  --warn-soft: #fbeccb;
+  --ok: #1c7a46;
+  --ok-soft: #d9f1e2;
+  --info: #3f31b5;
+  --info-soft: #e9e6fb;
   --wh-1: #00968a;
   --wh-2: #2f4fb3;
   --wh-3: #d1602a;
@@ -37,42 +38,43 @@
   --stage-1: #c9b3f5;
   --stage-2: #8f5de8;
   --stage-3: #5b21b6;
-  --warn-mark: #a56d00;
-  --paper: radial-gradient(900px 600px at 8% -10%, rgba(124, 58, 237, 0.12), transparent 62%), radial-gradient(800px 600px at 100% 100%, rgba(225, 29, 72, 0.07), transparent 62%);
-  --scrim: rgba(10, 10, 10, 0.5);
+  --warn-mark: #e08a00;
+  --paper: none;
+  --scrim: rgba(20, 20, 22, 0.55);
   --bad-ink: #ffffff;
-  --radius: 18px;
-  --radius-lg: 24px;
-  --shadow-card: 0 0 0 1px rgba(10, 10, 10, 0.09), 0 14px 30px -20px rgba(10, 10, 10, 0.35);
-  --glow: 0 10px 24px -8px color-mix(in srgb, var(--accent) 65%, transparent);
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow-card: none;
+  --shadow-pop: 0 18px 40px -18px rgba(20, 20, 22, 0.35), 0 0 0 1px var(--line);
+  --glow: none;
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  --canvas: #050505;
-  --surface: #0e0e10;
-  --panel2: #0a0a0c;
-  --surface2: #17171b;
-  --line: #2a2a31;
-  --line-soft: #1c1c22;
-  --ink: #fafafa;
-  --muted: #a8a8b3;
-  --faint: #8a8a96;
-  --accent: #7c3aed;
-  --accent-ink: #ffffff;
-  --accent-soft: #241640;
-  --accent-text: #c4a7ff;
-  --madder: #ff2d4a;
-  --cyan: #b794f6;
-  --cyan-soft: #1f1533;
-  --bad: #ff4d5e;
-  --bad-soft: #3a1218;
-  --warn: #ffc857;
+  --canvas: #111113;
+  --surface: #19191c;
+  --panel2: #151517;
+  --surface2: #222226;
+  --line: #2e2e34;
+  --line-soft: #242429;
+  --ink: #f3f2ee;
+  --muted: #a3a29c;
+  --faint: #7d7c77;
+  --accent: #8b7cff;
+  --accent-ink: #0f0d1f;
+  --accent-soft: #2a2550;
+  --accent-text: #b8adff;
+  --madder: #ff5063;
+  --cyan: #b8adff;
+  --cyan-soft: #2a2550;
+  --bad: #ff5a68;
+  --bad-soft: #3b1a1f;
+  --warn: #ffc24d;
   --warn-soft: #3a2d10;
-  --ok: #4fe3a0;
-  --ok-soft: #0f3326;
-  --info: #b794f6;
-  --info-soft: #1f1533;
+  --ok: #46d68e;
+  --ok-soft: #10351f;
+  --info: #b8adff;
+  --info-soft: #2a2550;
   --wh-1: #14a394;
   --wh-2: #5f80e6;
   --wh-3: #dd6d36;
@@ -81,39 +83,38 @@
   --stage-1: #4c2a8f;
   --stage-2: #8452e0;
   --stage-3: #c4a7ff;
-  --warn-mark: #ffc857;
-  --paper: radial-gradient(900px 600px at 8% -10%, rgba(124, 58, 237, 0.26), transparent 62%), radial-gradient(800px 600px at 100% 100%, rgba(255, 45, 74, 0.10), transparent 62%);
-  --scrim: rgba(0, 0, 0, 0.78);
-  --bad-ink: #050505;
-  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.11), 0 20px 40px -24px rgba(0, 0, 0, 0.95);
+  --warn-mark: #ffb020;
+  --scrim: rgba(0, 0, 0, 0.7);
+  --bad-ink: #111113;
+  --shadow-pop: 0 18px 40px -18px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--line);
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]):not([data-theme="dark"]) {
-    --canvas: #050505;
-    --surface: #0e0e10;
-    --panel2: #0a0a0c;
-    --surface2: #17171b;
-    --line: #2a2a31;
-    --line-soft: #1c1c22;
-    --ink: #fafafa;
-    --muted: #a8a8b3;
-    --faint: #8a8a96;
-    --accent: #7c3aed;
-    --accent-ink: #ffffff;
-    --accent-soft: #241640;
-    --accent-text: #c4a7ff;
-    --madder: #ff2d4a;
-    --cyan: #b794f6;
-    --cyan-soft: #1f1533;
-    --bad: #ff4d5e;
-    --bad-soft: #3a1218;
-    --warn: #ffc857;
+    --canvas: #111113;
+    --surface: #19191c;
+    --panel2: #151517;
+    --surface2: #222226;
+    --line: #2e2e34;
+    --line-soft: #242429;
+    --ink: #f3f2ee;
+    --muted: #a3a29c;
+    --faint: #7d7c77;
+    --accent: #8b7cff;
+    --accent-ink: #0f0d1f;
+    --accent-soft: #2a2550;
+    --accent-text: #b8adff;
+    --madder: #ff5063;
+    --cyan: #b8adff;
+    --cyan-soft: #2a2550;
+    --bad: #ff5a68;
+    --bad-soft: #3b1a1f;
+    --warn: #ffc24d;
     --warn-soft: #3a2d10;
-    --ok: #4fe3a0;
-    --ok-soft: #0f3326;
-    --info: #b794f6;
-    --info-soft: #1f1533;
+    --ok: #46d68e;
+    --ok-soft: #10351f;
+    --info: #b8adff;
+    --info-soft: #2a2550;
     --wh-1: #14a394;
     --wh-2: #5f80e6;
     --wh-3: #dd6d36;
@@ -122,11 +123,10 @@
     --stage-1: #4c2a8f;
     --stage-2: #8452e0;
     --stage-3: #c4a7ff;
-    --warn-mark: #ffc857;
-    --paper: radial-gradient(900px 600px at 8% -10%, rgba(124, 58, 237, 0.26), transparent 62%), radial-gradient(800px 600px at 100% 100%, rgba(255, 45, 74, 0.10), transparent 62%);
-    --scrim: rgba(0, 0, 0, 0.78);
-    --bad-ink: #050505;
-    --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.11), 0 20px 40px -24px rgba(0, 0, 0, 0.95);
+    --warn-mark: #ffb020;
+    --scrim: rgba(0, 0, 0, 0.7);
+    --bad-ink: #111113;
+    --shadow-pop: 0 18px 40px -18px rgba(0, 0, 0, 0.9), 0 0 0 1px var(--line);
     color-scheme: dark;
   }
 }
@@ -146,6 +146,7 @@
   --color-bad-soft: var(--bad-soft);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
+  --color-warn-mark: var(--warn-mark);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-info: var(--info);
@@ -166,9 +167,11 @@
   --color-wh-3: var(--wh-3);
   --color-wh-4: var(--wh-4);
   --color-wh-5: var(--wh-5);
-  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+  --radius-card: var(--radius);
+  --radius-card-lg: var(--radius-lg);
 }
 
 html {
@@ -177,10 +180,9 @@ html {
 
 body {
   background-color: var(--canvas);
-  background-image: var(--paper);
-  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv05";
   font-variant-numeric: tabular-nums;
   -webkit-tap-highlight-color: transparent;
 }
@@ -208,13 +210,12 @@ select optgroup {
     line-height: 1.5rem;
   }
   .input::placeholder {
-    color: var(--muted);
-    opacity: 0.8;
+    color: var(--faint);
   }
   .input:focus-visible,
   .focus-ring:focus-visible {
-    outline: 2px solid var(--accent-text);
-    outline-offset: 1px;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   .input[aria-invalid="true"] {
     border-color: var(--bad);
@@ -222,6 +223,98 @@ select optgroup {
   textarea.input {
     min-height: 6rem;
     resize: vertical;
+  }
+
+  /* The card: flat, a hairline, the page's surface colour. Kept under its old name so every screen picks it up. */
+  .sp-card {
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+  }
+  .sp-card-lg {
+    border-radius: var(--radius-lg);
+  }
+  /* A raised panel (menus, popovers): the same card with a shadow. */
+  .sp-pop {
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow-pop);
+  }
+  /* Hairline rules between items in a strip. */
+  .bp-rule {
+    border-top: 1px solid var(--line);
+  }
+  /* A stat strip: numbers side by side, divided by hairlines, no boxes. Children are .stat. */
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .stat-strip > * {
+    padding: 0.875rem 1rem 0.875rem 0;
+    min-width: 0;
+    border-right: 1px solid var(--line-soft);
+    margin-right: 1rem;
+  }
+  .stat-strip > *:last-child {
+    border-right: 0;
+    margin-right: 0;
+  }
+  @media (max-width: 640px) {
+    .stat-strip {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .stat-strip > *:nth-child(2n) {
+      border-right: 0;
+      margin-right: 0;
+    }
+    .stat-strip > *:nth-child(n + 3) {
+      border-top: 1px solid var(--line-soft);
+    }
+  }
+  /* Ledger tables: hairline rows, a quiet header, figures right-aligned in mono. */
+  .ledger {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .ledger th {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-align: left;
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .ledger td {
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--line-soft);
+    vertical-align: top;
+  }
+  .ledger tr:last-child td {
+    border-bottom: 0;
+  }
+  .ledger .num,
+  .ledger th.num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+  /* The big figure: mono, tight, the page's one loud element. */
+  .display-num {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    line-height: 0.95;
+    font-variant-numeric: tabular-nums;
+  }
+  .headline em {
+    font-style: normal;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 }
 
@@ -237,89 +330,74 @@ select optgroup {
 
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(0.5rem); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 .toast {
   animation: toast-in 160ms ease-out;
 }
 
-
-/* ---- Cards, buttons, motion (class names kept from Signal Pro) ---- */
-/* Frosted glass: the card's colour is mostly see-through, and whatever is behind it is blurred and made richer. */
-.sp-card {
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--surface) 80%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  backdrop-filter: blur(14px) saturate(1.3);
-  box-shadow: var(--shadow-card);
+/* ---- Motion: one moment per page. The old per-card reveal, lift and glow classes are kept as names and do nothing,
+   so every screen quietens at once; the bar fill and the count-up are the one orchestrated moment. ---- */
+.sp-lift,
+.sp-reveal,
+.sp-glow,
+.sp-fade,
+.sp-wipe {
+  animation: none;
 }
-.sp-card-lg { border-radius: var(--radius-lg); }
-.sp-lift { transition: transform 160ms ease, box-shadow 160ms ease; }
-.sp-lift:hover { transform: translateY(-2px); }
-/* Primary buttons and the logo: a soft coloured glow under them. */
-.sp-glow { box-shadow: var(--glow); }
-.sp-glow:hover { filter: brightness(1.08); }
-.bp-rule { border-top: 1px solid var(--line); }
-
-@keyframes sp-rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
+.sp-lift {
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
-/* One staggered fade-up on load. The delay comes from --i on each element. */
-.sp-reveal { animation: sp-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 70ms); }
-
-@keyframes sp-pulse {
-  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
-  70% { box-shadow: 0 0 0 7px transparent; opacity: 0.8; }
-  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+.sp-lift:hover {
+  border-color: var(--line);
+  background: var(--panel2);
 }
-.sp-dot { animation: sp-pulse 2s ease-out infinite; }
+.sp-glow:hover {
+  filter: none;
+}
 
 @keyframes sp-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.sp-bar { transform-origin: left; animation: sp-grow 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 60ms + 200ms); }
-
-@keyframes sp-wipe { from { clip-path: inset(-4px 100% -4px 0); } to { clip-path: inset(-4px -4px -4px 0); } }
-.sp-wipe { animation: sp-wipe 1100ms cubic-bezier(0.3, 0.6, 0.2, 1) both; animation-delay: 250ms; }
-@keyframes sp-fadein { from { opacity: 0; } to { opacity: 1; } }
-.sp-fade { animation: sp-fadein 500ms ease both; animation-delay: 1100ms; }
+.sp-bar { transform-origin: left; animation: sp-grow 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 40ms + 120ms); }
 @keyframes sp-gaugein { from { stroke-dasharray: 0 100; } }
-.sp-gauge-arc { animation: sp-gaugein 1000ms cubic-bezier(0.3, 0.6, 0.2, 1) both; animation-delay: 300ms; }
+.sp-gauge-arc { animation: sp-gaugein 700ms cubic-bezier(0.3, 0.6, 0.2, 1) both; animation-delay: 150ms; }
+@keyframes sp-pulse {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70% { box-shadow: 0 0 0 6px transparent; opacity: 0.8; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
+}
+.sp-dot { animation: sp-pulse 2.4s ease-out infinite; }
 
 .tabular { font-variant-numeric: tabular-nums; }
 
 /* Sheets (the alerts panel, the phone's More menu): slide up on a phone, drop in under the top bar on a bigger screen. */
 @keyframes vr-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vr-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
-@keyframes vr-pop-in { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: none; } }
-.vr-scrim { animation: vr-fade-in 200ms ease-out both; }
-.vr-sheet { animation: vr-sheet-up 300ms cubic-bezier(0.2, 0.85, 0.25, 1) both; }
+@keyframes vr-pop-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.vr-scrim { animation: vr-fade-in 180ms ease-out both; }
+.vr-sheet { animation: vr-sheet-up 260ms cubic-bezier(0.2, 0.85, 0.25, 1) both; }
 @media (min-width: 640px) {
-  .vr-sheet.vr-pop { animation: vr-pop-in 200ms cubic-bezier(0.2, 0.85, 0.25, 1) both; transform-origin: top right; }
+  .vr-sheet.vr-pop { animation: vr-pop-in 160ms ease-out both; transform-origin: top right; }
 }
 /* A soft ring that pulses on the bell while alerts are waiting. */
-@keyframes vr-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 55%, transparent); } 80%, 100% { box-shadow: 0 0 0 9px transparent; } }
-.vr-ring { animation: vr-ring 2.2s ease-out infinite; }
+@keyframes vr-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 50%, transparent); } 80%, 100% { box-shadow: 0 0 0 8px transparent; } }
+.vr-ring { animation: vr-ring 2.4s ease-out infinite; }
 
-/* The side rail hides on computers with a mouse and slides in when the pointer reaches the left edge (or keyboard focus
-   goes into it); the page then uses the full width. Touch screens (tablets) keep it showing, since they cannot hover. */
+/* The shell: a bottom bar on phones; a 72px icon rail from 561px; the full 232px sidebar with labels from 1100px. */
 .vr-shell { padding-left: 0; }
-.vr-rail-zone { display: none; }
 @media (min-width: 561px) {
   .vr-shell { padding-left: 72px; }
+  .vr-rail { width: 72px; }
 }
-@media (min-width: 561px) and (hover: hover) and (pointer: fine) {
-  .vr-shell { padding-left: 0; }
-  .vr-rail { transform: translateX(-100%); transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1) 180ms, box-shadow 220ms ease 180ms; }
-  .vr-rail-zone:hover + .vr-rail,
-  .vr-rail:hover,
-  .vr-rail:focus-within { transform: translateX(0); transition-delay: 0ms; box-shadow: 12px 0 40px -12px rgba(0, 0, 0, 0.7); }
-  .vr-rail-zone { display: block; }
+@media (min-width: 1100px) {
+  .vr-shell { padding-left: 232px; }
+  .vr-rail { width: 232px; }
+  .vr-rail-label { display: block; }
+  .vr-rail-group { display: block; }
 }
-.vr-rail-zone > span { transition: opacity 200ms ease; }
-.vr-rail-zone:hover > span { opacity: 0; }
+.vr-rail-label,
+.vr-rail-group { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton, .toast, .sp-reveal, .sp-dot, .sp-bar, .sp-wipe, .sp-fade, .sp-gauge-arc, .vr-scrim, .vr-sheet, .vr-ring { animation: none !important; }
-  .vr-rail { transition: none !important; }
-  .sp-lift, .sp-lift:hover { transition: none; transform: none; }
+  .skeleton, .toast, .sp-bar, .sp-gauge-arc, .sp-dot, .vr-scrim, .vr-sheet, .vr-ring { animation: none !important; }
+  .sp-lift { transition: none; }
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, ReceiptIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
@@ -29,7 +29,6 @@ function items(isOwner: boolean, isStaff: boolean): Item[] {
       : []),
     ...(isOwner
       ? [
-          { key: "expenses", href: "/expenses", label: "Expenses", icon: ReceiptIcon },
           { key: "pnl", href: "/pnl", label: "P&L", icon: RupeeIcon },
           { key: "people", href: "/admin/users", label: "People", icon: UsersIcon },
           { key: "settings", href: "/admin/settings", label: "Settings", icon: SlidersIcon },
@@ -47,7 +46,6 @@ function activeKey(pathname: string, tab: string | null): string {
   if (pathname.startsWith("/ads")) return "ads";
   if (pathname.startsWith("/reviews")) return "reviews";
   if (pathname.startsWith("/team")) return "team";
-  if (pathname.startsWith("/expenses")) return "expenses";
   if (pathname.startsWith("/pnl")) return "pnl";
   if (pathname.startsWith("/admin/users")) return "people";
   if (pathname.startsWith("/admin/settings")) return "settings";
@@ -103,7 +101,7 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
 }
 
 /** Short names for the bottom bar, where each slot is a fifth of a phone's width. */
-const SHORT: Record<string, string> = { deck: "Deck", work: "Work", tickets: "Tickets", flipkart: "Flipkart", forecast: "Forecast", ads: "Ads", reviews: "Reviews", team: "Team", expenses: "Expenses", people: "People", settings: "Settings" };
+const SHORT: Record<string, string> = { deck: "Deck", work: "Work", tickets: "Tickets", flipkart: "Flipkart", forecast: "Forecast", ads: "Ads", reviews: "Reviews", team: "Team", people: "People", settings: "Settings" };
 
 /** The places that get a slot of their own on a phone; the rest go under More. Five slots at most. */
 function splitForPhone(list: Item[]): { bar: Item[]; more: Item[] } {

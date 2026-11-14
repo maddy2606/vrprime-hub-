@@ -16,7 +16,7 @@ export function notificationUrl(n: Pick<NotificationRow, "kind" | "post_id" | "t
   if (n.kind === "sync_alert") {
     // Which sync: the title says ("WhatsApp expenses…", "Flipkart orders…", "Flipkart stock…", "VR Prime stock…").
     const t = (n.title ?? "").toLowerCase();
-    if (t.includes("whatsapp")) return "/expenses";
+    if (t.includes("whatsapp")) return "/notifications";
     if (t.includes("orders")) return "/flipkart?tab=orders";
     if (t.startsWith("flipkart stock")) return "/flipkart?tab=stock";
     return "/flipkart?tab=forecast";

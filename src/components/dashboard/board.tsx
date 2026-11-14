@@ -103,7 +103,7 @@ function MoneyRing({ parts, centre, sub }: { parts: { label: string; value: numb
 }
 
 export function DashboardBoard({ d }: { d: DashboardData }) {
-  const { deck, pnl, expenses, alerts, today } = d;
+  const { deck, pnl, alerts, today } = d;
   const now = pnl.months[0] ?? null;
   const prev = pnl.months[1] ?? null;
   const t = now?.total;
@@ -124,7 +124,6 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
   const months = [...pnl.months].slice(0, 4).reverse();
   const maxMonth = Math.max(1, ...months.map((m) => m.total.sales));
   const stageMax = Math.max(1, ...deck.whStages.map((w) => w.to_accept + w.to_pack + w.to_dispatch));
-  const expMax = Math.max(1, ...expenses.rows.map((r) => Math.max(r.spent, r.budget ?? 0)));
   const hour = Number(new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", hourCycle: "h23" }).format(new Date(deck.nowIso)));
   const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
@@ -135,7 +134,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">
             {greet}, {deck.firstName}
           </h1>
-          <p className="mt-0.5 text-sm text-muted">Money, orders, expenses and alerts in one place. Tap anything for the detail.</p>
+          <p className="mt-0.5 text-sm text-muted">Money, orders and alerts in one place. Tap anything for the detail.</p>
         </div>
         {now ? <Chip tone="accent">{now.label}{now.to ? ` · to ${Number(now.to.slice(8, 10))} ${now.label.split(" ")[0].slice(0, 3)}` : ""}</Chip> : null}
       </header>
@@ -283,7 +282,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
       </div>
 
       {/* Work in the warehouses, spending, and what needs a look. */}
-      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="Orders waiting, by warehouse" sub="To accept, to pack and to dispatch" href="/flipkart?tab=orders" index={12}>
           <ul className="flex flex-col gap-3">
             {deck.whStages.map((w) => {
@@ -316,41 +315,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded" style={{ background: STAGE_COLOR.to_dispatch }} />To dispatch</span>
           </p>
         </Panel>
-        <Panel title="Expenses" sub={`${expenses.label}: ${formatINR(Math.round(expenses.total))} across ${formatNumber(expenses.count)} payments`} href="/expenses" index={13}>
-          <ul className="flex flex-col gap-3">
-            {expenses.rows.map((r) => {
-              const over = r.budget !== null && r.spent > r.budget;
-              return (
-                <li key={r.key}>
-                  <Link href={r.href} className="focus-ring block rounded-lg px-1 py-0.5 hover:bg-surface2/50">
-                    <span className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex items-center gap-2 font-semibold">
-                        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: r.color }} />
-                        {r.name}
-                      </span>
-                      <span className="font-mono tabular-nums">
-                        <b className={over ? "text-bad" : ""}>{formatINR(Math.round(r.spent))}</b>
-                        {r.budget !== null ? <span className="text-xs text-muted"> / {formatINR(Math.round(r.budget))}</span> : null}
-                      </span>
-                    </span>
-                    <span className="relative mt-1.5 block h-2.5 overflow-hidden rounded-full bg-surface2">
-                      <span className="sp-bar block h-full rounded-full" style={{ width: `${(r.spent / expMax) * 100}%`, background: over ? "var(--bad)" : r.color }} />
-                      {r.budget !== null ? <span aria-hidden="true" className="absolute inset-y-0 w-0.5 bg-ink/70" style={{ left: `${(r.budget / expMax) * 100}%` }} /> : null}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-          {!expenses.hasBudget ? (
-            <Link href="/expenses#budget-title" className="mt-3 block text-xs font-bold text-warn hover:underline">
-              No budget set for {expenses.label} yet. Plan it →
-            </Link>
-          ) : (
-            <p className="mt-3 text-xs text-muted">The tick on each bar is that warehouse&apos;s running-costs budget.</p>
-          )}
-        </Panel>
-        <Panel title="Needs a look" sub={alerts.length ? `${alerts.length} unread alerts` : "Nothing unread"} href="/notifications" index={14} className="lg:col-span-2 xl:col-span-1">
+        <Panel title="Needs a look" sub={alerts.length ? `${alerts.length} unread alerts` : "Nothing unread"} href="/notifications" index={13}>
           {alerts.length ? (
             <ul className="flex flex-col gap-2">
               {alerts.map((a) => (

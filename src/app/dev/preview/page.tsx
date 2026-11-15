@@ -18,6 +18,9 @@ import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { PricesTab } from "@/components/flipkart/prices-tab";
 import { ReturnsTab } from "@/components/flipkart/returns-tab";
 import { StockoutsTab } from "@/components/flipkart/stockouts-tab";
+import { AdsTracker } from "@/components/ads/ads-tracker";
+import { ReviewTracker } from "@/components/reviews/review-tracker";
+import { fakeAdsTracker, fakeReviews } from "@/lib/dev-fixtures-trackers";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
 import { CommandDeck } from "@/components/deck/sections";
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
@@ -102,6 +105,9 @@ const VIEWS = [
   "fforecast",
   "fmasters",
   "team",
+  "adsdesk",
+  "ads",
+  "reviews",
   "settings",
   "users",
   "password",
@@ -250,6 +256,8 @@ export default async function PreviewPage({
         </div>
       ) : null}
       {view === "team" ? <TeamBoard d={fakeTeam()} /> : null}
+      {view === "ads" ? <AdsTracker view={fakeAdsTracker()} /> : null}
+      {view === "reviews" ? <ReviewTracker view={fakeReviews()} /> : null}
       {view === "adsdesk" ? <AdsDesk raw={fakeAdsDesk()} today="2026-11-11" /> : null}
       {view === "expenses" ? (
         <ExpensesBoard month="2026-10" months={FAKE_EXPENSE_MONTHS} previous={FAKE_EXPENSE_MONTHS[1]} expenses={FAKE_EXPENSES} whatsapp={sp.wa === "none" ? { ...FAKE_WHATSAPP, linkedAs: null, groupId: null, groupName: null } : FAKE_WHATSAPP} today={today} plan={sp.budget === "none" ? { ...FAKE_BUDGET_PLAN, lines: [] } : FAKE_BUDGET_PLAN} locked={sp.locked === "none" ? [] : FAKE_LOCKED} />

@@ -265,7 +265,7 @@ function StuckMessages({ list, onType }: { list: StuckMessage[]; onType: (m: Stu
   if (!list.length) return null;
   const n = list.length;
   return (
-    <section className="sp-card mb-5 border-l-4 border-l-warn p-4 sm:p-5" aria-labelledby="stuck-title">
+    <section className="sp-card mb-5 p-4 sm:p-5" aria-labelledby="stuck-title">
       <div className="flex items-start gap-3">
         <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warn-soft text-warn">
           <AlertIcon className="h-5 w-5" />
@@ -706,7 +706,7 @@ export function ExpensesBoard({
               prefetch={false}
               href={`/expenses?month=${m.month}`}
               aria-current={on ? "page" : undefined}
-              className={`focus-ring flex shrink-0 flex-col rounded-xl border px-4 py-2.5 transition ${on ? "border-accent bg-accent text-accent-ink sp-glow" : "border-line bg-surface hover:border-accent/50"}`}
+              className={`focus-ring flex shrink-0 flex-col rounded-xl border px-4 py-2.5 transition ${on ? "border-ink bg-ink text-canvas" : "border-line bg-surface hover:border-accent/50"}`}
             >
               <span className={`text-xs font-bold ${on ? "text-accent-ink/80" : "text-muted"}`}>{m.label}</span>
               <span className="font-mono text-base font-bold tabular-nums">{formatINR(m.total)}</span>
@@ -801,7 +801,7 @@ export function ExpensesBoard({
               type="button"
               aria-pressed={show === k}
               onClick={() => setShow(k)}
-              className={`focus-ring min-h-10 rounded-[10px] px-3 text-sm font-semibold transition ${show === k ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"}`}
+              className={`focus-ring min-h-10 rounded-[10px] px-3 text-sm font-semibold transition ${show === k ? "bg-ink text-canvas" : "text-muted hover:text-ink"}`}
             >
               {text}
             </button>

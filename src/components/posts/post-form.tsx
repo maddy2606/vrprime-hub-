@@ -294,7 +294,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
               aria-pressed={values.priority === p}
               onClick={() => set("priority", p)}
               className={`focus-ring min-h-10 rounded-md text-sm font-bold ${
-                values.priority === p ? "bg-accent text-accent-ink" : "text-muted hover:bg-surface2"
+                values.priority === p ? "bg-ink text-canvas" : "text-muted hover:bg-surface2"
               }`}
             >
               {PRIORITY_LABEL[p]}

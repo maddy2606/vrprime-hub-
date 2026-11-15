@@ -100,15 +100,10 @@ function TargetRing({ reviews, target, color, size = 60 }: { reviews: number | n
 
 // ---- Headline tiles --------------------------------------------------------------------------------------------------
 
-/** A big tile with a coloured glow in its corner, as on the dashboard. A link to a section, or a plain card. */
-function Tile({ href, label, glow, index, children }: { href?: string; label: string; glow: string; index: number; children: ReactNode }) {
+/** A big flat tile. A link to a section, or a plain card. */
+function Tile({ href, label, index, children }: { href?: string; label: string; glow?: string; index: number; children: ReactNode }) {
   const inner = (
     <>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full opacity-80 transition-opacity group-hover:opacity-100"
-        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${glow} 34%, transparent), transparent 68%)` }}
-      />
       <span className="relative flex items-center justify-between gap-2">
         <span className="font-mono text-[11px] font-bold text-muted">{label}</span>
         {href ? (
@@ -157,7 +152,7 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
       <Tile href="#reviews-priority" label="Towards targets" glow="var(--ok)" index={1}>
         <span className="block font-mono text-4xl font-bold tabular-nums text-ok">{share}%</span>
         <span className="mt-3 block h-2.5 overflow-hidden rounded-full bg-surface2" aria-hidden="true">
-          <span className="sp-bar block h-full rounded-full" style={{ width: `${share}%`, background: "linear-gradient(90deg, var(--accent), var(--ok))" }} />
+          <span className="sp-bar block h-full rounded-full" style={{ width: `${share}%`, background: "var(--accent)" }} />
         </span>
         <span className="mt-2 block text-xs text-muted">
           {formatNumber(goal.have)} of the {formatNumber(goal.target)} reviews the targets ask for
@@ -391,8 +386,8 @@ function LinkCard({ l, index }: { l: ReviewLine; index: number }) {
       href={l.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="focus-ring sp-card sp-lift sp-reveal flex min-w-0 items-center gap-3 border-l-4 p-3"
-      style={{ ...style(Math.min(index, 12)), borderLeftColor: PLATFORM_COLOR[l.platform] }}
+      className="focus-ring sp-card sp-lift sp-reveal flex min-w-0 items-center gap-3 p-3 transition-colors hover:bg-surface2/60"
+      style={style(Math.min(index, 12))}
       title={`${l.product} on ${l.platform}: open the listing`}
     >
       <TargetRing reviews={l.reviews} target={l.target} color={PLATFORM_COLOR[l.platform]} />
@@ -443,7 +438,7 @@ function LinkCards({ list }: { list: ReviewLine[] }) {
               {g.target ? (
                 <span className="flex min-w-[8rem] flex-1 items-center gap-2 sm:max-w-xs">
                   <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface2" aria-hidden="true">
-                    <span className="sp-bar block h-full rounded-full" style={{ width: `${pct(g.have, g.target)}%`, background: "linear-gradient(90deg, var(--accent), var(--ok))" }} />
+                    <span className="sp-bar block h-full rounded-full" style={{ width: `${pct(g.have, g.target)}%`, background: "var(--accent)" }} />
                   </span>
                   <span className="font-mono text-xs font-bold tabular-nums">{pct(g.have, g.target)}%</span>
                 </span>
@@ -700,7 +695,7 @@ function TrendLine({ trend, day }: { trend: ReviewsView["trend"]; day: string | 
             </linearGradient>
             <linearGradient id={`${id}l`} x1="0" x2="100" y1="0" y2="0" gradientUnits="userSpaceOnUse">
               <stop offset="0" style={{ stopColor: "var(--accent)" }} />
-              <stop offset="1" style={{ stopColor: "var(--ok)" }} />
+              <stop offset="1" style={{ stopColor: "var(--accent)" }} />
             </linearGradient>
           </defs>
           {[6, 50, 94].map((g) => (

@@ -470,7 +470,7 @@ function Trend({ trend, scanId, by }: { trend: AdsView["trend"]; scanId: string 
           {trend.map((t) => (
             <div key={t.id} className="flex h-full min-w-16 flex-1 flex-col items-center justify-end gap-1">
               <span className="font-mono text-[11px] font-bold tabular-nums">{rs(t.avg)}</span>
-              <span className={`w-full max-w-14 rounded-t-lg ${t.id === scanId ? "bg-accent" : "bg-surface2"}`} style={{ height: `${Math.max(2, (t.avg / max) * 100)}%` }} />
+              <span className={`w-full max-w-14 rounded-t-lg ${t.id === scanId ? "bg-accent" : "bg-ink/15"}`} style={{ height: `${Math.max(2, (t.avg / max) * 100)}%` }} />
               <span className="whitespace-nowrap font-mono text-[11px] text-muted">{day(t.to)}</span>
             </div>
           ))}

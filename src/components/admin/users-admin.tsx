@@ -156,7 +156,7 @@ function UserForm({
                   aria-pressed={on}
                   onClick={() => toggleWarehouse(w.id)}
                   className={`focus-ring min-h-11 rounded-full border px-4 text-sm font-bold ${
-                    on ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface text-muted"
+                    on ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted"
                   }`}
                 >
                   {w.name}

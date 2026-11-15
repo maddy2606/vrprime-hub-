@@ -36,7 +36,7 @@ export function ThemeSwitch({ initial }: { initial: ThemeMode }) {
               type="button"
               aria-pressed={on}
               onClick={() => choose(o.mode)}
-              className={`focus-ring min-h-11 rounded-lg text-sm font-bold transition ${on ? "bg-accent text-accent-ink" : "text-muted hover:bg-surface hover:text-ink"}`}
+              className={`focus-ring min-h-11 rounded-lg text-sm font-bold transition ${on ? "bg-ink text-canvas" : "text-muted hover:bg-surface hover:text-ink"}`}
             >
               {o.label}
             </button>

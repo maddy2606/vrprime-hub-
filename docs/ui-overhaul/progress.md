@@ -99,3 +99,10 @@ Not now), and the full card stays on the Notifications page.
 - Notification filters are 44px tall. Post, ticket and form pages take the new look from the design system.
 - Preview role switch added: `/dev/preview?view=...&role=owner|admin|warehouse`. It only changes the fake shell and the Flipkart tab list in the preview; no real role or access check is touched.
 - Checks: tsc clean, lint clean, 298 tests pass.
+
+### 5. Ads tracker, Ads Desk, Review tracker, Team, P&L (done, lighter touch)
+- These pages already had a headline and charts. Kept their layout and information; changed the surface: no coloured edge bars, no corner glows, no gradient bars, selected toggles in ink, 44px tab buttons, sentence-case labels.
+- Team: the red band on the hero is gone; the number in the headline carries the colour.
+- New fake-data previews: `?view=ads` and `?view=reviews` (src/lib/dev-fixtures-trackers.ts), `?view=adsdesk` added to the list.
+- Decision: P&L and Dashboard have no fake data (owner money data), so no file screenshots; they were type-checked and linted only.
+- Checks: tsc clean, lint clean, 298 tests pass.

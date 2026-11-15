@@ -2,7 +2,7 @@ import { AttendancePanel } from "@/components/team/attendance-panel";
 import { PeopleTable } from "@/components/team/people-table";
 import { TeamTools } from "@/components/team/team-tools";
 import { CapacityChart } from "@/components/signal/charts";
-import { Chip } from "@/components/ui";
+import { Chip, withNumbers } from "@/components/ui";
 import type { DayStatus, Suggestion } from "@/lib/capacity";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { TeamData, WarehouseView } from "@/server/team-data";
@@ -11,7 +11,6 @@ import type { TeamData, WarehouseView } from "@/server/team-data";
 
 const style = (i: number) => ({ ["--i" as string]: i });
 
-const HERO_BAND: Record<"bad" | "warn" | "ok", string> = { bad: "var(--bad)", warn: "var(--warn)", ok: "var(--ok)" };
 const CELL: Record<DayStatus, string> = { ok: "bg-ok-soft text-ok", tight: "bg-warn-soft text-warn", short: "bg-bad-soft text-bad" };
 const STATUS_WORD: Record<DayStatus, string> = { ok: "Within capacity", tight: "Tight", short: "Over capacity" };
 const SUGGEST_TONE: Record<Suggestion["tone"], string> = {
@@ -45,10 +44,10 @@ function Hero({ d }: { d: TeamData }) {
       : "Every warehouse stayed within what its team packs";
   const busiest = d.allDays.reduce<{ day: string; orders: number } | null>((best, x) => (best === null || x.orders > best.orders ? x : best), null);
   return (
-    <section className="sp-card sp-card-lg sp-reveal relative overflow-hidden border-t-[5px] p-5 sm:p-7" style={{ ...style(0), borderTopColor: HERO_BAND[tone] }} aria-labelledby="team-headline">
+    <section className="sp-card sp-card-lg sp-reveal p-5 sm:p-7" style={style(0)} aria-labelledby="team-headline">
       <p className="font-mono text-[11px] font-bold text-muted">Team · last 14 days</p>
       <h1 id="team-headline" className="font-display mt-3 text-[1.7rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl">
-        {headline}
+        {withNumbers(headline, tone)}
       </h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">Real orders only, no predictions. The suggestions below say what stands out.</p>
       <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

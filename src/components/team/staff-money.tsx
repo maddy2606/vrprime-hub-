@@ -87,7 +87,7 @@ export function StaffMoneySheet({ person, entries, today, onClose }: { person: {
               role="radio"
               aria-checked={kind === k.kind}
               onClick={() => setKind(k.kind)}
-              className={`focus-ring min-h-10 rounded-[10px] text-sm font-bold transition ${kind === k.kind ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"}`}
+              className={`focus-ring min-h-10 rounded-[10px] text-sm font-bold transition ${kind === k.kind ? "bg-ink text-canvas" : "text-muted hover:text-ink"}`}
             >
               {k.label}
             </button>

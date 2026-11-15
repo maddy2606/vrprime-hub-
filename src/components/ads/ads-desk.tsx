@@ -159,7 +159,7 @@ function DataTable<R extends Result>({ rows, cols, initial, onRow, search, filte
               onFilter(v);
               setLimit(50);
             }}
-            className={`focus-ring inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold ${filter === v ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface text-muted hover:text-ink"}`}
+            className={`focus-ring inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold ${filter === v ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted hover:text-ink"}`}
           >
             {v !== "all" ? <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: V_COLOR[v] }} /> : null}
             {v === "all" ? "All" : V_LABEL[v]} <span className="font-mono tabular-nums opacity-80">{n0(v === "all" ? rows.length : (counts.get(v) ?? 0))}</span>
@@ -480,7 +480,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
             type="button"
             aria-current={tab === k ? "page" : undefined}
             onClick={() => setTab(k)}
-            className={`focus-ring flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-sm font-bold ${tab === k ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface text-muted hover:text-ink"}`}
+            className={`focus-ring flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3.5 text-sm font-semibold ${tab === k ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted hover:text-ink"}`}
           >
             {label}
             {count ? <span className="font-mono text-xs tabular-nums opacity-80">{n0(count)}</span> : null}
@@ -534,7 +534,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                     ["keywords", "Keywords"],
                   ] as [Basis, string][]
                 ).map(([k, l]) => (
-                  <button key={k} type="button" aria-pressed={basis === k} onClick={() => setBasis(k)} className={`focus-ring min-h-9 rounded-[10px] px-2.5 text-xs font-bold ${basis === k ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"}`}>
+                  <button key={k} type="button" aria-pressed={basis === k} onClick={() => setBasis(k)} className={`focus-ring min-h-9 rounded-[10px] px-2.5 text-xs font-bold ${basis === k ? "bg-ink text-canvas" : "text-muted hover:text-ink"}`}>
                     {l}
                   </button>
                 ))}
@@ -894,7 +894,7 @@ function NegativesPanel({ negs, state, setState, mark, period, onCopied }: { neg
               ["ignored", "Ignored"],
             ] as [NegStatus, string][]
           ).map(([k, l]) => (
-            <button key={k} type="button" aria-pressed={state.status === k} onClick={() => setState({ ...state, status: k })} className={`focus-ring min-h-9 rounded-[10px] px-3 text-sm font-bold ${state.status === k ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"}`}>
+            <button key={k} type="button" aria-pressed={state.status === k} onClick={() => setState({ ...state, status: k })} className={`focus-ring min-h-9 rounded-[10px] px-3 text-sm font-bold ${state.status === k ? "bg-ink text-canvas" : "text-muted hover:text-ink"}`}>
               {l} <span className="font-mono text-xs tabular-nums">{count(k)}</span>
             </button>
           ))}

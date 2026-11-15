@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PostCard } from "@/components/posts/post-card";
-import { buttonClass, Chip, EmptyState, Headline, Num, PageTitle } from "@/components/ui";
+import { buttonClass, Chip, EmptyState, Num, PageTitle } from "@/components/ui";
 type Tone = "bad" | "warn" | "neutral";
 import type { Lookups } from "@/lib/data";
 import { dueState } from "@/lib/format";
@@ -68,23 +68,32 @@ export function MyWork({ posts, lookups, today, firstName }: Props) {
 
   return (
     <>
-      <PageTitle title={`Hi ${firstName}`} sub={posts.length ? "Your open work, most urgent first" : summary} />
+      <PageTitle
+        title={`Hi ${firstName}`}
+        sub={
+          posts.length ? (
+            <>
+      <Num>{posts.length}</Num> open
+      {overdue.length ? (
+        <>
+          , <Num tone="bad">{overdue.length}</Num> overdue
+        </>
+      ) : null}
+      {dueToday.length ? (
+        <>
+          , <Num tone="warn">{dueToday.length}</Num> due today
+        </>
+      ) : null}
+      .
+              {" "}Your open work, most urgent first.
+            </>
+          ) : (
+            summary
+          )
+        }
+      />
       {posts.length ? (
         <>
-          <Headline size="md" className="mb-6">
-            <Num>{posts.length}</Num> open
-            {overdue.length ? (
-              <>
-                , <Num tone="bad">{overdue.length}</Num> overdue
-              </>
-            ) : null}
-            {dueToday.length ? (
-              <>
-                , <Num tone="warn">{dueToday.length}</Num> due today
-              </>
-            ) : null}
-            .
-          </Headline>
           <div className="grid items-start gap-3 min-[700px]:gap-4 min-[1100px]:grid-cols-3">
             <Section title="Overdue" tone="bad" posts={overdue} lookups={lookups} today={today} />
             <Section title="Due today" tone="warn" posts={dueToday} lookups={lookups} today={today} />

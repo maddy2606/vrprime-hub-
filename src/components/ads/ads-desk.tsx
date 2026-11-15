@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useMemo, useState, useTransition, type ReactNode } from "react";
-import { RefreshIcon } from "@/components/icons";
+import { MegaphoneIcon, RefreshIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 import { useToast } from "@/components/toast";
-import { buttonClass, Stat, StatStrip } from "@/components/ui";
+import { buttonClass, IconBadge, Stat, StatStrip, TONE_TINT } from "@/components/ui";
 import {
   campaigns as campaignRows,
   daySeries,
@@ -324,15 +324,16 @@ function Row({ title, sub, right, onClick, children }: { title: ReactNode; sub?:
   const tone = useContext(ToneCtx);
   const body = (
     <>
-      <span className="min-w-0 flex-1">
-        <span className="tone-row-title block truncate">{title}</span>
-        {sub ? <span className="t-caption block truncate">{sub}</span> : null}
+      <IconBadge icon={<MegaphoneIcon />} tint={tone ? TONE_TINT[tone] : "blue"} />
+      <span className="min-w-0">
+        <span className="item-row-title">{title}</span>
+        {sub ? <span className="item-row-detail">{sub}</span> : null}
         {children}
       </span>
-      <span className="flex shrink-0 flex-col items-end text-sm tabular-nums">{right}</span>
+      <span className="item-row-end flex-col !items-end text-[13px] tabular-nums">{right}</span>
     </>
   );
-  const cls = `tone-row ${tone ? `tone-${tone}` : ""} !flex-nowrap !items-start border-b border-line-soft last:border-0`;
+  const cls = "item-row mb-2 last:mb-0";
   return onClick ? (
     <button type="button" onClick={onClick} className={`focus-ring ${cls} w-full text-left transition-colors duration-160 hover:bg-[var(--row-hover)]`}>
       {body}
@@ -374,8 +375,8 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
   const header = (
     <header className="span-12 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <p className="t-label">Flipkart &amp; Shopsy · PLA ads</p>
-        <h1 className="t-h1 mt-1">Ads Desk</h1>
+        <h1 className="t-h1">Ads Desk</h1>
+        <p className="t-headline mt-1">Flipkart &amp; Shopsy · PLA ads</p>
         <p className="t-caption mt-0.5">
           {range ? `${span(range.from, range.to)}${range.hasPrev ? `, compared with ${span(range.pFrom, range.pTo)}` : ""}` : "No reports synced yet."}{" "}
           <Link href="/ads" prefetch={false} className="font-semibold text-accent-text underline-offset-2 hover:underline">

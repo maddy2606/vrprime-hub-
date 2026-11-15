@@ -829,27 +829,10 @@ select optgroup {
       flex-shrink: 0;
     }
   }
-  /* A card whose header carries a tone bar (glass-spec 8.3 and 8.9 layouts). */
+  /* Card headers that carried a glass tone bar: no left bar in Graphite (the count Chip carries the tone). */
   .tone-head {
-    --tone: var(--line);
     position: relative;
-    padding-left: 13px;
   }
-  .tone-head::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 2px;
-    bottom: 2px;
-    width: 3px;
-    border-radius: 999px;
-    background: var(--tone);
-  }
-  .tone-head.tone-bad { --tone: var(--bad); }
-  .tone-head.tone-warn { --tone: var(--warn-mark); }
-  .tone-head.tone-ok { --tone: var(--ok); }
-  .tone-head.tone-info { --tone: var(--info); }
-  .tone-head.tone-accent { --tone: var(--accent); }
 
   /* Post and ticket cards (glass-spec 8.4 and 8.6 layouts): an inner box with a 3px left bar. */
   .bar-card {

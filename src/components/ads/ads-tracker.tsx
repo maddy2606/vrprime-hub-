@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import { RefreshIcon } from "@/components/icons";
+import { MegaphoneIcon, RefreshIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { barFill } from "@/components/signal/charts";
-import { buttonClass, Chip, EmptyState, Stat, StatStrip } from "@/components/ui";
+import { buttonClass, Chip, EmptyState, ItemRow, Stat, StatStrip, TONE_TINT } from "@/components/ui";
 import { formatINR, formatNumber } from "@/lib/format";
 import type { AdCampaignStatus } from "@/lib/types";
 import { addTrackedSku, deleteAdCampaign, removeTrackedSku, saveAdCampaign, syncAdsReport } from "@/server/actions/ads";
@@ -245,14 +245,20 @@ function Attention({ summary }: { summary: SkuSummary[] }) {
   return (
     <Section id="ads-attention" className="span-5" title="Needs a look" sub="Campaigns with spend and no sales, or ROI under 3.5">
       {items.length ? (
-        <ul className="sp-inner m-0 list-none overflow-hidden p-0">
+        <ul className="item-list m-0 list-none p-0">
           {items.map(({ r, tone, why }) => (
-            <li key={`${r.sku}-${r.campaignId}`} className={`tone-row tone-${tone}`}>
-              <Chip tone={tone}>{r.sku}</Chip>
-              <div className="min-w-0 flex-1 basis-40">
-                <p className="tone-row-title break-words">{r.campaignName}</p>
-                <p className="t-caption"><span className="font-mono">{r.campaignId}</span> · {why}</p>
-              </div>
+            <li key={`${r.sku}-${r.campaignId}`}>
+              <ItemRow
+                icon={<MegaphoneIcon />}
+                tint={TONE_TINT[tone]}
+                title={r.campaignName}
+                detail={
+                  <>
+                    <span className="font-mono">{r.campaignId}</span> · {why}
+                  </>
+                }
+                end={<Chip tone={tone}><span className="font-mono">{r.sku}</span></Chip>}
+              />
             </li>
           ))}
         </ul>
@@ -775,8 +781,8 @@ export function AdsTracker({ view }: { view: AdsView | null }) {
     <div className="g-grid items-start">
       <header className="span-12 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="t-label">Flipkart &amp; Shopsy · PLA ads</p>
-          <h1 className="t-h1 mt-1">Ads tracker</h1>
+          <h1 className="t-h1">Ads tracker</h1>
+          <p className="t-headline mt-1">Flipkart &amp; Shopsy · PLA ads</p>
           <a href="/ads/desk" className="t-body font-semibold text-accent-text underline-offset-2 hover:underline">Ads Desk: where the money went and what to fix →</a>
           <p className="t-caption mt-0.5">
             {scan

@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
-import { Chip, EmptyState, buttonClass } from "@/components/ui";
+import { BoxIcon } from "@/components/icons";
+import { Chip, EmptyState, IconBadge, buttonClass } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/format";
 import { formatDays, type CoverState } from "@/lib/flipkart-analysis";
 import type { Tone } from "@/lib/labels";
@@ -347,7 +348,7 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
     <>
       <SyncBar latest={latest} lastDone={lastDone} snapshotDate={meta.snapshotDate} previousDate={meta.previousDate} canSync={canSync} />
 
-      <div className={`sp-card stat-strip mb-4 ${data.cards.length === 5 ? "wrap-5" : ""}`} role="group" aria-label="Stock at each warehouse. Tap one to filter.">
+      <div className="kpi-row mb-4" role="group" aria-label="Stock at each warehouse. Tap one to filter.">
         {data.cards.map((card) => {
           const on = selected === card.index;
           return (
@@ -356,16 +357,19 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
               type="button"
               aria-pressed={on}
               onClick={() => pickWarehouse(on ? "" : card.id)}
-              className={`focus-ring text-left transition-colors duration-160 ${on ? "bg-accent-soft" : "hover:bg-[var(--row-hover)]"}`}
+              className={`sp-card kpi-card focus-ring text-left transition-colors duration-160 ${on ? "!bg-accent-soft" : "hover:bg-panel2"}`}
             >
+              <IconBadge icon={<BoxIcon />} tint="violet" large />
+              <span className="kpi-body">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="t-label truncate">{card.name}</span>
                 <span className="t-caption shrink-0">{Math.round(card.share * 100)}%</span>
               </span>
-              <span className="t-stat mt-2 block">{formatNumber(card.units)}</span>
+              <span className="t-stat mt-0.5 block">{formatNumber(card.units)}</span>
               <span className="t-caption mt-1.5 flex flex-wrap gap-x-3">
                 <span className={card.empty ? "text-bad" : "text-muted"}>{formatNumber(card.empty)} out</span>
                 <span className={card.low ? "text-warn" : "text-muted"}>{formatNumber(card.low)} low</span>
+              </span>
               </span>
             </button>
           );

@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { RefreshIcon } from "@/components/icons";
+import { RefreshIcon, StarIcon, TrendIcon } from "@/components/icons";
 import { Gauge, Sparkline } from "@/components/signal/charts";
 import { CountUp } from "@/components/signal/count-up";
 import { useToast } from "@/components/toast";
 import { useId, useMemo, useState, type ReactNode } from "react";
-import { buttonClass, Chip, EmptyState } from "@/components/ui";
+import { buttonClass, Chip, EmptyState, IconBadge, type Tint } from "@/components/ui";
 import { formatNumber } from "@/lib/format";
 import {
   byDistanceToTarget,
@@ -101,23 +101,27 @@ function TargetRing({ reviews, target, color, size = 60 }: { reviews: number | n
 // ---- Headline tiles --------------------------------------------------------------------------------------------------
 
 /** A big flat tile. A link to a section, or a plain card. */
-function Tile({ href, label, index, children }: { href?: string; label: string; glow?: string; index: number; children: ReactNode }) {
+/** One KPI card (graphite-spec 4): a 46px icon badge, then the Label and the figures; a link when `href`. */
+function Tile({ href, label, index, icon, tint, children }: { href?: string; label: string; glow?: string; index: number; icon: ReactNode; tint: Tint; children: ReactNode }) {
   const inner = (
     <>
-      <span className="relative flex items-center justify-between gap-2">
-        <span className="t-label">{label}</span>
-        {href ? (
-          <span aria-hidden="true" className="text-muted transition-transform group-hover:translate-x-0.5">
-            ↓
-          </span>
-        ) : null}
+      <IconBadge icon={icon} tint={tint} large />
+      <span className="kpi-body">
+        <span className="flex items-center justify-between gap-2">
+          <span className="t-label">{label}</span>
+          {href ? (
+            <span aria-hidden="true" className="text-muted">
+              ↓
+            </span>
+          ) : null}
+        </span>
+        <span className="mt-0.5 block">{children}</span>
       </span>
-      <span className="relative mt-2 block">{children}</span>
     </>
   );
-  const cls = "group relative block min-w-0";
+  const cls = "sp-card kpi-card !items-start min-w-0";
   return href ? (
-    <a href={href} className={`focus-ring ${cls} transition-colors duration-160 hover:bg-[var(--row-hover)]`} data-i={index}>
+    <a href={href} className={`focus-ring ${cls} transition-colors duration-160 hover:bg-panel2`} data-i={index}>
       {inner}
     </a>
   ) : (
@@ -134,8 +138,8 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
   const near = byDistanceToTarget(lines, "nearest").filter((l) => (toGo(l) ?? 0) <= 10).length;
   const share = pct(goal.have, goal.target);
   return (
-    <div className="sp-card stat-strip span-12" role="group" aria-label="Reviews in figures">
-      <Tile href="#reviews-links" label="Written reviews" glow="var(--accent)" index={0}>
+    <div className="kpi-row span-12" role="group" aria-label="Reviews in figures">
+      <Tile href="#reviews-links" label="Written reviews" index={0} icon={<StarIcon />} tint="violet">
         <CountUp value={t.reviews} className="t-stat block" />
         <span className="t-caption mt-2 flex flex-wrap items-center gap-1.5">
           {prevDay ? <Chip tone={t.change < 0 ? "bad" : t.change > 0 ? "ok" : "neutral"}>{signed(t.change)} since {dayShort(prevDay)}</Chip> : <Chip tone="info">First check</Chip>}
@@ -149,7 +153,7 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
         ) : null}
       </Tile>
 
-      <Tile href="#reviews-priority" label="Towards targets" glow="var(--ok)" index={1}>
+      <Tile href="#reviews-priority" label="Towards targets" index={1} icon={<TrendIcon />} tint="blue">
         <span className="t-stat block text-ok">{share}%</span>
         <span className="g-track mt-3 block" aria-hidden="true">
           <span className="sp-bar" style={{ width: `${share}%` }} />
@@ -159,7 +163,7 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
         </span>
       </Tile>
 
-      <Tile label="Flipkart vs Shopsy" glow="var(--wh-2)" index={2}>
+      <Tile label="Flipkart vs Shopsy" index={2} icon={<StarIcon />} tint="violet">
         <span className="flex h-3.5 w-full gap-[2px]" aria-hidden="true">
           {PLATFORMS.filter((p) => t.byPlatform[p].reviews > 0).map((p) => (
             <span key={p} className="sp-bar h-full min-w-[3px] first:rounded-l last:rounded-r" style={{ flexGrow: t.byPlatform[p].reviews, flexBasis: 0, background: PLATFORM_COLOR[p] }} />
@@ -190,7 +194,7 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
         </span>
       </Tile>
 
-      <Tile href="#reviews-closest" label="At target" glow="var(--warn-mark)" index={3}>
+      <Tile href="#reviews-closest" label="At target" index={3} icon={<TrendIcon />} tint="blue">
         <span className="flex items-center justify-between gap-3">
           <span className="t-stat block">
             {goal.atTarget}
@@ -338,18 +342,23 @@ function Removed({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string }) {
   return (
     <Section id="reviews-removed" title="Reviews removed" sub={`Links with fewer written reviews than on ${dayYear(prevDay)}, the biggest loss first`} index={6}>
       {dropped.length ? (
-        <ul className="sp-inner m-0 list-none overflow-hidden p-0">
+        <ul className="item-list m-0 list-none p-0">
           {dropped.map((l) => (
-            <li key={l.rowNo} className="tone-row tone-bad !p-0">
-              <a href={l.url} target="_blank" rel="noopener noreferrer" className="focus-ring t-body flex w-full flex-wrap items-center gap-x-3 gap-y-1 py-3 pl-[17px] pr-3.5 hover:bg-[var(--row-hover)]">
-                <Chip tone="bad">{signed(l.change)}</Chip>
-                <span className="font-semibold">{l.product}</span>
-                <PlatformPill platform={l.platform} />
-                <span className="t-caption font-mono">
-                  {priorityName(l.priority)} · {l.sku}
+            <li key={l.rowNo}>
+              <a href={l.url} target="_blank" rel="noopener noreferrer" className="item-row focus-ring transition-colors duration-160 hover:bg-panel2">
+                <IconBadge icon={<StarIcon />} tint="red" />
+                <span className="min-w-0">
+                  <span className="item-row-title">{l.product}</span>
+                  <span className="item-row-detail">
+                    <span className="font-mono">
+                      {priorityName(l.priority)} · {l.sku}
+                    </span>{" "}
+                    · {formatNumber(l.before ?? 0)} → {formatNumber(l.reviews ?? 0)}
+                  </span>
                 </span>
-                <span className="text-muted">
-                  {formatNumber(l.before ?? 0)} → {formatNumber(l.reviews ?? 0)}
+                <span className="item-row-end">
+                  <PlatformPill platform={l.platform} />
+                  <Chip tone="bad">{signed(l.change)}</Chip>
                 </span>
               </a>
             </li>
@@ -780,8 +789,8 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
     <div className="g-grid items-start">
       <header className="span-12 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="t-label">Flipkart &amp; Shopsy · written reviews</p>
-          <h1 className="t-h1 mt-1">Review tracker</h1>
+          <h1 className="t-h1">Review tracker</h1>
+          <p className="t-headline mt-1">Flipkart &amp; Shopsy · written reviews</p>
           <p className="t-caption mt-0.5">
             {view.day ? `Checked ${dayYear(view.day)}${view.prevDay ? `, compared with ${dayYear(view.prevDay)}` : ""}${note ? ` · ${note}` : ""}` : "No check saved yet."}
           </p>

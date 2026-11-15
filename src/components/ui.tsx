@@ -192,7 +192,7 @@ export function kpiKind(label: string): KpiKind {
   if (/\bads?\b|campaign|ad spend/.test(l)) return "ads";
   if (/people|attendance|staff|present|absent|team|on leave/.test(l)) return "people";
   if (/forecast|trend|target|pace|avg|average/.test(l)) return "trend";
-  if (/sales|revenue|profit|cost|fee|value|money|margin|spend|₹/.test(l)) return "money";
+  if (/sales|revenue|profit|cost|fee|value|money|margin|spend|roi|₹/.test(l)) return "money";
   if (/on time|late|due|pickup|overdue|today so far|yesterday/.test(l)) return "time";
   return "orders";
 }

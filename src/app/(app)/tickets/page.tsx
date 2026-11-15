@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
-import { buttonClass, EmptyState, Headline, Num, PageTitle } from "@/components/ui";
+import { buttonClass, EmptyState, Num, PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
 import { formatNumber, todayIST } from "@/lib/format";
@@ -108,16 +108,18 @@ export default async function TicketsPage({
     <>
       <PageTitle
         title="Tickets"
+        sub={
+          <>
+            <Num>{formatNumber(counts.open_count)}</Num> open, <Num>{formatNumber(counts.waiting_count)}</Num> waiting,{" "}
+            <Num tone={counts.follow_up_due ? "bad" : "ink"}>{formatNumber(counts.follow_up_due)}</Num> follow-up due.
+          </>
+        }
         action={
           <Link prefetch={false} href="/tickets/new" className={buttonClass("primary", "shrink-0")}>
             + Ticket
           </Link>
         }
       />
-      <Headline className="mb-4">
-        <Num>{formatNumber(counts.open_count)}</Num> open, <Num>{formatNumber(counts.waiting_count)}</Num> waiting,{" "}
-        <Num tone={counts.follow_up_due ? "bad" : "ink"}>{formatNumber(counts.follow_up_due)}</Num> follow-up due.
-      </Headline>
       <TicketFilters values={filters} counts={counts} />
 
       {tickets.length ? (

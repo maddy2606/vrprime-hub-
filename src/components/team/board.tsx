@@ -2,7 +2,8 @@ import { AttendancePanel } from "@/components/team/attendance-panel";
 import { PeopleTable } from "@/components/team/people-table";
 import { TeamTools } from "@/components/team/team-tools";
 import { CapacityChart } from "@/components/signal/charts";
-import { Chip, Stat, StatStrip, withNumbers } from "@/components/ui";
+import { UsersIcon } from "@/components/icons";
+import { Chip, ItemRow, Stat, StatStrip, TONE_TINT, withNumbers } from "@/components/ui";
 import type { DayStatus } from "@/lib/capacity";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { TeamData, WarehouseView } from "@/server/team-data";
@@ -38,11 +39,11 @@ function Hero({ d }: { d: TeamData }) {
   const busiest = d.allDays.reduce<{ day: string; orders: number } | null>((best, x) => (best === null || x.orders > best.orders ? x : best), null);
   return (
     <section className="span-12" aria-labelledby="team-headline">
-      <p className="t-label">Team · last 14 days</p>
-      <h1 id="team-headline" className="t-headline mt-2">
-        {withNumbers(headline, tone)}
+      <h1 id="team-headline" className="t-h1">
+        Team
       </h1>
-      <p className="t-caption mt-2">Real orders only, no predictions. The suggestions below say what stands out.</p>
+      <p className="t-headline mt-1">{withNumbers(headline, tone)}</p>
+      <p className="t-caption mt-1">Last 14 days. Real orders only, no predictions. The suggestions below say what stands out.</p>
       <StatStrip className="mt-4" ariaLabel="The team in figures">
         <Stat label="People" value={d.total.staff} sub={total.attendanceRate === null ? "attendance not marked yet" : `${Math.round(total.attendanceRate * 100)}% turn up on average`} />
         <Stat
@@ -74,10 +75,10 @@ function Suggestions({ d }: { d: TeamData }) {
         <p className="t-caption mt-1">Worked out from the last 14 days of real orders, the team and attendance. Nothing here is a prediction.</p>
       </div>
       {d.suggestions.length ? (
-        <ul className="m-0 list-none border-t border-line-soft p-0">
+        <ul className="item-list m-0 list-none px-[18px] pb-[18px] max-[699.98px]:px-[14px] max-[699.98px]:pb-[14px]">
           {d.suggestions.map((x, i) => (
-            <li key={i} className={`tone-row tone-${x.tone}`}>
-              <span className="tone-row-title">{x.text}</span>
+            <li key={i}>
+              <ItemRow icon={<UsersIcon />} tint={TONE_TINT[x.tone]} title={x.text} />
             </li>
           ))}
         </ul>

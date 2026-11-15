@@ -40,7 +40,7 @@ import { PushSettings } from "@/components/notifications/push-settings";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
 import { LinkedPostCard, TicketForm } from "@/components/tickets/ticket-form";
-import { buttonClass, Headline, Num, PageTitle, PostListSkeleton } from "@/components/ui";
+import { buttonClass, Num, PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
 import {
   FAKE_ALERTS,
@@ -228,10 +228,15 @@ export default async function PreviewPage({
       ) : null}
       {view === "tickets" ? (
         <>
-          <PageTitle title="Tickets" action={<Link prefetch={false} href="/dev/preview?view=newticket" className={buttonClass("primary", "shrink-0")}>+ Ticket</Link>} />
-          <Headline className="mb-4">
-            <Num>2</Num> open, <Num>1</Num> waiting, <Num tone="bad">2</Num> follow-up due.
-          </Headline>
+          <PageTitle
+            title="Tickets"
+            sub={
+              <>
+                <Num>2</Num> open, <Num>1</Num> waiting, <Num tone="bad">2</Num> follow-up due.
+              </>
+            }
+            action={<Link prefetch={false} href="/dev/preview?view=newticket" className={buttonClass("primary", "shrink-0")}>+ Ticket</Link>}
+          />
           <TicketFilters values={{ q: "", platform: "", issue: "", tab: "open" }} counts={{ open_count: 2, waiting_count: 1, follow_up_due: 2, closed_count: 1 }} />
           <div className="g-cards">
             {FAKE_TICKETS.map((t) => {

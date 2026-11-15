@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { AlertIcon, BoxIcon, ClockIcon, ReturnIcon, RupeeIcon } from "@/components/icons";
 import { Caption, InfoTip } from "@/components/flipkart/kit";
-import { Chip, EmptyState, buttonClass } from "@/components/ui";
+import { Chip, EmptyState, ItemRow, buttonClass } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { ActionLink, ActionRow, ActionSection } from "@/lib/flipkart-analysis";
 
@@ -11,8 +12,9 @@ const SHOWN = 6;
 
 const TONE_RANK = { bad: 0, warn: 1, info: 2 } as const;
 
-function ActionButton({ link, first }: { link: ActionLink; first: boolean }) {
-  const BUTTON = buttonClass(first ? "secondary" : "ghost");
+/** A row button: 40px secondary (graphite-spec 4, item row). */
+function ActionButton({ link }: { link: ActionLink }) {
+  const BUTTON = buttonClass("row");
   if (link.external) {
     return (
       <a href={link.href} target="_blank" rel="noopener noreferrer" className={BUTTON}>
@@ -27,19 +29,31 @@ function ActionButton({ link, first }: { link: ActionLink; first: boolean }) {
   );
 }
 
-/** One line of what is wrong, and the buttons for the next step on the right (below it on a phone). */
-function Row({ row, plain }: { row: ActionRow; plain: boolean }) {
+/** Each section's icon (graphite-spec 4, by meaning); the tint follows the row's tone. */
+const ICON: Record<string, ReactNode> = {
+  orders: <ClockIcon />,
+  prices: <AlertIcon />,
+  inactive: <AlertIcon />,
+  listings: <AlertIcon />,
+  money: <RupeeIcon />,
+  returns: <ReturnIcon />,
+  running: <BoxIcon />,
+};
+const TINT = { bad: "red", warn: "amber", info: "blue" } as const;
+
+/** One item row: what is wrong over its detail, and the buttons for the next step on the right. */
+function Row({ row, plain, section }: { row: ActionRow; plain: boolean; section: string }) {
   return (
-    <li className={`tone-row tone-${row.tone}`}>
-      <div className="min-w-0 flex-1 basis-48">
-        <p className={`tone-row-title break-words [overflow-wrap:anywhere] ${plain ? "" : "font-mono"}`}>{row.title}</p>
-        {row.detail ? <p className="t-caption mt-0.5 line-clamp-2 break-words">{row.detail}</p> : null}
-      </div>
-      <div className="tone-row-actions">
-        {row.actions.map((a, i) => (
-          <ActionButton key={a.label} link={a} first={i === 0} />
+    <li>
+      <ItemRow
+        icon={ICON[section] ?? <AlertIcon />}
+        tint={TINT[row.tone]}
+        title={<span className={plain ? "" : "font-mono"}>{row.title}</span>}
+        detail={row.detail || undefined}
+        end={row.actions.map((a) => (
+          <ActionButton key={a.label} link={a} />
         ))}
-      </div>
+      />
     </li>
   );
 }
@@ -57,13 +71,13 @@ function Section({ section }: { section: ActionSection }) {
           <Chip tone={tone}>{formatNumber(section.rows.length)}</Chip>
         </h2>
       </div>
-      <ul className="m-0 list-none p-0">
+      <ul className="item-list m-0 list-none px-[18px] pb-[18px] max-[699.98px]:px-[14px] max-[699.98px]:pb-[14px]">
         {rows.map((r) => (
-          <Row key={r.key} row={r} plain={section.key === "orders"} />
+          <Row key={r.key} row={r} plain={section.key === "orders"} section={section.key} />
         ))}
       </ul>
       {more > 0 ? (
-        <div className="border-t border-line-soft p-2">
+        <div className="px-2 pb-2">
           <button type="button" onClick={() => setAll((v) => !v)} className={buttonClass("ghost", "w-full")}>
             {all ? "Show fewer" : `Show ${formatNumber(more)} more`}
           </button>

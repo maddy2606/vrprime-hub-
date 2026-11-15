@@ -81,7 +81,7 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
 - /business (owner; others get the owner-only notice) with This week, Targets and Dead stock; loading.tsx; rail item
   "Business" (bars) after Dashboard, owner only. Settings: new "Targets" card (target_sales_month,
   target_profit_month in SETTING_KEYS and validation).
-- Preview: view=business, btargets, bdead. Screens: business-week/targets/dead-dark-1440.png and -390.png.
+- Preview: view=business, btargets, bdead. Screens: business-, btargets-, bdead-dark-1440.png and -390.png.
 - Seen live (read only): This week shows the not-set-up state; Targets shows the empty states and the last months
   from the P&L loader; Dead stock lists real products from the forecast and inventory.
 - Not testable until applied: the week figures, saving targets (Settings Save needs both migrations).
@@ -94,7 +94,7 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
 - notificationUrl and the notify function link weekly_summary to /business?tab=week&start=<that Monday>; the Business
   page reads start (Phase 7).
 - Preview: view=notifications shows a closing report and a weekly summary. Screens:
-  weekly-summary-notifications-dark-1440.png and -390.png.
+  notifications-dark-1440.png and -390.png.
 - Not testable until applied: the Monday run and the real message.
 - Checks: tsc, lint clean; npm test 324 pass.
 
@@ -107,5 +107,12 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
 - Migration `supabase/migrations/20261116092000_listing_check.sql`: listing_checks, listing_check_rows (RLS staff),
   public.listing_check_save (service_role and staff), listing_alert notification.
 - Flipkart › Listings › Listing check (?tab=listingcheck), owner and admin. Preview: view=flistcheck (&empty=1,
-  &ready=0). Screens: listing-check-dark-1440.png, listing-check-dark-390.png. Seen live: not-set-up state.
+  &ready=0). Screens: flistcheck-dark-1440.png and -390.png. Seen live: not-set-up state.
 - Checks: tsc, lint clean; npm test 330 pass, 2 todo.
+
+## 10. Sweep, screenshots, report: done
+- Sweep: no backdrop-filter; colour literals only in the theme-colour meta and manifest (= --canvas) and the shelved
+  Expenses QR box (logged).
+- npm run build passes. Full set: 45 views × dark 1440 and 390, plus deck-light-1440 (91 files).
+- Inventory: 85 of 155 ticked after looking at the screenshots; the rest are listed with reasons in graphite-report.md.
+- Report: docs/ui-overhaul/graphite-report.md.

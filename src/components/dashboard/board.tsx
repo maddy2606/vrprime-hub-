@@ -1,16 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { barFill, Gauge, Sparkline, TrendChart } from "@/components/signal/charts";
-import { CountUp } from "@/components/signal/count-up";
+import { barFill, Gauge, TrendChart } from "@/components/signal/charts";
 import { Lanes } from "@/components/signal/lanes";
 import { RupeesCountUp } from "@/components/dashboard/money-count";
-import { buttonClass, Chip, Headline, Num, SectionHead, Stat, StatStrip } from "@/components/ui";
+import { AlertIcon, BellIcon } from "@/components/icons";
+import { buttonClass, Chip, Headline, ItemRow, Num, SectionHead, Stat, StatStrip, TONE_TINT } from "@/components/ui";
 import { KIND_TONE, timeAgo } from "@/lib/alerts";
 import { formatINR, formatNumber } from "@/lib/format";
 import { NOTIFICATION_ICON_LABEL } from "@/lib/labels";
 import type { DashboardData } from "@/server/dashboard-data";
 
-// The owner's dashboard (glass-spec 8.2): every card and row is a link to the page with the detail.
+// The owner's dashboard (graphite-spec 9.2): every card and row is a link to the page with the detail.
 
 /** ₹ in lakh or crore for the big numbers (₹16.5L, ₹1.02Cr); exact rupees below a lakh. */
 function short(n: number): string {
@@ -21,16 +21,6 @@ function short(n: number): string {
   return `${sign}${formatINR(Math.round(a))}`;
 }
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
-
-/** A clickable tile: a Card with a Label, the figure, and its lines. */
-function Tile({ href, label, children, className = "", hero = false }: { href: string; label: string; children: ReactNode; className?: string; hero?: boolean }) {
-  return (
-    <Link href={href} className={`focus-ring sp-card ${hero ? "sp-hero" : ""} g-pad block min-w-0 transition-colors duration-160 ${className}`}>
-      <span className="t-label block">{label}</span>
-      <span className="mt-2 block">{children}</span>
-    </Link>
-  );
-}
 
 /** A card whose heading links to the page with the detail. */
 function Panel({ title, sub, href, children, className = "" }: { title: string; sub?: string; href: string; children: ReactNode; className?: string }) {
@@ -89,7 +79,7 @@ function MoneyRing({ parts, centre, sub }: { parts: { label: string; value: numb
               <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />
               {p.label}
             </span>
-            <span className="font-mono font-medium tabular-nums">
+            <span className="font-medium tabular-nums">
               {short(p.value)} <span className="t-caption">{pct(p.value, total)}%</span>
             </span>
           </li>
@@ -152,7 +142,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           ) : null}
         </div>
         {t ? (
-          <Headline className="mt-3">
+          <Headline className="mt-1">
             <Num tone={t.net < 0 ? "bad" : "ok"}>{short(t.net)}</Num> profit after ads {now?.month === thisMonth ? "so far" : `in ${monthWord}`}
             {margin !== null ? (
               <>
@@ -167,76 +157,73 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             .
           </Headline>
         ) : (
-          <Headline className="mt-3">Money, orders and alerts in one place. Add costs on the P&amp;L page to see profit here.</Headline>
+          <Headline className="mt-1">Money, orders and alerts in one place. Add costs on the P&amp;L page to see profit here.</Headline>
         )}
       </header>
 
-      {/* 2. The four numbers that matter today. */}
-      <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label={`Profit after ads · ${now ? monthWord : "month"}`} className="span-5" hero>
-        <span className={`t-hero t-hero-sm block ${t && t.net < 0 ? "is-bad" : ""}`}>
-          <RupeesCountUp value={Math.round(t?.net ?? 0)} />
-        </span>
-        <span className="t-caption mt-3 flex flex-wrap items-center gap-1.5">
-          {margin !== null ? <Chip tone={margin < 10 ? "bad" : margin < 25 ? "warn" : "ok"}>{margin}% margin</Chip> : null}
-          {prevMargin !== null && prev ? (
-            <span>
-              {prev.label.split(" ")[0]} {prevMargin}%
-            </span>
-          ) : null}
-        </span>
-        {pace !== null ? <span className="t-caption mt-2 block">On pace for {short(pace)} this month</span> : null}
-      </Tile>
-      <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label="Revenue (seller price)" className="span-3">
-        <span className="t-stat block">
-          <RupeesCountUp value={Math.round(t?.sales ?? 0)} />
-        </span>
-        <span className="t-caption mt-1.5 block">
-          {formatNumber(t?.units ?? 0)} units sold{prev ? ` · ${prev.label.split(" ")[0]} ${short(prev.total.sales)}` : ""}
-        </span>
-        {t ? (
-          <span className="mt-3 flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-surface2" aria-hidden="true">
-            <span className="sp-bar" style={{ width: `${pct(t.cost, t.sales)}%`, background: "var(--stage-2)" }} />
-            <span className="sp-bar" style={{ width: `${pct(t.ads, t.sales)}%`, background: "var(--madder)" }} />
-            <span className="sp-bar" style={{ width: `${pct(t.fees, t.sales)}%`, background: "var(--faint)" }} />
-            <span className="sp-bar" style={{ width: `${Math.max(0, pct(t.net, t.sales))}%`, background: "var(--ok)" }} />
-          </span>
-        ) : null}
-      </Tile>
-      <Tile href="/pnl#ads-title" label="Ads incl. 18% GST" className="span-2">
-        <span className="t-stat block">
-          <RupeesCountUp value={Math.round(t?.ads ?? 0)} />
-        </span>
-        <span className="mt-3 flex items-center gap-3">
-          <Gauge pct={adsShare} tone={adsShare > 15 ? "bad" : adsShare > 10 ? "warn" : "ok"} label={`Ads are ${Math.round(adsShare)}% of revenue`} size={48} />
-          <span className="t-caption">
-            {Math.round(adsShare)}% of revenue{prev && prev.total.sales > 0 ? ` · ${prev.label.split(" ")[0]} ${Math.round((prev.total.ads / prev.total.sales) * 100)}%` : ""}
-          </span>
-        </span>
-      </Tile>
-      <Tile href="/flipkart?tab=orders" label="To dispatch today" className="span-2">
-        <span className="t-stat block">
-          <CountUp value={tc?.due ?? 0} />
-        </span>
-        <span className="t-caption mt-1.5 flex flex-wrap items-center gap-1.5">
-          {tc && tc.late > 0 ? (
-            <Chip tone="bad" live>
-              {formatNumber(tc.late)} late
-            </Chip>
-          ) : (
-            <Chip tone="ok">None late</Chip>
-          )}
-          {tc?.avg7 != null ? <span>7-day avg {formatNumber(tc.avg7)}/day</span> : null}
-        </span>
-        <span className="mt-3 block">
-          <Sparkline values={deck.trend.map((p) => p.orders)} tone="cyan" label="Orders a day, last 14 days" className="h-9 w-full" />
-        </span>
-      </Tile>
+      {/* 2. The four numbers that matter today, as a KPI row (graphite-spec 9.2). */}
+      <StatStrip ariaLabel="This month and today" className="span-12">
+        <Stat
+          label={`Profit after ads · ${now ? monthWord : "month"}`}
+          kind="money"
+          href={now ? `/pnl?month=${now.month}` : "/pnl"}
+          tone={t && t.net < 0 ? "bad" : "ink"}
+          value={<RupeesCountUp value={Math.round(t?.net ?? 0)} />}
+          sub={
+            [margin !== null ? `${margin}% margin` : null, prevMargin !== null && prev ? `${prev.label.split(" ")[0]} ${prevMargin}%` : null, pace !== null ? `On pace for ${short(pace)} this month` : null]
+              .filter(Boolean)
+              .join(" · ") || undefined
+          }
+        />
+        <Stat
+          label="Revenue (seller price)"
+          kind="money"
+          href={now ? `/pnl?month=${now.month}` : "/pnl"}
+          value={<RupeesCountUp value={Math.round(t?.sales ?? 0)} />}
+          sub={`${formatNumber(t?.units ?? 0)} units sold${prev ? ` · ${prev.label.split(" ")[0]} ${short(prev.total.sales)}` : ""}`}
+          chart={
+            t ? (
+              <span className="flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-surface2" aria-hidden="true">
+                <span className="sp-bar" style={{ width: `${pct(t.cost, t.sales)}%`, background: "var(--stage-2)" }} />
+                <span className="sp-bar" style={{ width: `${pct(t.ads, t.sales)}%`, background: "var(--madder)" }} />
+                <span className="sp-bar" style={{ width: `${pct(t.fees, t.sales)}%`, background: "var(--faint)" }} />
+                <span className="sp-bar" style={{ width: `${Math.max(0, pct(t.net, t.sales))}%`, background: "var(--ok)" }} />
+              </span>
+            ) : undefined
+          }
+        />
+        <Stat
+          label="Ads incl. 18% GST"
+          kind="ads"
+          href="/pnl#ads-title"
+          value={<RupeesCountUp value={Math.round(t?.ads ?? 0)} />}
+          sub={`${Math.round(adsShare)}% of revenue${prev && prev.total.sales > 0 ? ` · ${prev.label.split(" ")[0]} ${Math.round((prev.total.ads / prev.total.sales) * 100)}%` : ""}`}
+          chart={<Gauge pct={adsShare} tone={adsShare > 15 ? "bad" : adsShare > 10 ? "warn" : "ok"} label={`Ads are ${Math.round(adsShare)}% of revenue`} size={48} />}
+        />
+        <Stat
+          label="To dispatch today"
+          kind="orders"
+          href="/flipkart?tab=orders"
+          value={tc?.due ?? 0}
+          aside={
+            tc && tc.late > 0 ? (
+              <Chip tone="bad" live>
+                {formatNumber(tc.late)} late
+              </Chip>
+            ) : (
+              <Chip tone="ok">None late</Chip>
+            )
+          }
+          sub={tc?.avg7 != null ? `7-day avg ${formatNumber(tc.avg7)}/day` : undefined}
+          spark={{ values: deck.trend.map((p) => p.orders), tone: "cyan", label: "Orders a day, last 14 days" }}
+        />
+      </StatStrip>
 
-      {/* 3. Today's signals from the Command Deck, each a link. */}
+      {/* 3. Today's signals from the Command Centre, each a link. */}
       {deck.pulses.length ? (
         <StatStrip ariaLabel="Today's signals" className="span-12">
           {deck.pulses.slice(0, 4).map((p) => (
-            <Stat key={p.key} label={p.label} value={p.value} sub={p.sub} tone={p.tone === "cyan" ? "accent" : p.tone} href={p.href} chart={<Sparkline values={p.spark} tone={p.tone} label={p.sparkLabel} className="h-9 w-full" />} />
+            <Stat key={p.key} label={p.label} value={p.value} sub={p.sub} tone={p.tone === "cyan" ? "accent" : p.tone} href={p.href} spark={{ values: p.spark, tone: p.tone, label: p.sparkLabel }} />
           ))}
         </StatStrip>
       ) : null}
@@ -292,7 +279,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
                   ))}
                 </span>
                 <span className="mt-2 block text-center text-xs font-semibold">{m.label.split(" ")[0].slice(0, 3)}</span>
-                <span className="block text-center font-mono text-[11px] text-faint tabular-nums">{short(m.total.net)}</span>
+                <span className="block text-center text-[11px] text-faint tabular-nums">{short(m.total.net)}</span>
               </Link>
             ))}
           </div>
@@ -323,7 +310,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
                 <span className="h-2.5 overflow-hidden rounded-full bg-surface2">
                   <span className="sp-bar block h-full rounded-[6px]" style={{ width: `${(Math.abs(p.net) / maxProduct) * 100}%`, background: barFill(p.net < 0 ? "var(--bad)" : "var(--ok)"), ["--i" as string]: i }} />
                 </span>
-                <span className={`font-mono text-[13px] font-medium tabular-nums ${p.net < 0 ? "text-bad" : "text-ok"}`}>{short(p.net)}</span>
+                <span className={`text-[13px] font-medium tabular-nums ${p.net < 0 ? "text-bad" : "text-ok"}`}>{short(p.net)}</span>
               </Link>
             </li>
           ))}
@@ -331,26 +318,29 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
         </ul>
       </Panel>
 
-      {/* 6. Work in the warehouses, and what needs a look. */}
-      <Panel title="Orders waiting, by warehouse" sub="To accept, to pack and to dispatch; late orders at the gate" href="/flipkart?tab=orders" className="span-7">
+      {/* 6. The flow map, and what needs a look. */}
+      <Panel title="Order flow map" sub="To accept, to pack and to dispatch; late orders at the gate" href="/flipkart?tab=orders" className="span-8">
         {lanes.length ? (
           <Lanes lanes={lanes} ariaLabel={`Active orders by warehouse and stage: ${deck.whStages.map((r) => `${r.name}: ${r.to_accept} to accept, ${r.to_pack} to pack, ${r.to_dispatch} to dispatch`).join("; ")}`} />
         ) : (
           <p className="t-caption py-6 text-center">No open orders.</p>
         )}
       </Panel>
-      <Panel title="Needs a look" sub={alerts.length ? `${alerts.length} unread alerts` : "Nothing unread"} href="/notifications" className="span-5">
+      <Panel title="Needs a look" sub={alerts.length ? `${alerts.length} unread alerts` : "Nothing unread"} href="/notifications" className="span-4">
         {alerts.length ? (
-          <ul className="sp-inner m-0 list-none p-0">
+          <ul className="item-list m-0 list-none p-0">
             {alerts.map((a) => {
               const tone = KIND_TONE[a.kind] ?? "neutral";
               return (
-                <li key={a.id} className={`tone-row ${tone === "neutral" ? "" : `tone-${tone}`}`}>
-                  <Chip tone={tone}>{NOTIFICATION_ICON_LABEL[a.kind] ?? "Alert"}</Chip>
-                  <Link href={a.href} className="focus-ring min-w-0 flex-1 rounded-[var(--radius)]">
-                    <span className="tone-row-title block">{a.title}</span>
-                    <span className="t-caption block">{timeAgo(a.createdAt)}</span>
-                  </Link>
+                <li key={a.id}>
+                  <ItemRow
+                    href={a.href}
+                    icon={tone === "bad" || tone === "warn" ? <AlertIcon /> : <BellIcon />}
+                    tint={TONE_TINT[tone]}
+                    title={a.title}
+                    detail={timeAgo(a.createdAt)}
+                    end={<Chip tone={tone}>{NOTIFICATION_ICON_LABEL[a.kind] ?? "Alert"}</Chip>}
+                  />
                 </li>
               );
             })}

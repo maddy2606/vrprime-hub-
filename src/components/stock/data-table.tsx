@@ -161,7 +161,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                           {minor.map((c) => (
                             <div key={c.key} className="min-w-0">
                               <dt className="t-label">{c.label}</dt>
-                              <dd className="mt-1 break-words font-mono text-[13px] font-medium tabular-nums">{c.cell(row)}</dd>
+                              <dd className="mt-1 break-words text-[13px] font-medium tabular-nums">{c.cell(row)}</dd>
                             </div>
                           ))}
                         </dl>

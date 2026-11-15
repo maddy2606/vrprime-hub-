@@ -470,9 +470,9 @@ function Trend({ trend, scanId, by }: { trend: AdsView["trend"]; scanId: string 
         <div className="flex h-44 items-end gap-3 overflow-x-auto" role="img" aria-label={`Average daily spend: ${trend.map((t) => `${day(t.to)} ${rs(t.avg)}`).join(", ")}`}>
           {trend.map((t) => (
             <div key={t.id} className="flex h-full min-w-16 flex-1 flex-col items-center justify-end gap-1">
-              <span className="font-mono text-[11px] tabular-nums">{rs(t.avg)}</span>
+              <span className="text-[11px] tabular-nums">{rs(t.avg)}</span>
               <span className="sp-bar-y w-full max-w-14 rounded-[6px]" style={{ height: `${Math.max(2, (t.avg / max) * 100)}%`, background: t.id === scanId ? barFill("var(--accent)") : "var(--surface2)" }} />
-              <span className="whitespace-nowrap font-mono text-[11px] text-faint">{day(t.to)}</span>
+              <span className="tabular-nums whitespace-nowrap text-[11px] text-faint">{day(t.to)}</span>
             </div>
           ))}
         </div>
@@ -541,7 +541,7 @@ function CampaignForm({ initial, editing, onDone }: { initial: Draft; editing: b
       </label>
       <label className={label}>
         Daily budget (₹)
-        <input id="ads-f-budget" className="input font-mono" inputMode="numeric" value={d.budget} onChange={(e) => set("budget", e.target.value)} placeholder="800" />
+        <input id="ads-f-budget" className="tabular-nums input" inputMode="numeric" value={d.budget} onChange={(e) => set("budget", e.target.value)} placeholder="800" />
       </label>
       <label className={label}>
         Start date

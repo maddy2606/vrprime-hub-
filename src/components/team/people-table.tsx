@@ -37,7 +37,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people, today }: 
         {isOwner && salaryTotal > 0 ? (
           <p className="t-body text-right">
             <span className="t-caption">Monthly salaries </span>
-            <span className="font-mono font-medium tabular-nums">{formatINR(salaryTotal)}</span>
+            <span className="font-medium tabular-nums">{formatINR(salaryTotal)}</span>
           </p>
         ) : null}
       </header>

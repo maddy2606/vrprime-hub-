@@ -188,7 +188,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
                   {(linksOf.get(p.id) ?? []).map((l) => (
                     <span key={l.sku} className="g-chip max-w-full">
                       <span className="break-all font-mono">{l.sku}</span>
-                      {l.units > 1 ? <span className="font-mono text-accent-text">×{l.units}</span> : null}
+                      {l.units > 1 ? <span className="tabular-nums text-accent-text">×{l.units}</span> : null}
                       <button
                         type="button"
                         disabled={pending}

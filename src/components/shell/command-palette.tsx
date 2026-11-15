@@ -114,7 +114,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
             placeholder="Search SKUs, orders, tickets, work, pages"
             className="min-h-14 w-full bg-transparent text-base outline-none placeholder:text-faint"
           />
-          <kbd className="hidden shrink-0 rounded-md border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted sm:block">Esc</kbd>
+          <kbd className="tabular-nums hidden shrink-0 rounded-md border border-line px-1.5 py-0.5 text-[10px] text-muted sm:block">Esc</kbd>
         </div>
         <ul id={listId} role="listbox" aria-label="Results" className="max-h-[55vh] overflow-y-auto p-2">
           {hits.length === 0 ? (
@@ -133,7 +133,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
                     <span className="block truncate font-mono text-[13px] font-medium">{h.label}</span>
                     <span className="t-caption block truncate">{h.sub}</span>
                   </span>
-                  {i === active ? <span aria-hidden="true" className="shrink-0 font-mono text-xs text-muted">↵</span> : null}
+                  {i === active ? <span aria-hidden="true" className="tabular-nums shrink-0 text-xs text-muted">↵</span> : null}
                 </button>
               </li>
             ))

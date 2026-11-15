@@ -95,7 +95,7 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
                       <span className={`whitespace-nowrap text-xs font-semibold ${red ? "text-bad" : "text-muted"}`}>{due ? formatDue(due, now) : "—"}</span>
                       <ChevronDownIcon className={`h-4 w-4 text-muted transition-transform ${expanded ? "rotate-180" : ""}`} />
                     </span>
-                  <span className="col-span-2 font-mono text-[13px] font-semibold tabular-nums lg:col-span-1">
+                  <span className="col-span-2 text-[13px] font-semibold tabular-nums lg:col-span-1">
                     {formatNumber(g.orders)} {g.orders === 1 ? "order" : "orders"} · {formatNumber(g.units)} {g.units === 1 ? "unit" : "units"}
                     {anyShort ? <span className="ml-2 font-sans text-xs font-semibold text-bad">Short of stock</span> : null}
                   </span>

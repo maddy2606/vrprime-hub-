@@ -316,7 +316,7 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
             {movers.map((m) => (
               <li key={m.key} className="g-chip">
                 <span className={view === "master" && m.key.startsWith("m:") ? "" : "font-mono"}>{m.sku}</span> <span className="text-muted">—</span>{" "}
-                <span className="font-mono tabular-nums text-ink">{n0(m.f30)}</span>
+                <span className="tabular-nums text-ink">{n0(m.f30)}</span>
               </li>
             ))}
           </ul>

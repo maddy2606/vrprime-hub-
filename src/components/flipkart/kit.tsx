@@ -263,7 +263,7 @@ export function PageSection({ title, count, children }: { title: string; count?:
     <section className="mb-6">
       <h2 className="t-card-title g-head flex items-center gap-2">
         {title}
-        {count !== undefined ? <span className="g-chip font-mono">{formatNumber(count)}</span> : null}
+        {count !== undefined ? <span className="tabular-nums g-chip">{formatNumber(count)}</span> : null}
       </h2>
       {children}
     </section>
@@ -284,5 +284,5 @@ export function StatTile({ label, value, sub, tone }: { label: string; value: st
 
 /** Mono, tabular figures, Indian grouping: the look of every number and ID. */
 export function Num({ value, className = "" }: { value: number; className?: string }) {
-  return <span className={`font-mono tabular-nums ${className}`}>{formatNumber(value)}</span>;
+  return <span className={`tabular-nums ${className}`}>{formatNumber(value)}</span>;
 }

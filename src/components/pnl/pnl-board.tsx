@@ -79,7 +79,7 @@ function Unlinked({ m, masters }: { m: MonthPnl; masters: { id: string; name: st
               <div className="min-w-0">
                 <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                   <span className="font-mono text-sm font-medium">{r.sku}</span>
-                  <span className="t-caption font-mono tabular-nums">
+                  <span className="t-caption tabular-nums">
                     {formatNumber(r.units)} units · {money(r.sales)}
                   </span>
                 </p>
@@ -99,7 +99,7 @@ function Unlinked({ m, masters }: { m: MonthPnl; masters: { id: string; name: st
                 </label>
                 <label className="t-label flex items-center gap-1.5">
                   Units
-                  <input className="input w-16 font-mono" inputMode="numeric" value={p.units} onChange={(e) => set({ units: e.target.value.replace(/[^0-9]/g, "") })} aria-label={`Units per order for ${r.sku}`} />
+                  <input className="tabular-nums input w-16" inputMode="numeric" value={p.units} onChange={(e) => set({ units: e.target.value.replace(/[^0-9]/g, "") })} aria-label={`Units per order for ${r.sku}`} />
                 </label>
                 <button type="button" disabled={pending || !p.master} onClick={() => link(r.sku)} className={buttonClass("primary")}>
                   Link
@@ -345,7 +345,7 @@ function Costing({ rows }: { rows: CostingRow[] }) {
                         <span key={s.sku} className="g-chip">
                           <span className="max-w-[12rem] truncate font-mono">{s.sku}</span>
                           {s.units > 1 ? <span>pack of {s.units}</span> : null}
-                          <b className="font-mono text-ink">{c === null ? "—" : formatINR(c)}</b>
+                          <b className="tabular-nums text-ink">{c === null ? "—" : formatINR(c)}</b>
                         </span>
                       );
                     })}
@@ -357,7 +357,7 @@ function Costing({ rows }: { rows: CostingRow[] }) {
               <label className="t-label flex flex-col gap-1">
                 Cost of 1 (₹)
                 <input
-                  className={`input font-mono ${invalid ? "border-bad" : ""}`}
+                  className={`tabular-nums input ${invalid ? "border-bad" : ""}`}
                   inputMode="decimal"
                   value={v}
                   onChange={(e) => setDraft((d) => ({ ...d, [r.id]: e.target.value }))}
@@ -433,7 +433,7 @@ function AdsReports({ uploads }: { uploads: AdsUpload[] }) {
               <span className="t-caption">
                 {day(u.from)} to {day(u.to)} · {formatNumber(u.skus)} SKUs · uploaded {new Date(u.uploadedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}
               </span>
-              <span className="font-mono font-medium tabular-nums">
+              <span className="font-medium tabular-nums">
                 {money(u.spend)} <span className="t-caption">+ 18% GST = {money(u.spend * 1.18)}</span>
               </span>
             </li>

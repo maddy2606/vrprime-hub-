@@ -123,7 +123,7 @@ function UserForm({
 
         {editing ? (
           <p className="t-caption">
-            Sign-in email: <span className="break-all font-mono text-ink">{form.email}</span>
+            Sign-in email: <span className="tabular-nums break-all text-ink">{form.email}</span>
           </p>
         ) : (
           <Field label="Email" htmlFor="u-email" required error={errors.email} hint="They sign in with this. It cannot be changed later.">
@@ -177,7 +177,7 @@ function UserForm({
           }
         >
           <div className="flex gap-2">
-            <input id="u-password" className="input min-w-0 font-mono" value={form.password} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={(e) => setForm({ ...form, password: e.target.value })} aria-invalid={Boolean(errors.password ?? errors.newPassword)} />
+            <input id="u-password" className="tabular-nums input min-w-0" value={form.password} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={(e) => setForm({ ...form, password: e.target.value })} aria-invalid={Boolean(errors.password ?? errors.newPassword)} />
             <button type="button" onClick={() => setForm({ ...form, password: generatePassword() })} className={buttonClass("secondary", "shrink-0")}>
               Generate
             </button>
@@ -254,7 +254,7 @@ export function UsersAdmin({ users, warehouses, meId }: { users: AdminUser[]; wa
                     <Chip tone={u.role === "owner" ? "accent" : "neutral"}>{ROLE_LABEL[u.role]}</Chip>
                   </span>
                 </span>
-                <span className="t-caption mt-1 block break-all font-mono">{u.email}</span>
+                <span className="tabular-nums t-caption mt-1 block break-all">{u.email}</span>
                 <span className="t-caption mt-1 block">
                   {u.warehouseIds.length
                     ? u.warehouseIds.map((id) => warehouseName.get(id) ?? "Unknown").join(", ")

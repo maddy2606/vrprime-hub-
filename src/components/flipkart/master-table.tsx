@@ -90,7 +90,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
     <div className="min-w-0">
       <span className="break-all font-mono text-[13px] font-medium leading-tight">{r.sku}</span>
       {units > 1 ? (
-        <span title={`One order uses ${units} of the product`} className="g-chip tone-accent ml-1.5 font-mono">
+        <span title={`One order uses ${units} of the product`} className="tabular-nums g-chip tone-accent ml-1.5">
           ×{units}
         </span>
       ) : null}
@@ -98,7 +98,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
     </div>
   );
   const count = (n: number) => (
-    <span className="g-chip ml-2 font-mono">
+    <span className="tabular-nums g-chip ml-2">
       {n} {n === 1 ? "SKU" : "SKUs"}
     </span>
   );
@@ -254,7 +254,7 @@ function RankedRow({
   return (
     <li>
       <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3">
-        <span className="font-mono text-xs tabular-nums text-faint">{rank}</span>
+        <span className="text-xs tabular-nums text-faint">{rank}</span>
         <span className="min-w-0">
           {onToggle ? (
             <button type="button" aria-expanded={expanded} onClick={onToggle} className="focus-ring flex max-w-full min-w-0 items-center gap-1.5 rounded text-left">
@@ -271,7 +271,7 @@ function RankedRow({
           {sub ? <span className="t-caption block truncate">{sub}</span> : null}
         </span>
         <span className="text-right">
-          <span className="block font-mono text-[13px] font-medium tabular-nums">{n0(row.f30)}</span>
+          <span className="block text-[13px] font-medium tabular-nums">{n0(row.f30)}</span>
           <span className="t-caption block">{perDay(row.rate)} a day</span>
         </span>
         <span />
@@ -341,10 +341,10 @@ export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, auto
                       <li key={c.key} className="flex items-center justify-between gap-3 py-1.5 pl-10 text-xs">
                         <span className="min-w-0 truncate">
                           <span className="font-mono font-bold">{c.sku}</span>
-                          {c.units > 1 ? <span className="ml-1 font-mono text-accent-text">×{c.units}</span> : null}
+                          {c.units > 1 ? <span className="tabular-nums ml-1 text-accent-text">×{c.units}</span> : null}
                           {c.title ? <span className="text-muted"> · {c.title}</span> : null}
                         </span>
-                        <span className="shrink-0 font-mono tabular-nums">
+                        <span className="shrink-0 tabular-nums">
                           {n0(c.f30)} <span className="text-muted">· {perDay(c.rate)} a day</span>
                         </span>
                       </li>
@@ -362,7 +362,7 @@ export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, auto
         <section>
           <button type="button" aria-expanded={unmappedOpen} onClick={() => setUnmappedOpen((v) => !v)} className="focus-ring mb-2 flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-left">
             <span className="text-sm font-bold">Unmapped</span>
-            <span className="inline-flex shrink-0 items-center rounded-full bg-surface2 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted">{skuCount(searching ? unmapped.length : unmappedTotal)}</span>
+            <span className="tabular-nums inline-flex shrink-0 items-center rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-semibold text-muted">{skuCount(searching ? unmapped.length : unmappedTotal)}</span>
             <span className="text-xs text-muted">no product yet</span>
             <ChevronDownIcon className={`ml-auto h-5 w-5 text-muted transition ${unmappedOpen ? "rotate-180" : ""}`} />
           </button>
@@ -417,7 +417,7 @@ function KitNote({ kit, className = "" }: { kit: KitInfo; className?: string }) 
           {kit.parts.map((p) => (
             <li key={p.name} className="rounded-full bg-surface2 px-2 py-0.5 font-semibold">
               {p.qty > 1 ? `${p.qty} × ` : ""}
-              {p.name}: <span className="font-mono tabular-nums">{n0(p.stock)}</span> in stock
+              {p.name}: <span className="tabular-nums">{n0(p.stock)}</span> in stock
             </li>
           ))}
         </ul>

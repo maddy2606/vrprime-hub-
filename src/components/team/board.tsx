@@ -185,12 +185,12 @@ function StatusGrid({ d }: { d: TeamData }) {
               {heads.map((h, i) => (
                 <th key={i} scope="col" className="t-label pb-1">
                   <span className="block">{h.wd}</span>
-                  <span className="block font-mono tabular-nums">{h.num}</span>
+                  <span className="block tabular-nums">{h.num}</span>
                 </th>
               ))}
               <th scope="col" className="t-label pb-1 !text-accent-text">
                 <span className="block">Today</span>
-                <span className="block font-mono tabular-nums">{todayHead.num}</span>
+                <span className="block tabular-nums">{todayHead.num}</span>
               </th>
             </tr>
           </thead>
@@ -207,7 +207,7 @@ function StatusGrid({ d }: { d: TeamData }) {
                   <td
                     key={x.day}
                     title={`${r.name}, ${formatDate(x.day, d.today)}: ${formatNumber(x.orders)} orders placed.${r.hasTeam ? ` ${STATUS_WORD[x.status]}` : ""}`}
-                    className={`h-11 rounded-md font-mono text-[12px] font-semibold tabular-nums ${r.hasTeam ? CELL[x.status] : "bg-surface2 text-muted"}`}
+                    className={`h-11 rounded-md text-[12px] font-semibold tabular-nums ${r.hasTeam ? CELL[x.status] : "bg-surface2 text-muted"}`}
                   >
                     {x.orders > 0 ? compact(x.orders) : "·"}
                     {r.hasTeam ? <span className="sr-only"> {STATUS_WORD[x.status]}</span> : null}
@@ -215,7 +215,7 @@ function StatusGrid({ d }: { d: TeamData }) {
                 ))}
                 <td
                   title={`${r.name}, today so far: ${formatNumber(r.today)} orders placed${r.late ? `; ${formatNumber(r.late)} past dispatch time` : ""}`}
-                  className="h-11 rounded-md bg-accent-soft font-mono text-[12px] font-semibold tabular-nums text-accent-text ring-1 ring-inset ring-accent"
+                  className="h-11 rounded-md bg-accent-soft text-[12px] font-semibold tabular-nums text-accent-text ring-1 ring-inset ring-accent"
                 >
                   {r.today > 0 ? compact(r.today) : "·"}
                   {r.late ? <span className="block text-[10px] font-semibold text-bad">{compact(r.late)} late</span> : null}

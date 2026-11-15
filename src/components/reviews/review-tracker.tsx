@@ -93,7 +93,7 @@ function TargetRing({ reviews, target, color, size = 60 }: { reviews: number | n
           <circle cx="50" cy="50" r="42" fill="none" style={{ stroke: done ? "var(--ok)" : color }} strokeWidth="11" strokeLinecap="round" pathLength={100} strokeDasharray={`${share * 100} 100`} className="sp-gauge-arc" />
         ) : null}
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center font-mono text-sm font-bold tabular-nums">{reviews == null ? "—" : compact(reviews)}</span>
+      <span className="absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums">{reviews == null ? "—" : compact(reviews)}</span>
     </span>
   );
 }
@@ -181,7 +181,7 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
                 <span aria-hidden="true" className="wh-dot" style={{ background: PLATFORM_COLOR[p], color: PLATFORM_COLOR[p] }} />
                 {p}
               </span>
-              <span className="font-mono font-medium tabular-nums">
+              <span className="font-medium tabular-nums">
                 {formatNumber(t.byPlatform[p].reviews)} <span className="t-caption">{pct(t.byPlatform[p].reviews, t.reviews)}%</span>
                 {prevDay ? <span className={`ml-1.5 text-xs ${changeClass(t.byPlatform[p].change)}`}>{signed(t.byPlatform[p].change)}</span> : null}
               </span>
@@ -230,13 +230,13 @@ function PriorityChart({ lines, priority, onPriority }: { lines: ReviewLine[]; p
                   className={`focus-ring grid min-h-10 w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[var(--radius)] px-2 py-1.5 text-left hover:bg-[var(--row-hover)] ${on ? "bg-accent-soft ring-1 ring-inset ring-accent" : ""}`}
                   title={`${priorityLong(r.priority)}: ${formatNumber(r.have)} of ${formatNumber(r.target)} reviews, ${r.atTarget} of ${r.links} links at target`}
                 >
-                  <span className="font-mono text-sm font-bold">{priorityName(r.priority)}</span>
+                  <span className="tabular-nums text-sm font-bold">{priorityName(r.priority)}</span>
                   <span className="block h-3.5 min-w-0">
                     <span className="flex h-full overflow-hidden rounded-full bg-surface2" style={{ width: `${Math.max(6, (r.target / max) * 100)}%` }}>
                       <span className="sp-bar block h-full rounded-full" style={{ ...style(i), width: `${pct(r.have, r.target)}%`, background: r.have >= r.target ? "var(--ok)" : "linear-gradient(90deg, var(--accent), var(--cyan))" }} />
                     </span>
                   </span>
-                  <span className="whitespace-nowrap text-right font-mono text-xs tabular-nums">
+                  <span className="whitespace-nowrap text-right text-xs tabular-nums">
                     <b className="text-sm">{pct(r.have, r.target)}%</b>
                     <span className="block text-muted">
                       {r.atTarget}/{r.links} done
@@ -298,7 +298,7 @@ function ClosestChart({ lines }: { lines: ReviewLine[] }) {
                   <span className="h-2.5 overflow-hidden rounded-full bg-surface2">
                     <span className="sp-bar block h-full rounded-full" style={{ ...style(i), width: `${pct(l.reviews ?? 0, l.target ?? 1)}%`, background: PLATFORM_COLOR[l.platform] }} />
                   </span>
-                  <span className="whitespace-nowrap text-right font-mono text-xs tabular-nums">
+                  <span className="whitespace-nowrap text-right text-xs tabular-nums">
                     <b className={`text-sm ${order === "nearest" && go <= 10 ? "text-warn" : ""}`}>{formatNumber(go)} to go</b>
                     <span className="block text-muted">
                       {formatNumber(l.reviews ?? 0)}/{formatNumber(l.target ?? 0)}
@@ -405,7 +405,7 @@ function LinkCard({ l, index }: { l: ReviewLine; index: number }) {
           ) : go === 0 ? (
             <Chip tone="ok">Target reached</Chip>
           ) : (
-            <span className="font-mono tabular-nums">
+            <span className="tabular-nums">
               <b className={go <= 10 ? "text-warn" : ""}>{formatNumber(go)}</b> <span className="text-muted">to go of {formatNumber(l.target ?? 0)}</span>
             </span>
           )}
@@ -432,7 +432,7 @@ function LinkCards({ list }: { list: ReviewLine[] }) {
           <div key={p} className="sp-card g-pad min-w-0">
             <div className="g-head flex flex-wrap items-center gap-x-3 gap-y-1">
               <h3 className="t-card-title">{priorityLong(p)}</h3>
-              <span className="t-caption font-mono tabular-nums">
+              <span className="t-caption tabular-nums">
                 {ls.length} link{ls.length === 1 ? "" : "s"} · {g.atTarget} at target
               </span>
               {g.target ? (
@@ -440,7 +440,7 @@ function LinkCards({ list }: { list: ReviewLine[] }) {
                   <span className="g-track g-track-thin flex-1" aria-hidden="true">
                     <span className="sp-bar" style={{ width: `${pct(g.have, g.target)}%` }} />
                   </span>
-                  <span className="font-mono text-xs font-semibold tabular-nums">{pct(g.have, g.target)}%</span>
+                  <span className="text-xs font-semibold tabular-nums">{pct(g.have, g.target)}%</span>
                 </span>
               ) : null}
             </div>
@@ -505,7 +505,7 @@ function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDa
                 </td>
                 <td className="num">{l.reviews == null ? "—" : formatNumber(l.reviews)}</td>
                 {prevDay ? <td className="num text-muted">{l.before == null ? "—" : formatNumber(l.before)}</td> : null}
-                {prevDay ? <td className={`px-3 py-2 text-right font-mono font-bold tabular-nums ${changeClass(l.change)}`}>{signed(l.change)}</td> : null}
+                {prevDay ? <td className={`px-3 py-2 text-right font-bold tabular-nums ${changeClass(l.change)}`}>{signed(l.change)}</td> : null}
                 <td>
                   <TargetBar reviews={l.reviews} target={l.target} color={PLATFORM_COLOR[l.platform]} />
                 </td>
@@ -539,7 +539,7 @@ function TargetBar({ reviews, target, color }: { reviews: number | null; target:
       <span className="h-2 w-16 shrink-0 overflow-hidden rounded-full bg-surface2">
         <span className="block h-full rounded-full" style={{ width: `${share * 100}%`, background: done ? "var(--ok)" : color }} />
       </span>
-      <span className={`whitespace-nowrap font-mono text-xs tabular-nums ${done ? "text-ok" : "text-muted"}`}>{done ? "done" : `${formatNumber(target - have)} to go`}</span>
+      <span className={`whitespace-nowrap text-xs tabular-nums ${done ? "text-ok" : "text-muted"}`}>{done ? "done" : `${formatNumber(target - have)} to go`}</span>
     </span>
   );
 }
@@ -715,14 +715,14 @@ function TrendLine({ trend, day }: { trend: ReviewsView["trend"]; day: string | 
         {trend.map((t, i) => (
           <span
             key={`${t.day}-v`}
-            className="sp-fade absolute whitespace-nowrap pb-2 font-mono text-[11px] font-bold tabular-nums text-ink"
+            className="sp-fade absolute whitespace-nowrap pb-2 text-[11px] font-bold tabular-nums text-ink"
             style={{ left: `${x(i)}%`, top: `${y(t.reviews)}%`, transform: `translate(${i === 0 ? "0" : i === trend.length - 1 ? "-100%" : "-50%"}, -100%)` }}
           >
             {compact(t.reviews)}
           </span>
         ))}
       </div>
-      <div className="relative mt-2 h-4 font-mono text-[11px] text-faint" aria-hidden="true">
+      <div className="tabular-nums relative mt-2 h-4 text-[11px] text-faint" aria-hidden="true">
         {trend.map((t, i) => (
           <span key={t.day} className="absolute whitespace-nowrap" style={{ left: `${x(i)}%`, transform: i === 0 ? "none" : i === trend.length - 1 ? "translateX(-100%)" : "translateX(-50%)" }}>
             {dayShort(t.day)}
@@ -743,7 +743,7 @@ function Trend({ trend, day }: { trend: ReviewsView["trend"]; day: string | null
           const prev = trend[i - 1];
           const change = prev ? t.reviews - prev.reviews : null;
           return (
-            <li key={t.day} className={`g-chip font-mono ${t.day === day ? "tone-accent" : ""}`}>
+            <li key={t.day} className={`tabular-nums g-chip ${t.day === day ? "tone-accent" : ""}`}>
               <b>{dayShort(t.day)}</b> {formatNumber(t.reviews)}
               {change != null ? <span className={`ml-1.5 ${changeClass(change)}`}>{signed(change)}</span> : null}
               {t.missing ? <span className="ml-1.5 text-warn">{t.missing} not read</span> : null}

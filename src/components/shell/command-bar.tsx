@@ -318,7 +318,7 @@ export function CommandBar({
           >
             <SearchIcon className="h-[18px] w-[18px] shrink-0" />
             <span className="min-w-0 flex-1 truncate">Search SKUs, orders, tickets</span>
-            <kbd className="g-chip font-mono">Ctrl K</kbd>
+            <kbd className="tabular-nums g-chip">Ctrl K</kbd>
           </button>
 
           <div className="ml-auto flex shrink-0 items-center gap-2 min-[700px]:gap-3">

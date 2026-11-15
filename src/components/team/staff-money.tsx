@@ -66,15 +66,15 @@ export function StaffMoneySheet({ person, entries, today, onClose }: { person: {
       <dl className="grid grid-cols-3 gap-2 rounded-xl bg-surface2/60 p-3">
         <div className="min-w-0">
           <dt className="text-[11px] font-bold text-muted">Advance due</dt>
-          <dd className={`mt-1 font-mono text-lg font-bold tabular-nums ${s.due > 0 ? "text-warn" : ""}`}>{formatINR(s.due)}</dd>
+          <dd className={`mt-1 text-lg font-bold tabular-nums ${s.due > 0 ? "text-warn" : ""}`}>{formatINR(s.due)}</dd>
         </div>
         <div className="min-w-0">
           <dt className="text-[11px] font-bold text-muted">Advance this month</dt>
-          <dd className="mt-1 font-mono text-lg font-bold tabular-nums">{formatINR(s.thisMonth.advance)}</dd>
+          <dd className="mt-1 text-lg font-bold tabular-nums">{formatINR(s.thisMonth.advance)}</dd>
         </div>
         <div className="min-w-0">
           <dt className="text-[11px] font-bold text-muted">Expenses this month</dt>
-          <dd className="mt-1 font-mono text-lg font-bold tabular-nums">{formatINR(s.thisMonth.expense)}</dd>
+          <dd className="mt-1 text-lg font-bold tabular-nums">{formatINR(s.thisMonth.expense)}</dd>
         </div>
       </dl>
 
@@ -97,7 +97,7 @@ export function StaffMoneySheet({ person, entries, today, onClose }: { person: {
         <div className="mt-3 grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
             Amount (₹)
-            <input className="input font-mono" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="2000" autoFocus />
+            <input className="tabular-nums input" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="2000" autoFocus />
           </label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-muted">
             Date
@@ -137,7 +137,7 @@ export function StaffMoneySheet({ person, entries, today, onClose }: { person: {
                       <span className={`block text-xs font-bold ${TONE[e.kind]}`}>{STAFF_MONEY_KINDS.find((k) => k.kind === e.kind)?.label}</span>
                       {e.note ? <span className="block truncate text-xs text-muted">{e.note}</span> : null}
                     </span>
-                    <span className={`shrink-0 font-mono text-sm font-bold tabular-nums ${TONE[e.kind]}`}>
+                    <span className={`shrink-0 text-sm font-bold tabular-nums ${TONE[e.kind]}`}>
                       {SIGN[e.kind]}
                       {formatINR(e.amount)}
                     </span>

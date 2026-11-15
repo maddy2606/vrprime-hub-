@@ -118,7 +118,7 @@ function PlacementBar({ rows }: { rows: ReturnType<typeof placementRows> }) {
           <li key={r.pl} className="flex items-baseline gap-2">
             <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 translate-y-0.5 rounded-full" style={{ background: placeColor(r.order) }} />
             <span className="font-bold">{r.short}</span>
-            <span className="font-mono tabular-nums">{inr(r.spend)}</span>
+            <span className="tabular-nums">{inr(r.spend)}</span>
             <span className="text-muted">
               {pct(r.spend / spend, 0)} · ROI <b style={{ color: roiColor(r.roi) }}>{roi2(r.roi)}</b> · CPC {rs2(r.cpc)}
             </span>
@@ -193,7 +193,7 @@ function DataTable<R extends Result>({ rows, cols, initial, onRow, search, filte
             {list.slice(0, limit).map((r, i) => (
               <tr key={i} className={`border-b border-line-soft ${onRow ? "cursor-pointer hover:bg-surface2/60" : ""}`} onClick={onRow ? () => onRow(r) : undefined}>
                 {cols.map((c) => (
-                  <td key={c.label} className={`px-2 py-2 align-top ${c.num ? "whitespace-nowrap text-right font-mono tabular-nums" : ""} ${c.wide ? "min-w-48 max-w-80" : ""}`}>
+                  <td key={c.label} className={`px-2 py-2 align-top ${c.num ? "whitespace-nowrap text-right tabular-nums" : ""} ${c.wide ? "min-w-48 max-w-80" : ""}`}>
                     {c.render(r)}
                   </td>
                 ))}
@@ -329,7 +329,7 @@ function Row({ title, sub, right, onClick, children }: { title: ReactNode; sub?:
         {sub ? <span className="t-caption block truncate">{sub}</span> : null}
         {children}
       </span>
-      <span className="flex shrink-0 flex-col items-end font-mono text-sm tabular-nums">{right}</span>
+      <span className="flex shrink-0 flex-col items-end text-sm tabular-nums">{right}</span>
     </>
   );
   const cls = `tone-row ${tone ? `tone-${tone}` : ""} !flex-nowrap !items-start border-b border-line-soft last:border-0`;
@@ -443,12 +443,12 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
       <span className="mt-1 flex flex-col gap-0.5 text-xs text-muted">
         {k.map((x) => (
           <span key={`k${x.key}`} className="truncate">
-            <b className="font-mono text-[10px] text-ink">KW</b> {x.kw} · {rs(x.spend)} · {x.units ? `ROI ${roi2(x.roi)}` : "0 sales"}
+            <b className="tabular-nums text-[10px] text-ink">KW</b> {x.kw} · {rs(x.spend)} · {x.units ? `ROI ${roi2(x.roi)}` : "0 sales"}
           </span>
         ))}
         {q.map((x) => (
           <span key={`q${x.term}`} className="truncate">
-            <b className="font-mono text-[10px] text-ink">ST</b> {x.term} · {rs(x.spend)} · {x.units ? `ROI ${roi2(x.roi)}` : "0 sales"}
+            <b className="tabular-nums text-[10px] text-ink">ST</b> {x.term} · {rs(x.spend)} · {x.units ? `ROI ${roi2(x.roi)}` : "0 sales"}
           </span>
         ))}
       </span>
@@ -568,7 +568,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                       <button type="button" onClick={() => goTo(fl.tab, g.v)} className="focus-ring flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-surface2/60">
                         <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: V_COLOR[g.v] }} />
                         <span className="font-bold">{g.label}</span>
-                        <span className="font-mono tabular-nums">{inr(g.spend)}</span>
+                        <span className="tabular-nums">{inr(g.spend)}</span>
                         <span className="text-muted">
                           {pct(g.share, 0)} · {n0(g.n)} · ROI {roi2(g.roi)}
                         </span>
@@ -640,7 +640,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                         key={k.key}
                         title={
                           <>
-                            {k.kw} <span className="font-mono text-[10px] text-muted">{k.mt}</span>
+                            {k.kw} <span className="tabular-nums text-[10px] text-muted">{k.mt}</span>
                           </>
                         }
                         sub={`${k.name} · paying ${rs2(k.cpc)}`}
@@ -916,7 +916,7 @@ function NegativesPanel({ negs, state, setState, mark, period, onCopied }: { neg
                 <span className="block text-sm font-bold [overflow-wrap:anywhere]">{n.term}</span>
                 <span className="block truncate text-xs text-muted">{n.name}</span>
               </span>
-              <span className="font-mono text-sm tabular-nums">
+              <span className="text-sm tabular-nums">
                 <b>{rs(n.spend)}</b> <span className="text-muted">· {n0(n.clicks)} clicks ·</span> <span style={{ color: roiColor(n.roi) }}>{n.units ? `ROI ${roi2(n.roi)}` : "0 sales"}</span>
               </span>
               <span className="flex gap-1.5">
@@ -964,7 +964,7 @@ function MiniTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
           {rows.map((r, i) => (
             <tr key={i} >
               {r.map((c, j) => (
-                <td key={j} className={`px-1.5 py-1.5 ${j ? "whitespace-nowrap text-right font-mono tabular-nums" : "font-semibold [overflow-wrap:anywhere]"}`}>
+                <td key={j} className={`px-1.5 py-1.5 ${j ? "whitespace-nowrap text-right tabular-nums" : "font-semibold [overflow-wrap:anywhere]"}`}>
                   {c}
                 </td>
               ))}
@@ -1007,7 +1007,7 @@ function CampaignSheet({ cid, onClose, data, camps, kws, from, to, min, max }: {
             ).map(([l, v, w]) => (
               <div key={l} className="sp-inner min-w-0 p-2.5">
                 <dt className="t-label">{l}</dt>
-                <dd className="font-mono text-base font-semibold tabular-nums" style={l === "ROI" ? { color: roiColor(c.roi) } : undefined}>{v}</dd>
+                <dd className="text-base font-semibold tabular-nums" style={l === "ROI" ? { color: roiColor(c.roi) } : undefined}>{v}</dd>
                 <dd className="t-caption">{w}</dd>
               </div>
             ))}
@@ -1023,8 +1023,8 @@ function CampaignSheet({ cid, onClose, data, camps, kws, from, to, min, max }: {
           {series.map((d) => (
             <div key={d.day} title={`${dm(d.day)}: ${rs(d.spend)}, ROI ${roi2(d.roi)}, ${n0(d.units)} units`} className="flex h-full min-w-6 flex-1 flex-col items-center justify-end gap-0.5">
               <span className={`w-full rounded-t ${d.day >= from && d.day <= to ? "bg-accent" : "bg-surface2"}`} style={{ height: `${Math.max(2, (d.spend / top) * 100)}%` }} />
-              <span className="font-mono text-[9px] font-bold" style={{ color: roiColor(d.roi) }}>{d.roi.toFixed(1)}</span>
-              <span className="font-mono text-[9px] text-muted">{Number(d.day.slice(8))}</span>
+              <span className="tabular-nums text-[9px] font-bold" style={{ color: roiColor(d.roi) }}>{d.roi.toFixed(1)}</span>
+              <span className="tabular-nums text-[9px] text-muted">{Number(d.day.slice(8))}</span>
             </div>
           ))}
         </div>

@@ -37,3 +37,16 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
   Ads tracker, Ads Desk problem cards, Team suggestions, Reviews removed and the alerts panel; section 8 page headers
   on Team, Tickets, My work, Ads tracker, Ads Desk, Review tracker. Figures in Inter tabular; Geist Mono only for IDs.
 - Checks: tsc, lint clean. Seen in dark 1440 and 390 (headless Edge), light 1440 for the Command Centre.
+
+## 4. Speed (Part B): done
+- No blur anywhere (Phase 1). `src/server/short-cache.ts` (+ unit tests) and `short-cache-user.ts`: 30-second cache
+  keyed by user id + function + JSON arguments around loadOrderCounts, deck_series, dispatch_series, team_order_load
+  (deck and team), loadStockDesk, loadEmpties, loadCover, loadReturnRates, loadTeamCapacity and loadPnl (P&L and
+  Dashboard money). Cleared at the end of startOrdersSync, startStockSync, syncInventoryNow, uploadInventory,
+  syncAdsReport, uploadAdsReport, uploadMasterSkus and saveMasterCosts.
+- next.config.ts: experimental.staleTimes.dynamic = 30 (documented in this version's staleTimes guide).
+- loading.tsx with the shared skeleton (header, KPI row, two cards) on all 22 routes.
+- Timings on the local dev server, live database, after one warm-up load each (ms):
+  - before: loadDeck 672, 1052, 2198, 2162, 3488 · loadDashboard 1814, 1753, 5777, 787, 738
+  - after: loadDeck 129, 135, 101, 134, 153 · loadDashboard 209, 224, 328, 229, 241
+  Timing code removed. No query or calculation changed.

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { fieldErrors, settingsSchema } from "@/lib/validation";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
+import { clearShortCache } from "@/server/short-cache";
 
 /** The thresholds on the Stock page. Owner only; the database checks that too. */
 export async function saveSettings(input: unknown): Promise<ActionResult> {
@@ -59,6 +60,15 @@ export type MasterUploadResult = { rows: number; added: number; changed: number;
  * database checks that too and does the whole replacement in one transaction.
  */
 export async function uploadMasterSkus(csv: unknown): Promise<ActionResult<MasterUploadResult>> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await uploadMasterSkusRun(csv);
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function uploadMasterSkusRun(csv: unknown): Promise<ActionResult<MasterUploadResult>> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   if (user.role !== "owner") return { ok: false, message: "Only the owner can upload the master SKU list." };

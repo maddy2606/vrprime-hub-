@@ -8,11 +8,21 @@ import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
 import { readOrderSyncState } from "@/server/flipkart-data";
+import { clearShortCache } from "@/server/short-cache";
 
 const CAN_SYNC = ["owner", "admin"];
 
 /** The "Sync now" buttons on the Orders and Returns tabs. Owner and admin only (the database checks this too). */
 export async function startOrdersSync(kind: "pending" | "daily" | "upcoming"): Promise<ActionResult<{ run: RunSummary }>> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await startOrdersSyncRun(kind);
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function startOrdersSyncRun(kind: "pending" | "daily" | "upcoming"): Promise<ActionResult<{ run: RunSummary }>> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   if (!CAN_SYNC.includes(user.role)) return { ok: false, message: "Only an owner or an admin can sync orders." };

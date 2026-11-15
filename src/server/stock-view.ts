@@ -1,4 +1,5 @@
 import "server-only";
+import { forUser } from "@/server/short-cache-user";
 import { buildStockView, stockMeta, type StockMeta, type StockQuery, type StockViewData } from "@/lib/stock-view";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionUser } from "@/lib/types";
@@ -24,7 +25,12 @@ export type StockDeskData =
  * Reads the snapshot and works the Stock tab out on the server. Only `view` (counts, tiles, cards and one page of the
  * list that is open) is sent to the browser; the snapshot itself never leaves the server.
  */
+/** The stock desk, through the 30-second short cache (graphite-spec 10.2). */
 export async function loadStockDesk(user: SessionUser, q: StockQuery, limit?: number): Promise<StockDeskData> {
+  return forUser("loadStockDesk", [q, limit ?? null], () => loadStockDeskFresh(user, q, limit));
+}
+
+async function loadStockDeskFresh(user: SessionUser, q: StockQuery, limit?: number): Promise<StockDeskData> {
   const supabase = await createClient();
   const [page, settings, cover] = await Promise.all([loadStockPage(user, canSyncOrders(user)), loadFlipkartSettings(supabase), loadCover(supabase)]);
   if (page.kind === "empty") return { kind: "empty", page };

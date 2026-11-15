@@ -369,7 +369,7 @@ export function PostListSkeleton({ rows = 5 }: { rows?: number }) {
 /** A route's loading screen: the page header, a KPI row, then two cards, in grey Skeleton blocks (graphite-spec 10.4). */
 export function PageSkeleton({ kpis = 4 }: { kpis?: number }) {
   return (
-    <div aria-busy="true" aria-label="Loading" className="vr-page">
+    <div aria-busy="true" aria-label="Loading">
       <div className="mb-4">
         <div className="skeleton h-8 w-56" />
         <div className="skeleton mt-2 h-4 w-80 max-w-full" />

@@ -1,4 +1,5 @@
 import "server-only";
+import { forUser } from "@/server/short-cache-user";
 import type { MasterRow } from "@/lib/master-csv";
 import { getLookups } from "@/lib/data";
 import {
@@ -216,7 +217,17 @@ export async function loadOrderSyncState(supabase: Supabase, canSeeError: boolea
 // --- Returns ---------------------------------------------------------------------------------------------------------------
 // The list and its totals are read a page at a time: see src/server/returns-view.ts.
 
+/** Return rates, through the 30-second short cache (graphite-spec 10.2). */
 export async function loadReturnRates(
+  supabase: Supabase,
+  settings: FlipkartSettings,
+  today: string,
+  coverageFrom?: string | null,
+): Promise<{ rates: ReturnRate[]; historyReady: boolean; coverageFrom: string | null }> {
+  return forUser("loadReturnRates", [settings, today, coverageFrom ?? null], () => loadReturnRatesFresh(supabase, settings, today, coverageFrom));
+}
+
+async function loadReturnRatesFresh(
   supabase: Supabase,
   settings: FlipkartSettings,
   today: string,
@@ -254,7 +265,12 @@ export type CoverData = {
  * dispatched per day over the last 30 complete days, and the stock there is now. Row level security means a warehouse
  * user's numbers cover only their own warehouses.
  */
+/** Days of cover, through the 30-second short cache (graphite-spec 10.2). */
 export async function loadCover(supabase: Supabase): Promise<CoverData> {
+  return forUser("loadCover", [], () => loadCoverFresh(supabase));
+}
+
+async function loadCoverFresh(supabase: Supabase): Promise<CoverData> {
   const { data, error } = await supabase.rpc("flipkart_forecast", { p_days: 30 });
   if (error) fail("days of cover", error);
   const parsed = readForecast(data);
@@ -273,7 +289,12 @@ export async function loadCover(supabase: Supabase): Promise<CoverData> {
 }
 
 /** SKUs with no stock at a warehouse that has orders waiting to be packed there. */
+/** Orders with no stock, through the 30-second short cache (graphite-spec 10.2). */
 export async function loadEmpties(supabase: Supabase): Promise<{ sku: string; warehouseId: string; orders: number; units: number }[]> {
+  return forUser("loadEmpties", [], () => loadEmptiesFresh(supabase));
+}
+
+async function loadEmptiesFresh(supabase: Supabase): Promise<{ sku: string; warehouseId: string; orders: number; units: number }[]> {
   const { data, error } = await supabase.rpc("flipkart_empty_with_orders");
   if (error) fail("empty with orders", error);
   return (Array.isArray(data) ? data : []).flatMap((r) => {

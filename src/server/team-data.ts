@@ -1,4 +1,5 @@
 import "server-only";
+import { forUser } from "@/server/short-cache-user";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import {
@@ -127,7 +128,12 @@ function readSettings(rows: { key: string; value: unknown }[]): CapacitySettings
  * What the whole team packs comfortably in a day, the same sum the Team page makes: per warehouse, people x recent
  * attendance x orders a person. Null when nobody is set up, or for a reader who cannot see the team (warehouse users).
  */
+/** Team capacity, through the 30-second short cache (graphite-spec 10.2). */
 export async function loadTeamCapacity(db: Loose, today: string): Promise<{ staff: number; comfortable: number } | null> {
+  return forUser("loadTeamCapacity", [today], () => loadTeamCapacityFresh(db, today));
+}
+
+async function loadTeamCapacityFresh(db: Loose, today: string): Promise<{ staff: number; comfortable: number } | null> {
   const [staffRes, markRes, setRes] = await Promise.all([
     db.from("staff").select("id, warehouse_id").eq("active", true).not("warehouse_id", "is", null),
     db.from("attendance").select("staff_id, status").gte("day", shiftDay(today, -14)).lte("day", today),
@@ -172,7 +178,7 @@ export async function loadTeam(user: SessionUser, db: Loose, requestedDay: strin
     isOwner ? db.from("staff_pay").select("staff_id, monthly_salary") : Promise.resolve({ data: [], error: null }),
     db.from("attendance").select("staff_id, day, status").gte("day", from).lte("day", to),
     db.from("app_settings").select("key, value").in("key", [...SETTING_KEYS]),
-    db.rpc("team_order_load", { p_days: 35 }),
+    forUser("team_order_load", [{ p_days: 35 }], async () => await db.rpc("team_order_load", { p_days: 35 })),
     // Late orders, the Command Deck's rule: to accept, to pack or to dispatch, not on hold, dispatch time passed. Orders
     // Flipkart is still processing ("Under Processing" in Seller Hub) are left out: their delay is not the warehouse's.
     db

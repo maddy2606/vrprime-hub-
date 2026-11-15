@@ -1,4 +1,5 @@
 import "server-only";
+import { forUser } from "@/server/short-cache-user";
 import {
   PAGE_SIZE,
   readCancelLines,
@@ -28,7 +29,12 @@ function fail(where: string, error: unknown): never {
 const orNull = (s: string) => (s === "" ? null : s);
 
 /** Counts per warehouse in Seller Hub's tabs, one small answer from the database. */
+/** Order counts, through the 30-second short cache (graphite-spec 10.2). */
 export async function loadOrderCounts(supabase: Supabase): Promise<unknown> {
+  return forUser("loadOrderCounts", [], () => loadOrderCountsFresh(supabase));
+}
+
+async function loadOrderCountsFresh(supabase: Supabase): Promise<unknown> {
   const { data, error } = await supabase.rpc("flipkart_order_counts");
   if (error) fail("order counts", error);
   return data;

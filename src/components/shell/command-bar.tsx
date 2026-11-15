@@ -27,7 +27,7 @@ function ago(ms: number): string {
  * "Synced 42s ago · All warehouses" and, for the owner and admins, the Sync now button. It ticks every second and starts
  * over when a sync finishes (checked every minute). On a phone the age sits inside the button to save room.
  */
-function SyncControl({ since, scope, canSync }: { since: string | null; scope: string; canSync: boolean }) {
+export function SyncControl({ since, scope, canSync, place = "bar" }: { since: string | null; scope: string; canSync: boolean; place?: "bar" | "phone" }) {
   const [at, setAt] = useState<string | null>(since);
   const [now, setNow] = useState<number | null>(null);
 
@@ -59,30 +59,22 @@ function SyncControl({ since, scope, canSync }: { since: string | null; scope: s
   // Orders are read every 30 minutes in working hours; an hour with no read is worth a second look.
   const stale = age !== null && age > 60 * 60_000;
   const label = !at ? "Not synced yet" : age === null ? "Synced" : `Synced ${ago(age)}`;
-  const short = !at ? "—" : age === null ? "" : ago(age).replace(" ago", "");
-  const dot = `sp-dot h-2 w-2 shrink-0 rounded-full ${stale || !at ? "bg-warn-mark text-warn-mark" : "bg-ok text-ok"}`;
+  const dot = `g-dot ${stale || !at ? "bg-warn-mark" : "bg-ok"}`;
   return (
-    <>
-      <div className="hidden min-w-0 items-center gap-2 text-xs text-muted sm:flex" role="status" aria-label={`${label}, ${scope}`}>
+    <div className={place === "bar" ? "hidden min-w-0 items-center gap-3 min-[700px]:flex" : "flex min-w-0 items-center justify-between gap-3 min-[700px]:hidden"}>
+      <div className="t-caption flex min-w-0 items-center gap-2" role="status" aria-label={`${label}, ${scope}`}>
         <span aria-hidden="true" className={dot} />
-        <span className="whitespace-nowrap font-mono">{label}</span>
-        <span aria-hidden="true" className="hidden lg:inline">·</span>
-        <span className="hidden truncate lg:inline">{scope}</span>
+        <span className="whitespace-nowrap">{label}</span>
+        <span aria-hidden="true" className={place === "bar" ? "hidden min-[1100px]:inline" : ""}>·</span>
+        <span className={`truncate ${place === "bar" ? "hidden min-[1100px]:inline" : ""}`}>{scope}</span>
       </div>
-      {canSync ? (
-        <SyncNowButton short={short} label={label} dot={dot} />
-      ) : (
-        <span className="flex items-center gap-1.5 font-mono text-xs text-muted sm:hidden" role="status" aria-label={label}>
-          <span aria-hidden="true" className={dot} />
-          {short}
-        </span>
-      )}
-    </>
+      {canSync ? <SyncNowButton label={label} /> : null}
+    </div>
   );
 }
 
 /** "Sync now" in the top bar: one button for everything (VR Prime stock, Flipkart stock and orders). Owner and admin only. */
-function SyncNowButton({ short, label: synced, dot }: { short: string; label: string; dot: string }) {
+function SyncNowButton({ label: synced }: { label: string }) {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "busy" | "done" | "failed">("idle");
 
@@ -114,23 +106,10 @@ function SyncNowButton({ short, label: synced, dot }: { short: string; label: st
       onClick={run}
       disabled={state === "busy"}
       aria-label={`Sync everything now. ${synced}`}
-      className="focus-ring flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-sm font-semibold text-ink transition-colors hover:bg-surface2 disabled:opacity-60 md:px-3"
+      className="g-btn g-btn-secondary focus-ring shrink-0"
     >
-      <RefreshIcon className={`h-5 w-5 ${state === "busy" ? "animate-spin" : ""}`} />
-      {/* Phone: how long ago, with the green/amber dot. Wide screens: the words. */}
-      <span className="flex items-center gap-1 font-mono text-xs font-medium text-muted sm:hidden">
-        {state === "idle" ? (
-          <>
-            <span aria-hidden="true" className={dot} />
-            {short}
-          </>
-        ) : state === "busy" ? (
-          "…"
-        ) : (
-          label
-        )}
-      </span>
-      <span className="hidden md:inline">{label}</span>
+      <RefreshIcon className={`h-[18px] w-[18px] ${state === "busy" ? "animate-spin" : ""}`} />
+      {label}
     </button>
   );
 }
@@ -157,9 +136,9 @@ function AlertBell({ unread }: { unread: number }) {
       onClick={() => window.dispatchEvent(new Event(ALERTS_OPEN_EVENT))}
       aria-haspopup="dialog"
       aria-label={count ? `Alerts and notifications, ${count} unread` : "Alerts and notifications"}
-      className="focus-ring relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface2 hover:text-ink"
+      className="focus-ring relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-160 hover:bg-surface2 hover:text-ink"
     >
-      <BellIcon className="h-6 w-6" />
+      <BellIcon className="h-5 w-5" />
       {count ? (
         <span className="vr-ring absolute right-0.5 top-0.5 rounded-full">
           <UnreadBadge count={count} />
@@ -202,14 +181,14 @@ function AccountMenu({ name, sub, children }: { name: string; sub: string; child
         aria-label="Account menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="focus-ring flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-[13px] font-bold text-accent-text transition-colors hover:bg-accent/20"
+        className="focus-ring flex h-10 w-10 items-center justify-center rounded-full"
       >
-        {initials(name)}
+        <span className="flex h-8 w-8 items-center justify-center rounded-full border border-line-soft bg-surface2 text-[12px] font-bold text-ink">{initials(name)}</span>
       </button>
       {open ? (
-        <div className="sp-pop absolute right-0 top-12 z-50 w-64 p-3" onClick={() => setOpen(false)}>
+        <div className="sp-pop vr-sheet vr-pop absolute right-0 top-12 z-50 w-64 p-3" onClick={() => setOpen(false)}>
           <p className="truncate text-sm font-semibold">{name}</p>
-          <p className="truncate text-xs text-muted">{sub}</p>
+          <p className="t-caption truncate">{sub}</p>
           <div className="mt-3 flex flex-col gap-2">{children}</div>
         </div>
       ) : null}
@@ -246,21 +225,22 @@ export function CommandBar({
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-line bg-canvas pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 w-full max-w-[1280px] items-center gap-1.5 px-3 min-[400px]:px-4 sm:gap-2 lg:px-8">
-          {/* Phones have no side rail, so the logo (home) sits here. */}
+      <header className="vr-bar sticky top-0 z-30 border-b border-line pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex h-14 w-full max-w-[1480px] items-center gap-2 px-3 min-[700px]:h-16 min-[700px]:px-4 min-[1100px]:px-6">
+          {/* Phones have no side rail, so the mark (home) sits here. */}
           <Link
             prefetch={false}
             href="/"
             aria-label="VR Prime Ops, Command Deck"
-            className="focus-ring font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-ink text-[13px] font-bold text-canvas max-[339px]:hidden min-[561px]:hidden"
+            className="focus-ring flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] font-display text-[13px] font-semibold text-accent-ink min-[700px]:hidden"
+            style={{ background: "var(--grad-accent)" }}
           >
             VR
           </Link>
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line bg-surface text-muted transition-colors hover:bg-surface2 sm:hidden"
+            className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line-soft bg-surface2 text-muted transition-colors duration-160 hover:text-ink min-[700px]:hidden"
             aria-label="Search"
             aria-haspopup="dialog"
           >
@@ -269,25 +249,20 @@ export function CommandBar({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="focus-ring hidden min-h-10 min-w-0 flex-1 items-center gap-3 rounded-lg border border-line bg-surface px-3 text-left text-sm text-faint transition-colors hover:bg-surface2 sm:flex md:max-w-sm"
+            className="focus-ring hidden h-10 min-w-0 max-w-[420px] flex-1 items-center gap-3 rounded-full border border-line-soft bg-surface2 px-4 text-left text-sm text-faint transition-colors duration-160 hover:text-muted min-[700px]:flex"
             aria-label="Search (Ctrl K)"
             aria-haspopup="dialog"
           >
-            <SearchIcon className="h-[18px] w-[18px] shrink-0 text-muted" />
+            <SearchIcon className="h-[18px] w-[18px] shrink-0" />
             <span className="min-w-0 flex-1 truncate">Search SKUs, orders, tickets</span>
-            <kbd className="hidden shrink-0 rounded-md border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted sm:block">Ctrl K</kbd>
+            <kbd className="g-chip font-mono">Ctrl K</kbd>
           </button>
 
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <SyncControl since={syncedAt} scope={scope} canSync={user.role !== "warehouse"} />
-            <Link
-              prefetch={false}
-              href="/posts/new"
-              aria-label="New post"
-              className="focus-ring flex h-10 w-10 items-center justify-center gap-1.5 rounded-lg bg-accent text-sm font-semibold text-accent-ink transition hover:brightness-110 sm:w-auto sm:px-3.5"
-            >
-              <PlusIcon className="h-5 w-5" />
-              <span className="hidden sm:inline">Post</span>
+            <Link prefetch={false} href="/posts/new" aria-label="New post" className="g-btn g-btn-primary focus-ring !w-10 !px-0 min-[700px]:!w-auto min-[700px]:!px-4">
+              <PlusIcon className="h-[18px] w-[18px]" />
+              <span className="hidden min-[700px]:inline">Post</span>
             </Link>
             <AlertBell unread={unread} />
             <AccountMenu name={user.name} sub={user.sub}>

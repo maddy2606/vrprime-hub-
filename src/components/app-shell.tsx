@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { AlertCenter } from "@/components/alerts/alert-center";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { PushPrompt } from "@/components/notifications/push-prompt";
-import { CommandBar } from "@/components/shell/command-bar";
+import { CommandBar, SyncControl } from "@/components/shell/command-bar";
 import { Rail } from "@/components/shell/rail";
 import { ThemeSwitch } from "@/components/shell/theme-switch";
 import { buttonClass } from "@/components/ui";
@@ -65,7 +65,11 @@ export async function AppShell({
           </>
         }
       />
-      <main className="mx-auto w-full max-w-[1280px] px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-5 min-[561px]:pb-12 lg:px-8 lg:pt-6">
+      <main className="vr-page pb-[calc(5.5rem+env(safe-area-inset-bottom))] min-[700px]:pb-12">
+        {/* Phone: the sync status (and Sync now for the owner and admin) leaves the top bar and leads the page. */}
+        <div className="mb-3 min-[700px]:hidden">
+          <SyncControl since={syncedAt} scope={scope} canSync={user.role !== "warehouse"} place="phone" />
+        </div>
         {/* The offer to turn on alerts: one line, on the Command Deck only (the component checks the route). */}
         {user.id ? <PushPrompt userId={user.id} /> : null}
         {children}

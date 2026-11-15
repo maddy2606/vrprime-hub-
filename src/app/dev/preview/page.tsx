@@ -157,7 +157,7 @@ export default async function PreviewPage({
       scope={role === "warehouse" ? "2 warehouses" : "All warehouses"}
       syncedAt={PREVIEW_SYNCED}
     >
-      <nav className="mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">
+      <nav className="sp-card t-caption mb-4 flex flex-wrap gap-x-3 gap-y-1 px-4 py-3">
         <span>Preview (fake data), drawn as {role}:</span>
         {(["owner", "admin", "warehouse"] as const).map((r) => (
           <Link prefetch={false} key={r} href={`/dev/preview?view=${view}&role=${r}`} className={r === role ? "" : "underline"}>

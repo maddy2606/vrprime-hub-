@@ -65,12 +65,12 @@ export function PushSettings({ userId }: { userId: string }) {
   }
 
   return (
-    <Card className="mb-4 p-4">
+    <Card className="g-pad mb-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-semibold">Alerts on this phone</h2>
+        <h2 className="t-card-title">Alerts on this phone</h2>
         <Chip tone={status.tone}>{status.label}</Chip>
       </div>
-      {status.help ? <p className="mt-1.5 text-sm text-muted">{status.help}</p> : null}
+      {status.help ? <p className="t-caption mt-1.5">{status.help}</p> : null}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         {state === "off" ? (
           <button type="button" disabled={pending} onClick={() => run(enable)} className={buttonClass("primary")}>

@@ -22,7 +22,7 @@ export default async function NotificationsPage() {
 
   const unread = items.filter((n) => !n.read_at).length;
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-[780px]">
       <PageTitle
         title="Notifications"
         sub={unread ? `${unread} unread` : items.length ? "You are all caught up" : undefined}

@@ -96,17 +96,17 @@ export function NotificationCard({
   const tone = kindTone(n.kind);
   // The icon sits in the top row, so the title, the lines and the buttons get the card's full width on a phone.
   return (
-    <div className={`relative overflow-hidden rounded-xl border ${unread ? "border-line bg-surface" : "border-line-soft bg-surface/70"}`}>
-      <div className="px-3.5 py-3">
+    <div className={`tone-row tone-${tone} !block`}>
+      <div>
         <div className="flex items-center gap-2">
           <KindIcon kind={n.kind} className={`h-[18px] w-[18px] shrink-0 ${TONE_ICON[tone]} ${unread ? "" : "opacity-60"}`} />
           <Chip tone={tone}>{NOTIFICATION_ICON_LABEL[n.kind] ?? "Update"}</Chip>
           {unread ? <span aria-label="Unread" className="h-2 w-2 shrink-0 rounded-full bg-accent" /> : null}
-          <span className="ml-auto shrink-0 text-xs text-muted">{when}</span>
+          <span className="t-caption ml-auto shrink-0">{when}</span>
         </div>
-        <p className={`mt-2 break-words text-[15px] leading-snug ${unread ? "font-semibold" : "font-medium text-ink/80"}`}>{n.title}</p>
+        <p className={`tone-row-title mt-2 break-words ${unread ? "" : "font-medium text-muted"}`}>{n.title}</p>
         <AlertBody kind={n.kind} body={n.body} />
-        {note ? <p className="mt-2 text-xs font-semibold text-muted">{note}</p> : null}
+        {note ? <p className="t-caption mt-2">{note}</p> : null}
         {children}
       </div>
     </div>

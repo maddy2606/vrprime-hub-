@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { ChangePasswordForm } from "@/components/auth/auth-forms";
 import { Filters } from "@/components/posts/filters";
 import { MyWork } from "@/components/posts/my-work";
-import { PostGrid } from "@/components/posts/post-card";
+import { PostGrid, WorkSwitch } from "@/components/posts/post-card";
 import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
 import { SettingsForm } from "@/components/admin/settings-form";
@@ -39,8 +39,8 @@ import { MarkAllReadButton, NotificationList } from "@/components/notifications/
 import { PushSettings } from "@/components/notifications/push-settings";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
-import { TicketForm } from "@/components/tickets/ticket-form";
-import { PageTitle, PostListSkeleton } from "@/components/ui";
+import { LinkedPostCard, TicketForm } from "@/components/tickets/ticket-form";
+import { buttonClass, Headline, Num, PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
 import {
   FAKE_ALERTS,
@@ -183,10 +183,12 @@ export default async function PreviewPage({
         const p = fakePnl();
         return <PnlBoard months={p.months} month={p.months[0]?.month ?? null} costing={p.costing} uploads={p.uploads} feePct={p.feePct} reportSkus={p.reportSkus} error={p.error} />;
       })() : null}
+      {view === "mywork" || view === "empty" ? <WorkSwitch on="mine" /> : null}
       {view === "mywork" ? <MyWork posts={open} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "empty" ? <MyWork posts={[]} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "all" ? (
         <>
+          <WorkSwitch on="all" />
           <PageTitle title="All posts" sub={`${FAKE_POSTS.length} posts`} />
           <Filters
             values={{ q: "", type: "", status: "", warehouse: "", assignee: "", priority: "", overdue: true, nl: "", sort: "updated" }}
@@ -226,9 +228,12 @@ export default async function PreviewPage({
       ) : null}
       {view === "tickets" ? (
         <>
-          <PageTitle title="Tickets" sub="2 open · 1 waiting · 2 follow-up due" />
+          <PageTitle title="Tickets" action={<Link prefetch={false} href="/dev/preview?view=newticket" className={buttonClass("primary", "shrink-0")}>+ Ticket</Link>} />
+          <Headline className="mb-4">
+            <Num>2</Num> open, <Num>1</Num> waiting, <Num tone="bad">2</Num> follow-up due.
+          </Headline>
           <TicketFilters values={{ q: "", platform: "", issue: "", tab: "open" }} counts={{ open_count: 2, waiting_count: 1, follow_up_due: 2, closed_count: 1 }} />
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className="g-cards">
             {FAKE_TICKETS.map((t) => {
               const post: TicketPost | null = FAKE_POSTS.find((p) => p.id === t.post_id) ?? null;
               return (
@@ -245,13 +250,14 @@ export default async function PreviewPage({
         </>
       ) : null}
       {view === "ticket" || view === "newticket" ? (
-        <div className="mx-auto max-w-2xl">
+        <div>
           <PageTitle title={view === "ticket" ? "VR-T-118" : "New ticket"} />
           <TicketForm
             key={view}
             ticketId={view === "ticket" ? FAKE_TICKETS[0].id : undefined}
             today={today}
             linkedPost={view === "newticket" ? { id: FAKE_POSTS[0].id, number: FAKE_POSTS[0].number, title: FAKE_POSTS[0].title } : null}
+            aside={view === "ticket" ? <LinkedPostCard post={{ id: FAKE_POSTS[0].id, number: FAKE_POSTS[0].number, title: FAKE_POSTS[0].title }} /> : undefined}
             initial={
               view === "ticket"
                 ? {
@@ -273,7 +279,7 @@ export default async function PreviewPage({
         <ExpensesBoard month="2026-10" months={FAKE_EXPENSE_MONTHS} previous={FAKE_EXPENSE_MONTHS[1]} expenses={FAKE_EXPENSES} whatsapp={sp.wa === "none" ? { ...FAKE_WHATSAPP, linkedAs: null, groupId: null, groupName: null } : FAKE_WHATSAPP} today={today} plan={sp.budget === "none" ? { ...FAKE_BUDGET_PLAN, lines: [] } : FAKE_BUDGET_PLAN} locked={sp.locked === "none" ? [] : FAKE_LOCKED} />
       ) : null}
       {view === "notifications" ? (
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-[780px]">
           <PageTitle title="Notifications" sub="3 unread" action={<MarkAllReadButton />} />
           <PushSettings userId={me.id} />
           <NotificationList items={[...FAKE_ALERTS, ...FAKE_NOTIFICATIONS]} />

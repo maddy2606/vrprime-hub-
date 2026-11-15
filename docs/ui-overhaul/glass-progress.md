@@ -51,3 +51,17 @@ Reviews, Team, P&L · 7 Admin, sign-in, Money · 8 Accessibility pass and colour
 - Master SKUs: toolbar; new master form as a Card; products as Cards with SKU chips; Not linked yet and Removed as ledgers.
 - Fixed a 4 px sideways scroll on phones from edge-to-edge pill rows (Flipkart, Ads Desk, P&L, Expenses, Money, Team).
 - Checks: tsc, lint, 298 tests clean. Seen in dark 1440 (needs, orders, stock, forecast, masters) and dark 390 (orders).
+
+## 5. Work board, posts, Tickets, Notifications (spec 8.4–8.7): done
+- Work board: My work / Everything segmented control; headline; three column Cards (Overdue, Due today, Next) with count
+  Chips from 1100 px, stacked below; post cards as inner boxes with the 3 px tone bar.
+- Post card: bar bad when overdue, warn when due today or High/Urgent; VR-N mono + chips; 15 px 600 title (2 lines);
+  caption meta; due Chip bottom right. All posts: post cards as glass Cards in a 3 / 2 / 1 grid.
+- Post page: left 8 columns (header, new-listing cards, done, photos, comments), right 4 sticky (Actions, facts,
+  Tickets, History); phones: header, Actions, then the rest. New post: four option cards 2 × 2 with icons; form in one Card.
+- Tickets: title, + Ticket, headline sentence; groups segmented with counts in the toolbar; ticket cards like post
+  cards (bad bar when follow-up due) in 3 / 2 / 1. Ticket page: form Card 8 columns, linked post Card 4 columns.
+- Notifications: 780 px centred; Alerts on this phone Card; filter pills; notifications as tone rows in one Card.
+  The bell panel uses the same tone rows.
+- Checks: tsc, lint, 298 tests clean. Seen in dark 1440 (mywork, post, notifications); no sideways scroll at 390 on
+  mywork, all, post, new, tickets, ticket, newticket, notifications, listings, done.

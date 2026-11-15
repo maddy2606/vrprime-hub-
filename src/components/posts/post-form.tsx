@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { CameraIcon } from "@/components/icons";
+import { AlertIcon, BoxIcon, CameraIcon, CheckIcon, ListIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
 import { buttonClass, Field } from "@/components/ui";
 import { PLATFORM_LABEL, PRIORITY_LABEL, TYPE_HINT, TYPE_LABEL } from "@/lib/labels";
@@ -12,6 +12,8 @@ import { PLATFORMS, POST_TYPES, PRIORITIES, type Person, type Warehouse } from "
 import { fieldErrors, postSchema } from "@/lib/validation";
 import { createPost, updatePost } from "@/server/actions/posts";
 import { uploadPostPhotos } from "./upload-photos";
+
+const TYPE_ICON = { task: CheckIcon, new_listing: ListIcon, problem: AlertIcon, restock: BoxIcon } as const;
 
 type Props = {
   postId?: string;
@@ -62,20 +64,24 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
 
   if (!type) {
     return (
-      <div className="grid gap-2 sm:grid-cols-2">
-        {POST_TYPES.filter((t) => t !== "new_listing" || canPostListings).map((t) => (
+      <div className="grid grid-cols-2 gap-3 min-[700px]:gap-4">
+        {POST_TYPES.filter((t) => t !== "new_listing" || canPostListings).map((t) => {
+          const Icon = TYPE_ICON[t];
+          return (
           <button
             key={t}
             type="button"
             onClick={() => {
               setValues((v) => ({ ...v, type: t, platform: t === "new_listing" && !v.platform ? "flipkart" : v.platform }));
             }}
-            className="focus-ring sp-card p-4 text-left transition hover:border-accent"
+            className="focus-ring sp-card g-pad text-left transition-colors duration-160 hover:border-accent"
           >
-            <span className="block text-base font-semibold">{TYPE_LABEL[t]}</span>
-            <span className="mt-0.5 block text-sm text-muted">{TYPE_HINT[t]}</span>
+            <Icon className="h-6 w-6 text-accent-text" />
+            <span className="t-card-title mt-3 block">{TYPE_LABEL[t]}</span>
+            <span className="t-caption mt-1 block">{TYPE_HINT[t]}</span>
           </button>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -122,12 +128,12 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
         e.preventDefault();
         submit();
       }}
-      className="flex flex-col gap-4"
+      className="sp-card g-pad flex flex-col gap-4"
     >
-      <div className="flex items-center justify-between gap-3 sp-card px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-b border-line-soft pb-4">
         <div>
-          <p className="text-xs font-semibold text-muted">Type</p>
-          <p className="text-base font-semibold">{TYPE_LABEL[type]}</p>
+          <p className="t-label">Type</p>
+          <p className="t-card-title mt-1">{TYPE_LABEL[type]}</p>
         </div>
         {!editing ? (
           <button type="button" onClick={() => set("type", null)} className={buttonClass("ghost")}>
@@ -179,7 +185,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
       ) : null}
 
       {!listing ? (
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[700px]:grid-cols-2">
         <Field
           label="Warehouse"
           htmlFor="warehouse_id"
@@ -255,7 +261,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
       </Field>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[700px]:grid-cols-2">
         <Field label="Assign to" htmlFor="assignee_id" required={type === "task"} error={errors.assignee_id}>
           <select
             id="assignee_id"
@@ -286,16 +292,14 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
 
       <fieldset>
         <legend className="mb-1.5 text-sm font-semibold">Priority</legend>
-        <div className="grid grid-cols-4 gap-1 rounded-lg border border-line bg-surface p-1">
+        <div className="seg">
           {PRIORITIES.map((p) => (
             <button
               key={p}
               type="button"
               aria-pressed={values.priority === p}
               onClick={() => set("priority", p)}
-              className={`focus-ring min-h-10 rounded-md text-sm font-bold ${
-                values.priority === p ? "bg-ink text-canvas" : "text-muted hover:bg-surface2"
-              }`}
+              className="seg-opt flex-1"
             >
               {PRIORITY_LABEL[p]}
             </button>
@@ -310,9 +314,9 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
           className="sp-card"
         >
           <summary className="focus-ring flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-semibold">
-            More details <span className="text-xs font-semibold text-muted">optional</span>
+            More details <span className="t-caption">optional</span>
           </summary>
-          <div className="flex flex-col gap-4 border-t border-line p-4">
+          <div className="flex flex-col gap-4 border-t border-line-soft p-4">
             <Field label="Product name" htmlFor="product_name" error={errors.product_name}>
               <input id="product_name" className="input" value={values.product_name} onChange={(e) => set("product_name", e.target.value)} maxLength={200} />
             </Field>
@@ -331,7 +335,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
                 aria-invalid={Boolean(errors.reference_url)}
               />
             </Field>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 min-[700px]:grid-cols-3">
               <Field label="Platform" htmlFor="platform" error={errors.platform}>
                 <select id="platform" className="input" value={values.platform} onChange={(e) => set("platform", e.target.value)}>
                   {PLATFORMS.map((p) => (
@@ -374,13 +378,13 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
                 ))}
               </div>
               {weight?.over ? (
-                <p role="status" className="mt-2 rounded-lg border border-warn/50 bg-warn-soft p-3 text-sm">
-                  <span className="font-semibold text-warn">Over the weight limit.</span> {weightWarning(weight)}
+                <p role="status" className="tone-row tone-warn t-body mt-2">
+                  <span><span className="font-semibold text-warn">Over the weight limit.</span> {weightWarning(weight)}</span>
                 </p>
               ) : weight ? (
-                <p className="mt-2 text-sm text-muted">Within the weight limit ({Math.round(weight.total).toLocaleString("en-IN")} of {weight.limit.toLocaleString("en-IN")}).</p>
+                <p className="t-caption mt-2">Within the weight limit ({Math.round(weight.total).toLocaleString("en-IN")} of {weight.limit.toLocaleString("en-IN")}).</p>
               ) : (
-                <p className="mt-2 text-xs text-muted">Enter all four to check the weight limit ({weightLimit.toLocaleString("en-IN")}: size multiplied, plus grams).</p>
+                <p className="t-caption mt-2">Enter all four to check the weight limit ({weightLimit.toLocaleString("en-IN")}: size multiplied, plus grams).</p>
               )}
             </fieldset>
             <Field label="Notes" htmlFor="details" error={errors.details}>
@@ -407,7 +411,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
                     Add photos
                   </button>
                   {photos.length ? (
-                    <span className="text-sm text-muted">
+                    <span className="t-caption">
                       {photos.length} selected ·{" "}
                       <button type="button" className="font-semibold text-accent-text underline" onClick={() => setPhotos([])}>
                         clear
@@ -417,7 +421,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted">Add or remove photos on the post itself.</p>
+              <p className="t-caption">Add or remove photos on the post itself.</p>
             )}
           </div>
         </details>

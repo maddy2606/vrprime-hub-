@@ -23,3 +23,13 @@
 - Forecasting top movers strip: each mover as a neutral Chip (rule 1).
 - Master SKU links: each SKU as a neutral Chip with its × inside (20 px button within the 22 px chip).
 - Edge-to-edge pill rows on phones now bleed by the 12 px phone gutter (they used 16 px and caused a sideways scroll).
+- Work board: a column with no posts shows "None." as a caption, so the three columns always show.
+- Post page facts (assignee, warehouse, SKU, due, created) moved from the header card into their own Card in the right column, as 8.5 lists "facts" there.
+- Post page Actions Card has no heading (the spec names the Card, not a title).
+- New post type icons: task Check, new listing List, problem Alert, restock Box (existing icon set; rule 1).
+- New post priority picker: segmented control (closest component).
+- Ticket page: the ticket header Card stays full width above the form and linked post Cards.
+- Ticket follow-up quick picks: secondary buttons with pill radius; "No follow-up" ghost.
+- Tickets page: the "N open · N waiting · N follow-up due" subtitle became the headline sentence (same numbers).
+- Notifications filter pills: ghost pills as on Flipkart, counts in the segmented-control mono style.
+- Notification rows: tone row with the 3 px bar; unread rows keep the accent dot; read rows use --muted titles.

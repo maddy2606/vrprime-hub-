@@ -59,7 +59,7 @@ export default async function NewTicketPage({
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div>
       <PageTitle
         title="New ticket"
         sub={linkedPost ? "It will be linked to the post below." : "Save the marketplace ticket so its follow-up is not forgotten."}

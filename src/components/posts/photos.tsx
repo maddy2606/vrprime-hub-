@@ -32,7 +32,7 @@ export function Photos({ postId, photos }: { postId: string; photos: Photo[] }) 
       {photos.length ? (
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((photo) => (
-            <li key={photo.id} className="relative aspect-square overflow-hidden rounded-lg border border-line bg-surface2">
+            <li key={photo.id} className="sp-inner relative aspect-square overflow-hidden">
               {photo.url ? (
                 <a href={photo.url} target="_blank" rel="noreferrer" className="focus-ring block h-full w-full">
                   {/* Signed, short-lived Storage URLs: next/image cannot optimise or cache these. */}
@@ -40,7 +40,7 @@ export function Photos({ postId, photos }: { postId: string; photos: Photo[] }) 
                   <img src={photo.url} alt="Attached photo" loading="lazy" className="h-full w-full object-cover" />
                 </a>
               ) : (
-                <span className="flex h-full items-center justify-center p-2 text-center text-xs text-muted">
+                <span className="t-caption flex h-full items-center justify-center p-2 text-center">
                   Photo unavailable
                 </span>
               )}
@@ -64,7 +64,7 @@ export function Photos({ postId, photos }: { postId: string; photos: Photo[] }) 
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted">No photos yet. Add one to show the damage, label or invoice.</p>
+        <p className="t-caption">No photos yet. Add one to show the damage, label or invoice.</p>
       )}
 
       <input

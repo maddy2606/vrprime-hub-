@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Dropdown, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
+import { buttonClass } from "@/components/ui";
 import { ISSUE_LABEL, PLATFORM_LABEL } from "@/lib/labels";
 import { ticketsUrl, type TicketFilterValues, type TicketTab } from "@/lib/ticket-options";
 import type { TicketCounts } from "@/components/tickets/ticket-tabs";
@@ -71,12 +72,12 @@ export function TicketFilters({ values, counts }: { values: TicketFilterValues; 
                 setQ("");
                 go({ q: "", platform: "", issue: "", tab: values.tab });
               }}
-              className="focus-ring min-h-9 rounded-full px-3 text-sm font-bold text-accent-text"
+              className={buttonClass("ghost")}
             >
               Clear search and filters
             </button>
           ) : null}
-          {pending ? <span className="text-sm text-muted">Updating…</span> : null}
+          {pending ? <span className="t-caption">Updating…</span> : null}
         </div>
       ) : null}
     </div>

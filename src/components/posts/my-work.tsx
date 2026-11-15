@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { PostGrid } from "@/components/posts/post-card";
-import { buttonClass, EmptyState, Headline, Num, PageTitle } from "@/components/ui";
+import { PostCard } from "@/components/posts/post-card";
+import { buttonClass, Chip, EmptyState, Headline, Num, PageTitle } from "@/components/ui";
+type Tone = "bad" | "warn" | "neutral";
 import type { Lookups } from "@/lib/data";
 import { dueState } from "@/lib/format";
 import type { Post } from "@/lib/types";
@@ -22,19 +23,26 @@ function Section({
   today,
 }: {
   title: string;
-  tone: string;
+  tone: Tone;
   posts: Post[];
   lookups: Lookups;
   today: string;
 }) {
-  if (!posts.length) return null;
   return (
-    <section className="mb-7">
-      <h2 className="mb-2.5 flex items-baseline gap-2 border-b border-line pb-2 font-display text-[1.0625rem] font-semibold tracking-[-0.01em]">
+    <section className="sp-card g-pad min-w-0" aria-label={title}>
+      <h2 className="t-card-title g-head flex items-center gap-2">
         {title}
-        <span className={`font-mono text-sm tabular-nums ${tone}`}>{posts.length}</span>
+        <Chip tone={posts.length ? tone : "neutral"}>{posts.length}</Chip>
       </h2>
-      <PostGrid posts={posts} lookups={lookups} today={today} />
+      {posts.length ? (
+        <div className="flex flex-col gap-2">
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} lookups={lookups} today={today} inner />
+          ))}
+        </div>
+      ) : (
+        <p className="t-caption">None.</p>
+      )}
     </section>
   );
 }
@@ -77,9 +85,11 @@ export function MyWork({ posts, lookups, today, firstName }: Props) {
             ) : null}
             .
           </Headline>
-          <Section title="Overdue" tone="text-bad" posts={overdue} lookups={lookups} today={today} />
-          <Section title="Due today" tone="text-warn" posts={dueToday} lookups={lookups} today={today} />
-          <Section title="Next" tone="text-muted" posts={rest} lookups={lookups} today={today} />
+          <div className="grid items-start gap-3 min-[700px]:gap-4 min-[1100px]:grid-cols-3">
+            <Section title="Overdue" tone="bad" posts={overdue} lookups={lookups} today={today} />
+            <Section title="Due today" tone="warn" posts={dueToday} lookups={lookups} today={today} />
+            <Section title="Next" tone="neutral" posts={rest} lookups={lookups} today={today} />
+          </div>
         </>
       ) : (
         <EmptyState

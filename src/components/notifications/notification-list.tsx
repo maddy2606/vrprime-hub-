@@ -52,18 +52,16 @@ export function NotificationList({ items }: { items: NotificationRow[] }) {
               role="tab"
               aria-selected={on}
               onClick={() => setFilter(f.key)}
-              className={`focus-ring flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-4 text-sm font-semibold transition-colors ${
-                on ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted hover:text-ink"
-              }`}
+              className={`g-btn g-btn-ghost focus-ring shrink-0 gap-1.5 rounded-full ${on ? "bg-accent-soft" : ""}`}
             >
               {f.label}
-              <span className={`font-mono text-xs ${on ? "text-canvas/80" : "text-faint"}`}>{counts[f.key]}</span>
+              <span className="seg-count">{counts[f.key]}</span>
             </button>
           );
         })}
       </div>
       {shown.length ? (
-        <ul className="flex flex-col gap-2.5">
+        <ul className="sp-card m-0 flex list-none flex-col divide-y divide-line-soft overflow-hidden p-0">
           {shown.map((n) => {
             const unread = !n.read_at && !readHere.has(n.id);
             return (
@@ -77,7 +75,7 @@ export function NotificationList({ items }: { items: NotificationRow[] }) {
                     e.preventDefault();
                     open(n);
                   }}
-                  className="focus-ring block rounded-xl transition"
+                  className="focus-ring block transition-colors duration-160 hover:bg-[var(--row-hover)]"
                 >
                   <NotificationCard n={n} unread={unread} when={formatDateTime(n.created_at)} />
                 </Link>
@@ -86,7 +84,7 @@ export function NotificationList({ items }: { items: NotificationRow[] }) {
           })}
         </ul>
       ) : (
-        <p className="rounded-xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">
+        <p className="sp-card g-pad t-caption text-center">
           {filter === "alerts" ? "No alerts in your latest notifications." : "No updates in your latest notifications."}
         </p>
       )}

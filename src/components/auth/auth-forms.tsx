@@ -34,7 +34,7 @@ export function LoginForm({ notice }: { notice?: string }) {
       className="flex flex-col gap-4"
     >
       {error ? (
-        <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+        <p role="alert" className="sp-inner tone-row tone-bad tone-row-title">
           {error}
         </p>
       ) : null}
@@ -47,7 +47,7 @@ export function LoginForm({ notice }: { notice?: string }) {
       <button type="submit" disabled={pending} className={buttonClass("primary", "mt-1 w-full")}>
         {pending ? "Signing in…" : "Sign in"}
       </button>
-      <p className="text-center text-sm text-muted">No account or forgot your password? Ask the owner to set one for you.</p>
+      <p className="t-caption text-center">No account or forgot your password? Ask the owner to set one for you.</p>
     </form>
   );
 }
@@ -83,7 +83,7 @@ export function ChangePasswordForm() {
       <Field label="Type it again" htmlFor="confirm-password" required error={errors.confirm}>
         <input id="confirm-password" type={show ? "text" : "password"} autoComplete="new-password" className="input" value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-invalid={Boolean(errors.confirm)} />
       </Field>
-      <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+      <label className="t-body flex min-h-10 items-center gap-3 font-semibold">
         <input type="checkbox" className="h-5 w-5 accent-(--accent)" checked={show} onChange={(e) => setShow(e.target.checked)} />
         Show password
       </label>

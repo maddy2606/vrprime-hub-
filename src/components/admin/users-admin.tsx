@@ -101,7 +101,7 @@ function UserForm({
     });
 
   return (
-    <Card className="mb-4 border-accent p-4">
+    <Card className="g-pad mb-4">
       <form
         noValidate
         onSubmit={(e) => {
@@ -110,7 +110,7 @@ function UserForm({
         }}
         className="flex flex-col gap-4"
       >
-        <p className="text-base font-semibold">{editing ? `Edit ${initial.name}` : "Add a user"}</p>
+        <p className="t-card-title">{editing ? `Edit ${initial.name}` : "Add a user"}</p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" htmlFor="u-name" required error={errors.name}>
@@ -122,7 +122,7 @@ function UserForm({
         </div>
 
         {editing ? (
-          <p className="text-sm text-muted">
+          <p className="t-caption">
             Sign-in email: <span className="break-all font-mono text-ink">{form.email}</span>
           </p>
         ) : (
@@ -142,7 +142,7 @@ function UserForm({
         </Field>
 
         <fieldset>
-          <legend className="mb-1.5 text-sm font-semibold">
+          <legend className="t-label mb-1.5">
             Warehouses
             {form.role === "warehouse" ? <span className="text-bad"> *</span> : <span className="font-normal text-muted"> (optional)</span>}
           </legend>
@@ -155,9 +155,7 @@ function UserForm({
                   type="button"
                   aria-pressed={on}
                   onClick={() => toggleWarehouse(w.id)}
-                  className={`focus-ring min-h-11 rounded-full border px-4 text-sm font-bold ${
-                    on ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted"
-                  }`}
+                  className={`g-btn g-btn-ghost focus-ring rounded-full ${on ? "bg-accent-soft" : ""}`}
                 >
                   {w.name}
                 </button>
@@ -187,7 +185,7 @@ function UserForm({
         </Field>
 
         {editing && !soleOwner ? (
-          <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+          <label className="t-body flex min-h-10 items-center gap-3 font-semibold">
             <input type="checkbox" className="h-5 w-5 accent-(--accent)" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
             Active (untick to block sign-in; their posts and history stay)
           </label>
@@ -213,7 +211,7 @@ export function UsersAdmin({ users, warehouses, meId }: { users: AdminUser[]; wa
   const soleOwnerId = owners.length === 1 ? owners[0].id : null;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div>
       <PageTitle
         title="Users"
         sub={`${users.filter((u) => u.active).length} active · ${users.length} total`}
@@ -237,27 +235,27 @@ export function UsersAdmin({ users, warehouses, meId }: { users: AdminUser[]; wa
       ) : null}
 
       {users.length ? (
-        <ul className="flex flex-col gap-2">
+        <ul className="g-cards m-0 list-none p-0">
           {users.map((u) => (
-            <li key={u.id}>
+            <li key={u.id} className="min-w-0">
               <button
                 type="button"
                 onClick={() => {
                   setEditing({ id: u.id, name: u.name, email: u.email, role: u.role, phone: u.phone ?? "", active: u.active, password: "", warehouseIds: u.warehouseIds });
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                className={`focus-ring w-full sp-card p-3 text-left transition hover:border-accent ${u.active ? "" : "opacity-60"}`}
+                className={`focus-ring sp-card g-pad h-full w-full text-left transition-colors duration-160 hover:bg-[var(--row-hover)] ${u.active ? "" : "opacity-60"}`}
               >
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[15px] font-bold">{u.name}</span>
+                  <span className="t-card-title">{u.name}</span>
                   {u.id === meId ? <Chip tone="accent">You</Chip> : null}
                   <span className="ml-auto flex gap-1.5">
                     {!u.active ? <Chip tone="bad">Deactivated</Chip> : u.mustChangePassword ? <Chip tone="warn">Temp password</Chip> : null}
                     <Chip tone={u.role === "owner" ? "accent" : "neutral"}>{ROLE_LABEL[u.role]}</Chip>
                   </span>
                 </span>
-                <span className="mt-1 block break-all font-mono text-xs text-muted">{u.email}</span>
-                <span className="mt-1 block text-xs text-muted">
+                <span className="t-caption mt-1 block break-all font-mono">{u.email}</span>
+                <span className="t-caption mt-1 block">
                   {u.warehouseIds.length
                     ? u.warehouseIds.map((id) => warehouseName.get(id) ?? "Unknown").join(", ")
                     : u.role === "warehouse"

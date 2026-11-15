@@ -61,8 +61,11 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
         e.preventDefault();
         submit();
       }}
-      className="flex flex-col gap-4"
+      className="flex flex-col"
     >
+      <div className="g-grid items-start">
+      <section className="sp-card g-pad span-6 flex flex-col gap-4" aria-labelledby="set-general">
+      <h2 id="set-general" className="t-card-title">General</h2>
       <Field
         label="Low stock level (units)"
         htmlFor="low_stock_threshold"
@@ -90,7 +93,9 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       >
         <input id="new_inactive_days" className="input" inputMode="numeric" value={values.new_inactive_days} onChange={(e) => set("new_inactive_days", e.target.value)} aria-invalid={Boolean(errors.new_inactive_days)} />
       </Field>
-      <h2 className="mt-2 text-base font-semibold">Flipkart page</h2>
+      </section>
+      <section className="sp-card g-pad span-6 flex flex-col gap-4" aria-labelledby="set-flipkart">
+      <h2 id="set-flipkart" className="t-card-title">Flipkart page</h2>
       <Field
         label="Price drop alert (%)"
         htmlFor="price_drop_percent"
@@ -127,7 +132,9 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       >
         <input id="return_rate_percent" className="input" inputMode="numeric" value={values.return_rate_percent} onChange={(e) => set("return_rate_percent", e.target.value)} aria-invalid={Boolean(errors.return_rate_percent)} />
       </Field>
-      <h2 className="mt-2 text-base font-semibold">Money (owner only)</h2>
+      </section>
+      <section className="sp-card g-pad span-12 grid gap-4 min-[700px]:grid-cols-2" aria-labelledby="set-money">
+      <h2 id="set-money" className="t-card-title min-[700px]:col-span-2">Money (owner only)</h2>
       <Field
         label="Low margin (%)"
         htmlFor="money_low_margin_percent"
@@ -182,9 +189,13 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       >
         <input id="money_keep_months" className="input" inputMode="numeric" value={values.money_keep_months} onChange={(e) => set("money_keep_months", e.target.value)} aria-invalid={Boolean(errors.money_keep_months)} />
       </Field>
-      <button type="submit" disabled={pending} className={buttonClass("primary", "sm:self-start sm:min-w-40")}>
-        {pending ? "Saving…" : "Save settings"}
-      </button>
+      </section>
+      </div>
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 -mx-3 mt-4 flex justify-end border-t border-line bg-[var(--pop)] p-3 backdrop-blur-[var(--blur-bar)] min-[700px]:bottom-0 min-[700px]:-mx-4 min-[1100px]:-mx-6">
+        <button type="submit" disabled={pending} className={buttonClass("primary", "w-full min-[700px]:w-auto min-[700px]:min-w-40")}>
+          {pending ? "Saving…" : "Save settings"}
+        </button>
+      </div>
     </form>
   );
 }

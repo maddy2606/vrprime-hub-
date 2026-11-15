@@ -319,14 +319,14 @@ export default async function PreviewPage({
       ) : null}
       {view.startsWith("f") ? <FlipkartPreview view={view} sp={sp} role={role} /> : null}
       {view === "settings" ? (
-        <div className="mx-auto max-w-2xl">
+        <div>
           <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
           <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10", money_low_margin_percent: "10", money_default_fee_percent: "12", money_unpaid_after_days: "15", money_fee_deviation_points: "2", money_upload_reminder_days: "14", money_keep_months: "12" }} />
         </div>
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}
       {view === "password" ? (
-        <div className="mx-auto max-w-sm sp-card p-5">
+        <div className="sp-card g-pad mx-auto max-w-[400px]">
           <ChangePasswordForm />
         </div>
       ) : null}

@@ -50,3 +50,8 @@
 - P&L units sold and margin: units as the Sales cell caption; margin Chip beside the month heading.
 - P&L warnings (missing days, uncosted sales): tone rows in a Card under the strip.
 - Glass ledger row headers (th in tbody): body style, not the column-header Label style.
+- Sign-in (8.15): the old "VR" tile beside the name is not in the spec, so it was removed; the lane mark sits centred above the name (rule 11.3).
+- Settings (8.14): the first group had no heading; a "General" Card title was added because the spec names the Card (rule 11.1, Card head).
+- Settings sticky Save bar: on phones it sits above the bottom bar (4.5rem + safe area) so the bar does not cover it; on ≥700 px it sits at the viewport bottom (rule 11.2).
+- People (8.14): warehouse picker toggles in the user form use ghost pill buttons with the accent-soft active state, the same as other filter pills (rule 11.1).
+- Money (8.13): no layout changes; it inherits the shared Card, ledger, chip and button styles only.

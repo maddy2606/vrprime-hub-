@@ -30,10 +30,10 @@ export default async function SettingsPage() {
 
   const moneyOn = await isMoneyEnabled();
   return (
-    <div className="mx-auto max-w-2xl">
+    <div>
       <PageTitle title="Settings" sub="Thresholds for the Flipkart page. They apply the next time anyone opens it." />
       <MoneySwitch initial={moneyOn} />
-      <p className="mb-6 sp-card p-4 text-sm text-muted">
+      <p className="sp-card g-pad t-caption mb-4">
         The master SKU list (products, their Flipkart SKUs, units per order, Excel and CSV import) is on <a href="/flipkart?tab=masters" className="font-bold text-accent-text underline">Flipkart &gt; Master SKUs</a>.
       </p>
       <SettingsForm

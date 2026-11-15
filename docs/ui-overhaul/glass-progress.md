@@ -81,3 +81,9 @@ Reviews, Team, P&L · 7 Admin, sign-in, Money · 8 Accessibility pass and colour
 - P&L: title with the month switch right; 5-cell StatStrip (Sales, Cost, Ads, Fees, Profit after ads in --grad-accent);
   notes as captions; By product ledger with the unlinked SKUs as an inner box; Costing 7 / Ads reports + Fees 5.
 - Checks: tsc, lint, 298 tests clean. Seen in dark 1440 (ads, adsdesk, reviews, team, pnl); no sideways scroll at 390.
+
+## Area 7: Admin, sign-in, Money (8.13–8.15) — done
+- Sign-in and change password: centred 400 px Card, lane mark, Unbounded 20 px name, caption, tone-row alert.
+- Settings: General and Flipkart page Cards side by side, Money full width, sticky Save bar (--pop, blur, top border).
+- People: header with counts and + Add user, user cards in g-cards (3/2/1), form as a Card in place.
+- Money: shared styles only. Checked: no sideways scroll at 390 on settings, users, password. tsc, lint, tests clean.

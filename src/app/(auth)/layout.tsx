@@ -8,7 +8,7 @@ function LaneMark() {
     [24, 20, 50],
   ];
   return (
-    <div aria-hidden="true" className="mb-8 flex flex-col gap-1.5">
+    <div aria-hidden="true" className="mb-5 flex w-24 flex-col gap-1.5">
       {lanes.map((l, i) => (
         <div key={i} className="flex h-2 gap-[2px] rounded-full bg-surface2">
           <span className="rounded-l-full" style={{ width: `${l[0]}%`, background: "var(--stage-1)" }} />
@@ -22,16 +22,13 @@ function LaneMark() {
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-4 py-10">
-      <LaneMark />
-      <div className="mb-6 flex items-center gap-3">
-        <span className="font-display flex h-11 w-11 items-center justify-center rounded-lg bg-ink text-base font-bold tracking-tight text-canvas">VR</span>
-        <div>
-          <p className="font-display text-xl font-semibold leading-tight tracking-[-0.02em]">VR Prime Ops</p>
-          <p className="text-sm text-muted">Tasks, problems and stock</p>
-        </div>
+    <main className="mx-auto flex min-h-dvh w-full max-w-[432px] flex-col justify-center px-4 py-10">
+      <div className="mb-6 flex flex-col items-center text-center">
+        <LaneMark />
+        <p className="font-display text-[20px] font-semibold leading-tight">VR Prime Ops</p>
+        <p className="t-caption mt-1">Tasks, problems and stock</p>
       </div>
-      <div className="sp-card p-5">{children}</div>
+      <div className="sp-card g-pad w-full">{children}</div>
     </main>
   );
 }

@@ -16,7 +16,7 @@ export default async function LoginPage({
   const inactive = sp.reason === "inactive" || (user !== null && !user.active);
   return (
     <>
-      <h1 className="font-display mb-4 text-xl font-semibold tracking-[-0.01em]">Sign in</h1>
+      <h1 className="t-card-title g-head">Sign in</h1>
       <LoginForm notice={inactive ? "This account is not active. Ask the owner to enable it." : undefined} />
     </>
   );

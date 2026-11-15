@@ -11,10 +11,10 @@ export default async function ChangePasswordPage() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold tracking-tight">
+      <h1 className="t-card-title">
         {user.must_change_password ? "Set your own password" : "Change password"}
       </h1>
-      <p className="mb-4 mt-1 text-sm text-muted">
+      <p className="t-caption mb-4 mt-1">
         {user.must_change_password
           ? `Welcome, ${user.name}. You signed in with a temporary password. Choose your own to continue.`
           : "Choose a new password for your account."}

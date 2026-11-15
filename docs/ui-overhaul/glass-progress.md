@@ -87,3 +87,8 @@ Reviews, Team, P&L · 7 Admin, sign-in, Money · 8 Accessibility pass and colour
 - Settings: General and Flipkart page Cards side by side, Money full width, sticky Save bar (--pop, blur, top border).
 - People: header with counts and + Add user, user cards in g-cards (3/2/1), form as a Card in place.
 - Money: shared styles only. Checked: no sideways scroll at 390 on settings, users, password. tsc, lint, tests clean.
+
+## Area 8: Accessibility, performance, colour sweep (9) — done
+- Contrast: 8 text tokens raised toward --ink (listed in glass-gaps.md). Touch targets: 36 px buttons to 40, transparent tap areas on 32 px seg options, phone VR mark, chip remove.
+- backdrop-filter only on cards ≥700 px, rail/top/bottom bars (vr-bar, vr-bottom), popovers/tooltips and the settings Save bar.
+- Hex/rgba sweep of component files: only literal colours left are meta theme colours (equal --canvas) and the WhatsApp QR white box.

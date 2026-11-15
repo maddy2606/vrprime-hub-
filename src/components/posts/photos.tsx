@@ -55,7 +55,7 @@ export function Photos({ postId, photos }: { postId: string; photos: Photo[] }) 
                       if (toast.result(await removeAttachment(photo.id))) router.refresh();
                     });
                   }}
-                  className="focus-ring absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-ink/75 text-canvas"
+                  className="focus-ring absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-ink/75 text-canvas"
                 >
                   <CloseIcon className="h-4 w-4" />
                 </button>

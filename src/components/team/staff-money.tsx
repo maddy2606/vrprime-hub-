@@ -141,7 +141,7 @@ export function StaffMoneySheet({ person, entries, today, onClose }: { person: {
                       {SIGN[e.kind]}
                       {formatINR(e.amount)}
                     </span>
-                    <button type="button" disabled={pending} onClick={() => remove(e)} aria-label={`Delete ${e.kind} of ${formatINR(e.amount)}`} className="focus-ring -mr-1 min-h-9 shrink-0 rounded-lg px-2 text-xs font-bold text-muted hover:text-bad disabled:opacity-50">
+                    <button type="button" disabled={pending} onClick={() => remove(e)} aria-label={`Delete ${e.kind} of ${formatINR(e.amount)}`} className="focus-ring -mr-1 min-h-10 shrink-0 rounded-lg px-2 text-xs font-bold text-muted hover:text-bad disabled:opacity-50">
                       Delete
                     </button>
                   </li>

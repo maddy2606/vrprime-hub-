@@ -555,7 +555,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                         type="button"
                         title={`${g.label}: ${rs(g.spend)} (${pct(g.share)}) across ${g.n}`}
                         onClick={() => goTo(fl.tab, g.v)}
-                        className="focus-ring flex min-w-1 items-center justify-center overflow-hidden text-xs font-bold text-white"
+                        className="focus-ring flex min-w-1 items-center justify-center overflow-hidden text-xs font-bold text-[var(--accent-ink)]"
                         style={{ flex: `${g.share} 1 0`, background: V_COLOR[g.v] }}
                       >
                         {g.share > 0.09 ? inr(g.spend) : g.share > 0.04 ? `${Math.round(g.share * 100)}%` : ""}
@@ -922,15 +922,15 @@ function NegativesPanel({ negs, state, setState, mark, period, onCopied }: { neg
               <span className="flex gap-1.5">
                 {n.status === "todo" ? (
                   <>
-                    <button type="button" onClick={() => mark(n.cid, n.term, "added")} className={buttonClass("primary", "min-h-9 px-3")}>
+                    <button type="button" onClick={() => mark(n.cid, n.term, "added")} className={buttonClass("primary", "px-3")}>
                       Added
                     </button>
-                    <button type="button" onClick={() => mark(n.cid, n.term, "ignored")} className={buttonClass("ghost", "min-h-9 px-3")}>
+                    <button type="button" onClick={() => mark(n.cid, n.term, "ignored")} className={buttonClass("ghost", "px-3")}>
                       Ignore
                     </button>
                   </>
                 ) : (
-                  <button type="button" onClick={() => mark(n.cid, n.term, "todo")} className={buttonClass("ghost", "min-h-9 px-3")}>
+                  <button type="button" onClick={() => mark(n.cid, n.term, "todo")} className={buttonClass("ghost", "px-3")}>
                     Undo
                   </button>
                 )}

@@ -14,7 +14,7 @@
   --line-soft: rgba(255, 255, 255, 0.07);
   --ink: #f4f5fa;
   --muted: #a9adbd;
-  --faint: #7b8094;
+  --faint: #878c9e;
   --accent: #8b7bff;
   --accent-ink: #0b0a1a;
   --accent-soft: rgba(139, 123, 255, 0.16);
@@ -22,7 +22,7 @@
   --cyan: #3ddbe8;
   --cyan-soft: rgba(61, 219, 232, 0.14);
   --madder: #ff5d73;
-  --bad: #ff5d73;
+  --bad: #fe6b7f;
   --bad-soft: rgba(255, 93, 115, 0.14);
   --bad-ink: #14060a;
   --warn: #ffbe4d;
@@ -76,23 +76,23 @@
   --line-soft: rgba(16, 18, 28, 0.07);
   --ink: #10121c;
   --muted: #555a70;
-  --faint: #80859a;
+  --faint: #626678;
   --accent: #5b46f0;
   --accent-ink: #ffffff;
   --accent-soft: rgba(91, 70, 240, 0.1);
   --accent-text: #4534c8;
-  --cyan: #0e8fa0;
+  --cyan: #0f6978;
   --cyan-soft: rgba(14, 143, 160, 0.1);
   --madder: #d6283c;
-  --bad: #c81e30;
+  --bad: #b71d2e;
   --bad-soft: rgba(200, 30, 48, 0.09);
   --bad-ink: #ffffff;
-  --warn: #8a5a00;
+  --warn: #815502;
   --warn-soft: rgba(138, 90, 0, 0.1);
   --warn-mark: #e08a00;
-  --ok: #1c7a46;
+  --ok: #1a6c41;
   --ok-soft: rgba(28, 122, 70, 0.1);
-  --info: #1f6fb8;
+  --info: #1d61a1;
   --info-soft: rgba(31, 111, 184, 0.1);
   --wh-1: #00968a;
   --wh-2: #2f4fb3;
@@ -1129,4 +1129,14 @@ select optgroup {
 }
 @media (max-width: 699.98px) {
   .ledger tbody th:first-child { background: var(--pop); }
+}
+
+/* glass-spec 9: segmented options stay 32 px tall to the eye; their tap area fills the control's padding. */
+.seg-opt {
+  position: relative;
+}
+.seg-opt::after {
+  content: "";
+  position: absolute;
+  inset: -3px -1px;
 }

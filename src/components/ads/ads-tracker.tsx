@@ -743,7 +743,7 @@ function TrackedSkus({ skus, active }: { skus: string[]; active: Set<string> }) 
         {skus.map((sku) => (
           <li key={sku} className={`g-chip font-mono ${active.has(sku) ? "" : "border-dashed"}`}>
             {sku}
-            <button type="button" disabled={pending} aria-label={`Stop tracking ${sku}`} className="focus-ring -mr-1.5 flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-bad-soft hover:text-bad" onClick={() => remove(sku)}>
+            <button type="button" disabled={pending} aria-label={`Stop tracking ${sku}`} className="focus-ring relative -mr-1.5 flex h-5 w-5 after:absolute after:-inset-2.5 after:content-[''] items-center justify-center rounded-full text-muted hover:bg-bad-soft hover:text-bad" onClick={() => remove(sku)}>
               ×
             </button>
           </li>

@@ -80,7 +80,7 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
               type="button"
               onClick={() => onSort(sortKey)}
               aria-label={sortDir === "asc" ? "Ascending: tap to reverse" : "Descending: tap to reverse"}
-              className="g-btn g-btn-secondary focus-ring !h-[34px] !min-h-[34px] !px-3"
+              className="g-btn g-btn-secondary focus-ring !px-3"
             >
               {sortDir === "asc" ? "▲" : "▼"}
             </button>

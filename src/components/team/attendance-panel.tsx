@@ -57,7 +57,7 @@ export function AttendancePanel({ day, today, warehouses, people }: { day: strin
   const groups: { key: string; id: string | null; name: string; color: string; note?: string }[] = [
     ...warehouses.map((w) => ({ key: w.id, id: w.id, name: w.name, color: w.color })),
     ...(people.some((p) => p.warehouseId === null)
-      ? [{ key: "remote", id: null, name: "Remote", color: "var(--color-muted, #8a8f98)", note: "attendance only, not counted in capacity" }]
+      ? [{ key: "remote", id: null, name: "Remote", color: "var(--muted)", note: "attendance only, not counted in capacity" }]
       : []),
   ];
 

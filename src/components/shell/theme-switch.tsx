@@ -26,7 +26,7 @@ export function ThemeSwitch({ initial }: { initial: ThemeMode }) {
   return (
     // The account menu closes on any click inside it; choosing a theme should leave it open so the change can be seen.
     <div onClick={(e) => e.stopPropagation()}>
-      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-muted">Theme</p>
+      <p className="mb-1.5 text-[11px] font-bold text-muted">Theme</p>
       <div role="group" aria-label="Colour theme" className="grid grid-cols-3 gap-1 rounded-xl bg-line-soft p-1">
         {OPTIONS.map((o) => {
           const on = mode === o.mode;

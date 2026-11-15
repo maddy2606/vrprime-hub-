@@ -82,3 +82,12 @@ Not now), and the full card stays on the Notifications page.
 - Dashboard: headline sentence with profit figures, four tiles, then the same panels in a calmer layout; Orders waiting uses the lanes.
 - Decision: Dashboard has no fake-data preview view (owner P&L data), so it has no file screenshot; it was type-checked and linted only.
 - Checks: tsc clean, lint clean, 298 tests pass.
+
+### 3. Flipkart page and tabs (done)
+- Tabs regrouped into Today (Needs action, Orders, Overfill), Stock (Stock, Stock-outs, Forecasting), Listings (Prices, Listing health, Master SKUs), Returns. Addresses unchanged (`/flipkart?tab=...`). A group shows only if the role may open one of its tabs, so warehouse users do not see Listings.
+- Orders tab: the warehouse cards became the lanes (tap a lane to filter, same as the old cards). Every count is kept: three stages, late, next deadline, upcoming, processing, in transit, on hold.
+- SKU list: one ledger card with a row per SKU instead of a card each; the same fields, about half the scrolling.
+- Other tabs take the new look from the design system (flat cards, ledger tables, sentence-case labels).
+- Fix: sidebar labels were hidden on desktop because the CSS build reordered two rules; now a max-width rule.
+- Sweep across all pages: capital-letter labels, extra-heavy weights, oversized corners, hover lifts and blur removed (class changes only).
+- Checks: tsc clean, lint clean, 298 tests pass.

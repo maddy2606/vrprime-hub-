@@ -107,7 +107,7 @@ function NewListingCard({ post, today, weightLimit }: { post: Post; today: strin
     <>
       {hasRequestDetails ? (
         <Card className="p-4">
-          <h2 className="mb-3 text-base font-extrabold">Request details</h2>
+          <h2 className="mb-3 text-base font-semibold">Request details</h2>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
             {post.product_name ? <Fact label="Product name">{post.product_name}</Fact> : null}
             {post.target_price !== null ? <Fact label="Target price">{money(post.target_price)}</Fact> : null}
@@ -131,7 +131,7 @@ function NewListingCard({ post, today, weightLimit }: { post: Post; today: strin
 
       {beforeWarning ? (
         <Card className="border-warn/50 bg-warn-soft p-4">
-          <p className="text-sm font-extrabold text-warn">Over the weight limit</p>
+          <p className="text-sm font-semibold text-warn">Over the weight limit</p>
           <p className="mt-1 text-sm">{beforeWarning}</p>
         </Card>
       ) : null}
@@ -140,7 +140,7 @@ function NewListingCard({ post, today, weightLimit }: { post: Post; today: strin
         <Card
           className={`p-4 ${state.kind === "live" ? "border-ok/40 bg-ok-soft" : state.kind === "not_found" && state.late ? "border-bad/40 bg-bad-soft" : ""}`}
         >
-          <p className={`text-sm font-extrabold ${state.kind === "live" ? "text-ok" : state.kind === "not_found" && state.late ? "text-bad" : ""}`}>{line}</p>
+          <p className={`text-sm font-semibold ${state.kind === "live" ? "text-ok" : state.kind === "not_found" && state.late ? "text-bad" : ""}`}>{line}</p>
           {state.kind === "not_found" && state.late ? (
             <p className="mt-1 text-sm">
               It was marked done more than 3 days ago and is still not in your Flipkart listings. The SKU may be wrong: check it and
@@ -180,7 +180,7 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
               <StatusChip status={post.status} />
               <DueChip post={post} today={today} />
             </div>
-            <h1 className="mt-3 break-words text-xl font-extrabold leading-snug tracking-tight">{post.title}</h1>
+            <h1 className="mt-3 break-words text-xl font-semibold leading-snug tracking-tight">{post.title}</h1>
             {post.details ? (
               <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed">{post.details}</p>
             ) : null}
@@ -205,7 +205,7 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
 
           {done ? (
             <Card className="border-ok/40 bg-ok-soft p-4">
-              <p className="text-sm font-extrabold text-ok">
+              <p className="text-sm font-semibold text-ok">
                 Done by {lookups.personName(post.done_by)}
                 {post.done_at ? ` · ${formatDateTime(post.done_at)}` : ""}
               </p>
@@ -235,7 +235,7 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
           {post.type === "problem" || tickets.length ? (
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-base font-extrabold">Tickets</h2>
+                <h2 className="text-base font-semibold">Tickets</h2>
                 {post.type === "problem" ? (
                   <Link prefetch={false} href={`/tickets/new?post=${post.id}`} className={buttonClass("secondary", "shrink-0")}>
                     Raise ticket
@@ -272,7 +272,7 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
           <PostActions post={post} linkedTicketIds={tickets.map((t) => t.ticket_id)} />
 
           <Card className="p-4">
-            <h2 className="mb-3 text-base font-extrabold">Photos</h2>
+            <h2 className="mb-3 text-base font-semibold">Photos</h2>
             <Photos postId={post.id} photos={photos} />
           </Card>
         </div>
@@ -287,7 +287,7 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
           </Card>
 
           <Card className="p-4">
-            <h2 className="mb-3 text-base font-extrabold">History</h2>
+            <h2 className="mb-3 text-base font-semibold">History</h2>
             <ol className="flex flex-col gap-3 border-l-2 border-line pl-4">
               {events.map((event) => {
                 const [first, ...rest] = describeEvent(event, lookups, today);

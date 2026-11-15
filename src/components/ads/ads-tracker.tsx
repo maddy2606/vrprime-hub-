@@ -150,7 +150,7 @@ function SyncButton() {
 
 function HowToSync() {
   return (
-    <details className="rounded-2xl border border-line-soft bg-surface2/40 px-4 py-3 text-sm">
+    <details className="rounded-xl border border-line-soft bg-surface2/40 px-4 py-3 text-sm">
       <summary className="focus-ring cursor-pointer rounded font-bold">How Sync works</summary>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
         <li>In Seller Hub open Ads, Reports, Other Reports.</li>
@@ -221,7 +221,7 @@ function Kpis({ summary, rows, scan, truth }: { summary: SkuSummary[]; rows: Sca
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
       {tiles.map(([label, value, foot]) => (
         <div key={label} className="sp-card min-w-0 p-4">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-muted">{label}</p>
+          <p className="font-mono text-[11px] font-bold text-muted">{label}</p>
           <p className="mt-1 font-mono text-xl font-bold tabular-nums">{value}</p>
           <p className="text-xs text-muted">{foot}</p>
         </div>
@@ -318,7 +318,7 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
       return next;
     });
   const head = (key: SortKey, label: string, right = true) => (
-    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-muted ${right ? "text-right" : "text-left"}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-[11px] font-bold text-muted ${right ? "text-right" : "text-left"}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
       <button type="button" className="focus-ring rounded" onClick={() => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "sku" ? 1 : -1 }))}>
         {label}
         {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
@@ -344,12 +344,12 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
         </div>
       }
     >
-      <div className="overflow-x-auto rounded-2xl border border-line-soft">
+      <div className="overflow-x-auto rounded-xl border border-line-soft">
         <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead className="bg-surface2/40">
             <tr>
               {head("sku", "SKU", false)}
-              <th scope="col" className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-muted">
+              <th scope="col" className="px-3 py-2 text-left text-[11px] font-bold text-muted">
                 Platform
               </th>
               {head("ads", "Ads")}
@@ -397,7 +397,7 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
                             <div className="overflow-x-auto">
                               <table className="w-full min-w-[820px] border-collapse text-xs">
                                 <thead>
-                                  <tr className="text-[10px] uppercase tracking-wide text-muted">
+                                  <tr className="text-[10px] text-muted">
                                     {["Campaign", "Campaign ID", "Status", "Daily budget", "Spend", "Avg / day", "Days", "Views", "Clicks", "Units", "Revenue", "ROI"].map((h, i) => (
                                       <th key={h} scope="col" className={`px-2 py-1.5 font-bold ${i >= 3 ? "text-right" : "text-left"}`}>
                                         {h}
@@ -517,7 +517,7 @@ function CampaignForm({ initial, editing, onDone }: { initial: Draft; editing: b
   };
   const label = "flex flex-col gap-1 text-xs font-bold text-muted";
   return (
-    <form onSubmit={submit} className="mb-5 grid gap-3 rounded-2xl border border-line-soft bg-surface2/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <form onSubmit={submit} className="mb-5 grid gap-3 rounded-xl border border-line-soft bg-surface2/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
       <label className={label}>
         Campaign name
         <input id="ads-f-name" className="input" required maxLength={200} value={d.name} onChange={(e) => set("name", e.target.value)} placeholder="HFLY1_Auto" />
@@ -627,9 +627,9 @@ function CampaignLog({ log }: { log: CampaignLogRow[] }) {
     >
       {editing ? <CampaignForm key={formKey} initial={editing} editing={isEdit} onDone={() => setEditing(null)} /> : null}
       {sorted.length ? (
-        <div className="overflow-x-auto rounded-2xl border border-line-soft">
+        <div className="overflow-x-auto rounded-xl border border-line-soft">
           <table className="w-full min-w-[900px] border-collapse text-sm">
-            <thead className="bg-surface2/40 text-[11px] uppercase tracking-wide text-muted">
+            <thead className="bg-surface2/40 text-[11px] text-muted">
               <tr>
                 {["Campaign", "Campaign ID", "SKUs", "Status", "Daily budget", "Start", "Spend (period)", "ROI", ""].map((h, i) => (
                   <th key={h || "actions"} scope="col" className={`px-3 py-2 font-bold ${i === 4 || i === 6 || i === 7 ? "text-right" : "text-left"}`}>
@@ -767,7 +767,7 @@ export function AdsTracker({ view }: { view: AdsView | null }) {
     <div className="flex min-w-0 flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Flipkart &amp; Shopsy · PLA ads</p>
+          <p className="font-mono text-[11px] font-bold text-muted">Flipkart &amp; Shopsy · PLA ads</p>
           <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Ads tracker</h1>
           <a href="/ads/desk" className="text-sm font-semibold text-accent-text underline-offset-2 hover:underline">Ads Desk: where the money went and what to fix →</a>
           <p className="mt-0.5 text-sm text-muted">

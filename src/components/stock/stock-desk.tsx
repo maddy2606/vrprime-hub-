@@ -359,7 +359,7 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
               className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-ink/30"}`}
             >
               <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-sm font-extrabold">{card.name}</span>
+                <span className="truncate text-sm font-semibold">{card.name}</span>
                 <span className="shrink-0 text-xs font-semibold text-muted">{Math.round(card.share * 100)}%</span>
               </span>
               <span className="mt-1 block font-mono text-xl font-bold leading-none tabular-nums">{formatNumber(card.units)}</span>

@@ -124,7 +124,7 @@ function LinkSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
         <li>Tap Link a device and scan the code below.</li>
         <li>Keep this open until it says it is linked; it then reads the group&apos;s recent messages.</li>
       </ol>
-      <div className="flex min-h-[17rem] items-center justify-center rounded-2xl border border-line bg-white p-3">
+      <div className="flex min-h-[17rem] items-center justify-center rounded-xl border border-line bg-white p-3">
         {qr ? (
           // The QR is an SVG made on the server from WhatsApp's pairing code.
           <div aria-label="WhatsApp link QR code" role="img" className="h-64 w-64 [&_svg]:h-full [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr }} />
@@ -706,7 +706,7 @@ export function ExpensesBoard({
               prefetch={false}
               href={`/expenses?month=${m.month}`}
               aria-current={on ? "page" : undefined}
-              className={`focus-ring flex shrink-0 flex-col rounded-2xl border px-4 py-2.5 transition ${on ? "border-accent bg-accent text-accent-ink sp-glow" : "border-line bg-surface hover:border-accent/50"}`}
+              className={`focus-ring flex shrink-0 flex-col rounded-xl border px-4 py-2.5 transition ${on ? "border-accent bg-accent text-accent-ink sp-glow" : "border-line bg-surface hover:border-accent/50"}`}
             >
               <span className={`text-xs font-bold ${on ? "text-accent-ink/80" : "text-muted"}`}>{m.label}</span>
               <span className="font-mono text-base font-bold tabular-nums">{formatINR(m.total)}</span>
@@ -719,7 +719,7 @@ export function ExpensesBoard({
         <section className="sp-card sp-card-lg relative overflow-hidden p-5 sm:p-6" aria-labelledby="exp-total">
           <span aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 28%, transparent), transparent 68%)" }} />
           <div className="relative">
-            <h2 id="exp-total" className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+            <h2 id="exp-total" className="font-mono text-[11px] font-bold text-muted">
               Spent in {label}
             </h2>
             <p className="mt-3 bg-clip-text font-mono text-[3.2rem] font-bold leading-none tracking-tight text-transparent tabular-nums sm:text-6xl" style={{ backgroundImage: "linear-gradient(100deg, var(--accent-text), var(--madder))" }}>
@@ -735,15 +735,15 @@ export function ExpensesBoard({
             </p>
             <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4">
               <div className="min-w-0">
-                <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">To check</dt>
+                <dt className="text-[11px] font-bold text-muted">To check</dt>
                 <dd className={`mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl ${s.toCheck ? "text-warn" : ""}`}>{formatNumber(s.toCheck)}</dd>
               </div>
               <div className="min-w-0">
-                <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">No amount</dt>
+                <dt className="text-[11px] font-bold text-muted">No amount</dt>
                 <dd className={`mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl ${s.noAmount ? "text-bad" : ""}`}>{formatNumber(s.noAmount)}</dd>
               </div>
               <div className="min-w-0">
-                <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Biggest</dt>
+                <dt className="text-[11px] font-bold text-muted">Biggest</dt>
                 <dd className="mt-1 truncate text-sm font-bold">{top ? top.category : "—"}</dd>
                 {top ? <dd className="font-mono text-xs text-muted tabular-nums">{formatINR(top.total)}</dd> : null}
               </div>
@@ -810,7 +810,7 @@ export function ExpensesBoard({
       </div>
 
       {shown.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-line px-5 py-10 text-center">
+        <div className="rounded-xl border border-dashed border-line px-5 py-10 text-center">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface2 text-muted">
             <ReceiptIcon className="h-6 w-6" />
           </span>

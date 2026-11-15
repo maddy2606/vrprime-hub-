@@ -30,7 +30,7 @@ export function CommentThread({ postId, comments, names }: Props) {
 
   return (
     <>
-      <h2 className="mb-3 text-base font-extrabold">
+      <h2 className="mb-3 text-base font-semibold">
         Comments{all.length ? <span className="font-semibold text-muted"> · {all.length}</span> : null}
       </h2>
       {all.length ? (

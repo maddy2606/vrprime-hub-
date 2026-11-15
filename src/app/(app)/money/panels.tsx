@@ -93,7 +93,7 @@ function Tile({ label, value, sub, tone }: { label: string; value: string; sub?:
   return (
     <div className="sp-card p-3">
       <p className="text-xs font-semibold text-muted">{label}</p>
-      <p className={`mt-0.5 text-lg font-extrabold tabular-nums ${tone === "bad" ? "text-bad" : tone === "ok" ? "text-ok" : ""}`}>{value}</p>
+      <p className={`mt-0.5 text-lg font-semibold tabular-nums ${tone === "bad" ? "text-bad" : tone === "ok" ? "text-ok" : ""}`}>{value}</p>
       {sub ? <p className="mt-0.5 text-xs text-muted">{sub}</p> : null}
     </div>
   );
@@ -139,7 +139,7 @@ export async function ProfitPanel({ db, sp }: { db: MoneyDb; sp: Search }) {
       </div>
 
       <Card className="mb-4 p-4">
-        <h2 className="text-base font-extrabold">Account-level costs (not tied to a SKU)</h2>
+        <h2 className="text-base font-semibold">Account-level costs (not tied to a SKU)</h2>
         <p className="mt-0.5 text-xs text-muted">
           The Flipkart reports do not link ads to a SKU or listing, so ads and the other account charges are shown here, not in the SKU rows. The settlement report shows the cash moved into the ad wallet, not what the campaigns spent (the Profit and Loss report&apos;s Ads line has that, by order month).
         </p>
@@ -151,7 +151,7 @@ export async function ProfitPanel({ db, sp }: { db: MoneyDb; sp: Search }) {
                 <span className={`font-semibold tabular-nums ${a.expense < 0 ? "text-bad" : ""}`}>{rupees(a.expense)}</span>
               </li>
             ))}
-            <li className="flex items-baseline justify-between gap-3 py-1.5 font-extrabold">
+            <li className="flex items-baseline justify-between gap-3 py-1.5 font-semibold">
               <span>Profit after these costs</span>
               <span className={`tabular-nums ${t.profit + accountTotal < 0 ? "text-bad" : ""}`}>{rupees(t.profit + accountTotal)}</span>
             </li>
@@ -236,13 +236,13 @@ export async function ChecksPanel({ db }: { db: MoneyDb }) {
   const extra = fees.reduce((n, f) => n + (f.extra_fee ?? 0), 0);
   return (
     <>
-      <h2 className="mb-1 text-base font-extrabold">Unpaid orders</h2>
+      <h2 className="mb-1 text-base font-semibold">Unpaid orders</h2>
       <p className="mb-3 text-sm text-muted">
         Shipped orders with no settlement line, ordered more than the &quot;unpaid after&quot; days before the latest settlement day we hold ({formatDate(latest)}). Orders that
         were returned, cancelled or are in the returns data are left out.
       </p>
       <UnpaidTable rows={unpaid} />
-      <h2 className="mb-1 mt-8 text-base font-extrabold">Wrong fees</h2>
+      <h2 className="mb-1 mt-8 text-base font-semibold">Wrong fees</h2>
       <p className="mb-3 text-sm text-muted">
         {formatNumber(fees.length)} settlement lines to check, about {rupees(extra)} above the usual. A commission rate that is far from the SKU&apos;s usual, a fixed
         fee clearly above the highest the SKU usually pays, or a fee charged twice for one order item. These are leads to look at, not proof: Flipkart changes fixed fees by order value.
@@ -265,7 +265,7 @@ export async function UploadsPanel({ db }: { db: MoneyDb }) {
         </p>
       ) : null}
       <UploadReport />
-      <h2 className="mb-2 mt-6 text-base font-extrabold">Uploaded reports</h2>
+      <h2 className="mb-2 mt-6 text-base font-semibold">Uploaded reports</h2>
       {uploads.length ? (
         <ul className="flex flex-col gap-2">
           {uploads.map((u) => (
@@ -310,7 +310,7 @@ async function EstimateCard({ db }: { db: MoneyDb }) {
   return (
     <Card className="mt-6 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-extrabold">Orders not settled yet</h2>
+        <h2 className="text-base font-semibold">Orders not settled yet</h2>
         <Chip tone="info">Estimated</Chip>
       </div>
       <p className="mt-0.5 text-xs text-muted">
@@ -327,7 +327,7 @@ async function EstimateCard({ db }: { db: MoneyDb }) {
           <div className="mt-2 overflow-x-auto rounded-lg border border-line">
             <table className="w-full min-w-max border-collapse text-sm">
               <thead>
-                <tr className="border-b border-line bg-surface2 text-left text-xs uppercase tracking-wide text-muted">
+                <tr className="border-b border-line bg-surface2 text-left text-xs text-muted">
                   <th className="p-2">SKU</th>
                   <th className="p-2 text-right">Units</th>
                   <th className="p-2 text-right">Price</th>
@@ -368,7 +368,7 @@ async function CrosscheckCard({ db }: { db: MoneyDb }) {
   return (
     <Card className="mt-4 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-extrabold">Cross-check with Flipkart&apos;s Profit and Loss report</h2>
+        <h2 className="text-base font-semibold">Cross-check with Flipkart&apos;s Profit and Loss report</h2>
         {cross.compared ? <Chip tone={cross.differ ? "bad" : "ok"}>{cross.differ ? `${formatNumber(cross.differ)} differ` : "All match"}</Chip> : null}
       </div>
       {cross.compared ? (

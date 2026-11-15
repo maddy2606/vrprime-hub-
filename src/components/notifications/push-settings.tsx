@@ -67,7 +67,7 @@ export function PushSettings({ userId }: { userId: string }) {
   return (
     <Card className="mb-4 p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-extrabold">Alerts on this phone</h2>
+        <h2 className="text-base font-semibold">Alerts on this phone</h2>
         <Chip tone={status.tone}>{status.label}</Chip>
       </div>
       {status.help ? <p className="mt-1.5 text-sm text-muted">{status.help}</p> : null}

@@ -125,7 +125,7 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
     <>
       <section className="sp-card sp-card-lg p-5 sm:p-6" aria-labelledby="pnl-month">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="pnl-month" className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+          <h2 id="pnl-month" className="font-mono text-[11px] font-bold text-muted">
             {t.net < 0 ? "Loss" : "Profit"} in {m.label}
             {t.ads > 0 ? ", after ads" : ""}
           </h2>
@@ -146,7 +146,7 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
             ["Units sold", formatNumber(t.units)],
           ].map(([k, v]) => (
             <div key={k} className="min-w-0">
-              <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">{k}</dt>
+              <dt className="text-[11px] font-bold text-muted">{k}</dt>
               <dd className="mt-1 font-mono text-lg font-bold tabular-nums sm:text-xl">{v}</dd>
             </div>
           ))}
@@ -209,7 +209,7 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
         <div className="overflow-x-auto">
           <table className="w-full min-w-[40rem] text-sm">
             <thead>
-              <tr className="border-y border-line text-left text-[11px] font-bold uppercase tracking-wider text-muted">
+              <tr className="border-y border-line text-left text-[11px] font-bold text-muted">
                 <th className="px-5 py-2 sm:px-6">Product</th>
                 <th className="px-3 py-2 text-right">Units</th>
                 <th className="px-3 py-2 text-right">Sales</th>
@@ -367,7 +367,7 @@ function Costing({ rows }: { rows: CostingRow[] }) {
                   <p className="mt-0.5 text-xs text-muted">No Flipkart SKU linked</p>
                 )}
               </div>
-              <label className="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-wider text-muted">
+              <label className="flex flex-col gap-1 text-[11px] font-bold text-muted">
                 Cost of 1 (₹)
                 <input
                   className={`input font-mono ${invalid ? "border-bad" : ""}`}
@@ -385,7 +385,7 @@ function Costing({ rows }: { rows: CostingRow[] }) {
       </ul>
 
       {changed.length ? (
-        <div className="sticky bottom-20 z-10 mt-3 flex items-center justify-between gap-3 rounded-2xl border border-accent bg-panel2/95 p-3 shadow-lg backdrop-blur min-[561px]:bottom-4">
+        <div className="sticky bottom-20 z-10 mt-3 flex items-center justify-between gap-3 rounded-xl border border-accent bg-panel2 p-3 min-[561px]:bottom-4">
           <span className="text-sm font-semibold">
             {changed.length} {changed.length === 1 ? "cost" : "costs"} changed
           </span>
@@ -439,7 +439,7 @@ function AdsReports({ uploads }: { uploads: AdsUpload[] }) {
         </label>
       </div>
       {uploads.length ? (
-        <ul className="mt-4 divide-y divide-line-soft rounded-2xl border border-line-soft">
+        <ul className="mt-4 divide-y divide-line-soft rounded-xl border border-line-soft">
           {uploads.map((u) => (
             <li key={u.month} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 text-sm">
               <span className="font-bold">{u.label}</span>
@@ -498,7 +498,7 @@ export function PnlBoard({ months, month, costing, uploads, feePct, reportSkus, 
                 prefetch={false}
                 href={`/pnl?month=${x.month}`}
                 aria-current={on ? "page" : undefined}
-                className={`focus-ring flex shrink-0 flex-col rounded-2xl border px-4 py-2.5 transition ${on ? "border-accent bg-accent text-accent-ink sp-glow" : "border-line bg-surface hover:border-accent/50"}`}
+                className={`focus-ring flex shrink-0 flex-col rounded-xl border px-4 py-2.5 transition ${on ? "border-accent bg-accent text-accent-ink sp-glow" : "border-line bg-surface hover:border-accent/50"}`}
               >
                 <span className={`text-xs font-bold ${on ? "text-accent-ink/80" : "text-muted"}`}>{x.label}</span>
                 <span className="font-mono text-base font-bold tabular-nums">
@@ -510,7 +510,7 @@ export function PnlBoard({ months, month, costing, uploads, feePct, reportSkus, 
         </nav>
       ) : null}
 
-      {m ? <MonthView m={m} feePct={feePct} masters={costing.map((c) => ({ id: c.id, name: c.name }))} /> : <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">No orders yet to work out a profit from.</p>}
+      {m ? <MonthView m={m} feePct={feePct} masters={costing.map((c) => ({ id: c.id, name: c.name }))} /> : <p className="rounded-xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">No orders yet to work out a profit from.</p>}
 
       <p className="mt-4 text-xs text-muted">
         How it is worked out: for orders Flipkart&apos;s P&amp;L report covers, its own net units, seller price (your revenue) and net earnings; Flipkart fees are the seller price

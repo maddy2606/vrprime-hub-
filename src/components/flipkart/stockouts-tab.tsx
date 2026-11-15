@@ -155,7 +155,7 @@ export function StockoutsTab({ rows, warehouses, snapshotDate, previousDate, tod
           const back = here.length - out;
           return (
             <section key={w.id} className="mb-6">
-              <h2 className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-base font-extrabold">
+              <h2 className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-base font-semibold">
                 {w.name}
                 <span className="text-sm font-semibold">
                   {out ? <span className="text-bad">{formatNumber(out)} stocked out</span> : null}

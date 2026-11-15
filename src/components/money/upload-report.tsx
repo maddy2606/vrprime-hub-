@@ -88,7 +88,7 @@ export function UploadReport() {
   return (
     <div className="flex flex-col gap-3">
       <div className="sp-card p-4">
-        <p className="text-base font-extrabold">Upload report</p>
+        <p className="text-base font-semibold">Upload report</p>
         <p className="mt-1 text-sm text-muted">
           In Seller Hub go to Payments, then Reports, and download <b>Settled Transactions</b> and the <b>Profit and Loss Report</b> (up to 30 days each).
           Choose the .xlsx file here. The type is detected from its sheets. A report loaded twice, or two reports that overlap, never count a line twice.
@@ -121,7 +121,7 @@ export function UploadReport() {
 
       {done.map((d, i) => (
         <div key={`${d.filename}-${i}`} className="rounded-xl border border-ok/40 bg-ok-soft p-4">
-          <p className="text-sm font-extrabold text-ok">
+          <p className="text-sm font-semibold text-ok">
             {d.kind === "settled" ? "Settled Transactions" : "Profit and Loss Report"} uploaded
           </p>
           <p className="mt-0.5 break-all text-xs text-muted">{d.filename}</p>

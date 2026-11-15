@@ -54,7 +54,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
           <Chip tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABEL[ticket.status]}</Chip>
           <FollowUpChip ticket={ticket} today={today} />
         </div>
-        <h1 className="mt-3 break-all font-mono text-xl font-extrabold leading-snug tracking-tight">{ticket.ticket_id}</h1>
+        <h1 className="mt-3 break-all font-mono text-xl font-semibold leading-snug tracking-tight">{ticket.ticket_id}</h1>
         <p className="mt-1 text-xs text-muted">Saved {formatDateTime(ticket.created_at)}</p>
         {post ? (
           <Link prefetch={false} href={`/posts/${post.id}`} className="focus-ring mt-3 block rounded-lg bg-canvas p-3 text-sm font-bold">

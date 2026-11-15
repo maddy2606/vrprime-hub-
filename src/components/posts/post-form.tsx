@@ -72,7 +72,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
             }}
             className="focus-ring sp-card p-4 text-left transition hover:border-accent"
           >
-            <span className="block text-base font-extrabold">{TYPE_LABEL[t]}</span>
+            <span className="block text-base font-semibold">{TYPE_LABEL[t]}</span>
             <span className="mt-0.5 block text-sm text-muted">{TYPE_HINT[t]}</span>
           </button>
         ))}
@@ -127,7 +127,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
       <div className="flex items-center justify-between gap-3 sp-card px-4 py-3">
         <div>
           <p className="text-xs font-semibold text-muted">Type</p>
-          <p className="text-base font-extrabold">{TYPE_LABEL[type]}</p>
+          <p className="text-base font-semibold">{TYPE_LABEL[type]}</p>
         </div>
         {!editing ? (
           <button type="button" onClick={() => set("type", null)} className={buttonClass("ghost")}>
@@ -309,7 +309,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
           onToggle={(e) => setMore(e.currentTarget.open)}
           className="sp-card"
         >
-          <summary className="focus-ring flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-extrabold">
+          <summary className="focus-ring flex min-h-12 cursor-pointer items-center justify-between px-4 text-sm font-semibold">
             More details <span className="text-xs font-semibold text-muted">optional</span>
           </summary>
           <div className="flex flex-col gap-4 border-t border-line p-4">
@@ -375,7 +375,7 @@ export function PostForm({ postId, initial, people, warehouses, canPostListings,
               </div>
               {weight?.over ? (
                 <p role="status" className="mt-2 rounded-lg border border-warn/50 bg-warn-soft p-3 text-sm">
-                  <span className="font-extrabold text-warn">Over the weight limit.</span> {weightWarning(weight)}
+                  <span className="font-semibold text-warn">Over the weight limit.</span> {weightWarning(weight)}
                 </p>
               ) : weight ? (
                 <p className="mt-2 text-sm text-muted">Within the weight limit ({Math.round(weight.total).toLocaleString("en-IN")} of {weight.limit.toLocaleString("en-IN")}).</p>

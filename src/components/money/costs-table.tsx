@@ -160,7 +160,7 @@ export function CostsTable({ costs, missing, today }: { costs: CostRow[]; missin
 
       {missing.length ? (
         <section aria-label="Cost missing" className="rounded-xl border border-warn/50 bg-warn-soft p-3">
-          <p className="text-sm font-extrabold text-warn">Cost missing ({missing.length})</p>
+          <p className="text-sm font-semibold text-warn">Cost missing ({missing.length})</p>
           <p className="mt-0.5 text-xs">These SKUs have sales in the settled reports but no cost, so their profit is not shown. Tap one to add its cost.</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {missing.map((sku) => (

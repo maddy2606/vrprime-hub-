@@ -79,7 +79,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people, today }: 
                   ] as const
                 ).map(([label, n, tone]) => (
                   <div key={label} className="rounded-lg bg-surface2/70 px-1 py-1.5">
-                    <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</dt>
+                    <dt className="text-[10px] font-bold text-muted">{label}</dt>
                     <dd className={`font-mono text-base font-bold tabular-nums ${tone}`}>{n}</dd>
                   </div>
                 ))}
@@ -98,7 +98,7 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people, today }: 
       <div className="hidden sm:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wider text-muted">
+            <tr className="border-b border-line text-left text-[11px] font-bold text-muted">
               <th scope="col" className="py-2 pr-3">Person</th>
               <th scope="col" className="px-2 text-right">Present</th>
               <th scope="col" className="px-2 text-right">Half</th>

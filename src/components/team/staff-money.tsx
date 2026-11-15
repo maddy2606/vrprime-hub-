@@ -63,22 +63,22 @@ export function StaffMoneySheet({ person, entries, today, onClose }: { person: {
 
   return (
     <Sheet open onClose={onClose} title={person.name} subtitle="Advances and expenses, date by date">
-      <dl className="grid grid-cols-3 gap-2 rounded-2xl bg-surface2/60 p-3">
+      <dl className="grid grid-cols-3 gap-2 rounded-xl bg-surface2/60 p-3">
         <div className="min-w-0">
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Advance due</dt>
+          <dt className="text-[11px] font-bold text-muted">Advance due</dt>
           <dd className={`mt-1 font-mono text-lg font-bold tabular-nums ${s.due > 0 ? "text-warn" : ""}`}>{formatINR(s.due)}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Advance this month</dt>
+          <dt className="text-[11px] font-bold text-muted">Advance this month</dt>
           <dd className="mt-1 font-mono text-lg font-bold tabular-nums">{formatINR(s.thisMonth.advance)}</dd>
         </div>
         <div className="min-w-0">
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Expenses this month</dt>
+          <dt className="text-[11px] font-bold text-muted">Expenses this month</dt>
           <dd className="mt-1 font-mono text-lg font-bold tabular-nums">{formatINR(s.thisMonth.expense)}</dd>
         </div>
       </dl>
 
-      <div className="mt-4 rounded-2xl border border-line bg-surface p-3">
+      <div className="mt-4 rounded-xl border border-line bg-surface p-3">
         <div role="radiogroup" aria-label="Type" className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-panel2 p-0.5">
           {STAFF_MONEY_KINDS.map((k) => (
             <button

@@ -32,9 +32,9 @@ export type Lane = {
 };
 
 const STAGES = [
-  { key: "to_accept", label: "To Accept", color: STAGE_COLOR.to_accept },
-  { key: "to_pack", label: "To Pack", color: STAGE_COLOR.to_pack },
-  { key: "to_dispatch", label: "To Dispatch", color: STAGE_COLOR.to_dispatch },
+  { key: "to_accept", label: "To Accept", color: STAGE_COLOR.to_accept, ink: "var(--ink)" },
+  { key: "to_pack", label: "To Pack", color: STAGE_COLOR.to_pack, ink: "var(--canvas)" },
+  { key: "to_dispatch", label: "To Dispatch", color: STAGE_COLOR.to_dispatch, ink: "var(--canvas)" },
 ] as const;
 
 const total = (l: Lane) => l.stages.to_accept + l.stages.to_pack + l.stages.to_dispatch;
@@ -62,7 +62,7 @@ function Track({ lane, max }: { lane: Lane; max: number }) {
                 className={`relative flex h-full min-w-[4px] items-center justify-center overflow-hidden ${i === 0 ? "rounded-l-md" : ""} ${i === parts.length - 1 ? "rounded-r-md" : ""}`}
                 style={{ flexGrow: lane.stages[s.key], flexBasis: 0, background: s.color }}
               >
-                {share * width > 9 ? <span className="font-mono text-[11px] font-semibold text-white mix-blend-difference">{formatNumber(lane.stages[s.key])}</span> : null}
+                {share * width > 9 ? <span className="font-mono text-[11px] font-semibold" style={{ color: s.ink }}>{formatNumber(lane.stages[s.key])}</span> : null}
               </div>
             );
           })}
@@ -99,9 +99,9 @@ export function Lanes({ lanes, ariaLabel, legend = true, className = "" }: { lan
               {head}
               <div className="order-last col-span-2 sm:order-none sm:col-span-1">
                 <Track lane={l} max={max} />
-                <p className="mt-1 flex justify-between gap-2 text-[11px] text-muted">
-                  <span className="truncate">{l.note}</span>
-                  <span className={`shrink-0 ${l.late ? "font-semibold text-bad" : ""}`}>{l.late ? `${formatNumber(l.late)} late · ` : ""}{l.next ? `next dispatch ${l.next}` : n > 0 ? "" : "no orders waiting"}</span>
+                <p className="mt-1 flex flex-wrap justify-between gap-x-3 gap-y-0.5 text-[11px] text-muted">
+                  <span>{l.note}</span>
+                  <span className={`${l.late ? "font-semibold text-bad" : ""}`}>{l.late ? `${formatNumber(l.late)} late · ` : ""}{l.next ? `next dispatch ${l.next}` : n > 0 ? "" : "no orders waiting"}</span>
                 </p>
               </div>
               {tail}

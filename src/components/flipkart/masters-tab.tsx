@@ -256,7 +256,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
       </Section>
 
       <details className="mb-6 sp-card p-4">
-        <summary className="cursor-pointer text-base font-extrabold">
+        <summary className="cursor-pointer text-base font-semibold">
           Removed ({formatNumber(removed.length)}) <span className="text-xs font-semibold text-muted">never checked or listed; click × to put one back under Not linked yet</span>
         </summary>
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -278,7 +278,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
 function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
     <section className="mb-6 sp-card p-4">
-      <h2 className="mb-3 text-base font-extrabold">
+      <h2 className="mb-3 text-base font-semibold">
         {title} <span className="font-mono text-sm font-semibold text-muted">({formatNumber(count)})</span>
       </h2>
       {children}

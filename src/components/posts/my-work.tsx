@@ -30,7 +30,7 @@ function Section({
   if (!posts.length) return null;
   return (
     <section className="mb-6">
-      <h2 className={`mb-2 text-sm font-extrabold uppercase tracking-wide ${tone}`}>
+      <h2 className={`mb-2 text-sm font-semibold ${tone}`}>
         {title} · {posts.length}
       </h2>
       <PostGrid posts={posts} lookups={lookups} today={today} />

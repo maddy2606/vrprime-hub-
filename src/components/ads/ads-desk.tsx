@@ -170,11 +170,11 @@ function DataTable<R extends Result>({ rows, cols, initial, onRow, search, filte
       <div className="relative overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wider text-muted">
+            <tr className="border-b border-line text-left text-[11px] font-bold text-muted">
               {cols.map((c, i) => (
                 <th key={c.label} scope="col" className={`whitespace-nowrap px-2 py-2 ${c.num ? "text-right" : ""}`} aria-sort={sort.i === i ? (sort.dir === 1 ? "ascending" : "descending") : undefined}>
                   {c.sort ? (
-                    <button type="button" className="focus-ring rounded font-bold uppercase tracking-wider hover:text-ink" onClick={() => setSort((s) => ({ i, dir: s.i === i ? (s.dir === 1 ? -1 : 1) : -1 }))}>
+                    <button type="button" className="focus-ring rounded font-bold hover:text-ink" onClick={() => setSort((s) => ({ i, dir: s.i === i ? (s.dir === 1 ? -1 : 1) : -1 }))}>
                       {c.label}
                       {sort.i === i ? (sort.dir === 1 ? " ↑" : " ↓") : ""}
                     </button>
@@ -368,7 +368,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
   const header = (
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Flipkart &amp; Shopsy · PLA ads</p>
+        <p className="font-mono text-[11px] font-bold text-muted">Flipkart &amp; Shopsy · PLA ads</p>
         <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Ads Desk</h1>
         <p className="mt-0.5 text-sm text-muted">
           {range ? `${span(range.from, range.to)}${range.hasPrev ? `, compared with ${span(range.pFrom, range.pTo)}` : ""}` : "No reports synced yet."}{" "}
@@ -513,7 +513,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                 ] as [string, string, ReactNode][]
               ).map(([label, value, change]) => (
                 <div key={label} className="min-w-0 rounded-xl bg-surface2/60 p-3">
-                  <dt className="font-mono text-[11px] font-bold uppercase tracking-wider text-muted">{label}</dt>
+                  <dt className="font-mono text-[11px] font-bold text-muted">{label}</dt>
                   <dd className="mt-1 font-mono text-xl font-bold tabular-nums">{value}</dd>
                   <dd className="text-[11px] font-bold">{change}</dd>
                 </div>
@@ -815,7 +815,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
           <div className="relative overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-line text-left text-[11px] font-bold uppercase tracking-wider text-muted">
+                <tr className="border-b border-line text-left text-[11px] font-bold text-muted">
                   {["Day", "Days", "Spend / day", "Revenue / day", "ROI", "Units / day", "CPC", "CVR"].map((h, i) => (
                     <th key={h} scope="col" className={`whitespace-nowrap px-2 py-2 ${i ? "text-right" : ""}`}>
                       {h}
@@ -949,7 +949,7 @@ function MiniTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
     <div className="relative overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-line text-left text-[10px] font-bold uppercase tracking-wider text-muted">
+          <tr className="border-b border-line text-left text-[10px] font-bold text-muted">
             {head.map((h, i) => (
               <th key={h} scope="col" className={`whitespace-nowrap px-1.5 py-1.5 ${i ? "text-right" : ""}`}>
                 {h}
@@ -1003,7 +1003,7 @@ function CampaignSheet({ cid, onClose, data, camps, kws, from, to, min, max }: {
               ] as [string, string, string][]
             ).map(([l, v, w]) => (
               <div key={l} className="min-w-0 rounded-xl bg-surface2/60 p-2.5">
-                <dt className="text-[10px] font-bold uppercase tracking-wider text-muted">{l}</dt>
+                <dt className="text-[10px] font-bold text-muted">{l}</dt>
                 <dd className="font-mono text-base font-bold tabular-nums" style={l === "ROI" ? { color: roiColor(c.roi) } : undefined}>{v}</dd>
                 <dd className="text-[11px] text-muted">{w}</dd>
               </div>

@@ -140,17 +140,17 @@ export function BudgetSection({ plan, expenses, today, picked, onPick }: { plan:
 
       {hasPlan ? (
         <>
-          <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-surface2/60 p-3 sm:grid-cols-3 sm:p-4">
+          <dl className="grid grid-cols-2 gap-3 rounded-xl bg-surface2/60 p-3 sm:grid-cols-3 sm:p-4">
             <div className="min-w-0">
-              <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Budget</dt>
+              <dt className="text-[11px] font-bold text-muted">Budget</dt>
               <dd className="mt-1 font-mono text-lg font-bold tabular-nums sm:text-2xl">{formatINR(totalBudget)}</dd>
             </div>
             <div className="min-w-0">
-              <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Spent</dt>
+              <dt className="text-[11px] font-bold text-muted">Spent</dt>
               <dd className="mt-1 font-mono text-lg font-bold tabular-nums sm:text-2xl">{formatINR(totalSpent)}</dd>
             </div>
             <div className="col-span-2 flex min-w-0 items-baseline justify-between gap-2 border-t border-line-soft pt-2 sm:col-span-1 sm:block sm:border-0 sm:pt-0">
-              <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">{totalBudget - totalSpent >= 0 ? "Left" : "Over"}</dt>
+              <dt className="text-[11px] font-bold text-muted">{totalBudget - totalSpent >= 0 ? "Left" : "Over"}</dt>
               <dd className={`mt-1 font-mono text-lg font-bold tabular-nums sm:text-2xl ${totalBudget - totalSpent < 0 ? "text-bad" : "text-ok"}`}>{formatINR(Math.abs(totalBudget - totalSpent))}</dd>
             </div>
           </dl>
@@ -176,7 +176,7 @@ export function BudgetSection({ plan, expenses, today, picked, onPick }: { plan:
                 type="button"
                 aria-pressed={on}
                 onClick={() => pick(r.key)}
-                className={`focus-ring block w-full rounded-2xl border p-4 text-left transition ${on ? "border-accent bg-accent-soft/40" : "border-line-soft bg-surface/60 hover:border-accent/50"}`}
+                className={`focus-ring block w-full rounded-xl border p-4 text-left transition ${on ? "border-accent bg-accent-soft/40" : "border-line-soft bg-surface/60 hover:border-accent/50"}`}
               >
                 <span className="flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2 text-sm font-bold">
@@ -294,7 +294,7 @@ function BudgetSheet({ open, onClose, plan }: { open: boolean; onClose: () => vo
   return (
     <Sheet open={open} onClose={onClose} title={`Budget for ${plan.label}`} subtitle="How much each warehouse can spend this month, labour included.">
       {from ? <p className="mb-3 rounded-lg bg-accent-soft px-3 py-2 text-sm font-semibold text-accent-text">{from} Change anything before saving.</p> : null}
-      <div className="rounded-2xl border border-line bg-surface p-3">
+      <div className="rounded-xl border border-line bg-surface p-3">
         <label className="flex flex-col gap-1.5 text-sm font-semibold">
           Running costs for all warehouses (₹)
           <input className="input font-mono" inputMode="numeric" value={total} onChange={(e) => setTotal(e.target.value)} placeholder="100000" />
@@ -317,7 +317,7 @@ function BudgetSheet({ open, onClose, plan }: { open: boolean; onClose: () => vo
         {keys.map((k) => {
           const share = k.key !== GENERAL && orderTotal > 0 ? Math.round(((plan.orders[k.key] ?? 0) / orderTotal) * 100) : null;
           return (
-            <li key={k.key} className="rounded-2xl border border-line-soft bg-surface/60 p-3">
+            <li key={k.key} className="rounded-xl border border-line-soft bg-surface/60 p-3">
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-2 text-sm font-bold">
                   <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: k.color }} />
@@ -345,7 +345,7 @@ function BudgetSheet({ open, onClose, plan }: { open: boolean; onClose: () => vo
         })}
       </ul>
 
-      <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-surface2/60 p-3 text-sm">
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-surface2/60 p-3 text-sm">
         <span className="min-w-0 text-muted">
           Labour <b className="font-mono text-ink">{formatINR(sumLabour)}</b> · Running <b className="font-mono text-ink">{formatINR(sumRunning)}</b>
         </span>

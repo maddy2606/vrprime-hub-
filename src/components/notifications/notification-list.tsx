@@ -77,7 +77,7 @@ export function NotificationList({ items }: { items: NotificationRow[] }) {
                     e.preventDefault();
                     open(n);
                   }}
-                  className="focus-ring block rounded-2xl transition hover:-translate-y-px"
+                  className="focus-ring block rounded-xl transition"
                 >
                   <NotificationCard n={n} unread={unread} when={formatDateTime(n.created_at)} />
                 </Link>
@@ -86,7 +86,7 @@ export function NotificationList({ items }: { items: NotificationRow[] }) {
           })}
         </ul>
       ) : (
-        <p className="rounded-2xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">
+        <p className="rounded-xl border border-dashed border-line px-5 py-8 text-center text-sm text-muted">
           {filter === "alerts" ? "No alerts in your latest notifications." : "No updates in your latest notifications."}
         </p>
       )}

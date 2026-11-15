@@ -452,7 +452,7 @@ function SortHeader({ label, active, dir, onClick, first = false }: { label: str
       <button
         type="button"
         onClick={onClick}
-        className={`focus-ring flex min-h-11 w-full items-center gap-0.5 px-2 text-xs uppercase leading-tight ${first ? "justify-start" : "justify-end"} ${active ? "text-accent-text" : "text-muted hover:text-ink"}`}
+        className={`focus-ring flex min-h-11 w-full items-center gap-0.5 px-2 text-xs leading-tight ${first ? "justify-start" : "justify-end"} ${active ? "text-accent-text" : "text-muted hover:text-ink"}`}
       >
         {label}
         <span aria-hidden="true" className="w-3 text-[10px]">
@@ -501,7 +501,7 @@ function Numbers({ row, small = false, hideCover = false }: { row: ForecastRow; 
     <dl className={`mt-2.5 grid gap-x-4 ${small ? "grid-cols-3 gap-y-1.5" : "grid-cols-3 gap-y-2.5"}`}>
       {NUMBERS.filter((c) => !(hideCover && c.key === "cover")).map((c) => (
         <div key={c.key} className="min-w-0">
-          <dt className="text-[11px] font-semibold uppercase leading-tight tracking-wide text-muted">{c.label}</dt>
+          <dt className="text-[11px] font-semibold leading-tight text-muted">{c.label}</dt>
           <dd className={`mt-0.5 font-mono tabular-nums ${small ? "text-[13px]" : "text-sm font-semibold"}`}>{c.cell(row)}</dd>
         </div>
       ))}

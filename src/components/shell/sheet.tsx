@@ -108,7 +108,7 @@ export function Sheet({
 
   return createPortal(
     <div className="fixed inset-0 z-[70]">
-      <div aria-hidden="true" onClick={() => close.current()} className="vr-scrim absolute inset-0 bg-scrim backdrop-blur-[3px]" />
+      <div aria-hidden="true" onClick={() => close.current()} className="vr-scrim absolute inset-0 bg-scrim" />
       <div
         ref={panel}
         role="dialog"

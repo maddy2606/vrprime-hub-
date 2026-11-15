@@ -40,7 +40,7 @@ export function KpiTile({
 }) {
   const body = (
     <>
-      <span className="block text-[11px] font-bold uppercase tracking-wider text-muted">{label}</span>
+      <span className="block text-[11px] font-bold text-muted">{label}</span>
       <CountUp value={value} className={`mt-1 block text-3xl font-bold leading-none ${TEXT[tone]}`} />
       {sub ? <span className="mt-1.5 block text-xs text-muted">{sub}</span> : null}
       {spark && spark.length > 1 ? (

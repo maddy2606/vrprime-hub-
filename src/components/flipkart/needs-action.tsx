@@ -56,7 +56,7 @@ function Section({ section }: { section: ActionSection }) {
   const more = section.rows.length - SHOWN;
   return (
     <section aria-labelledby={`na-${section.key}`} className="mb-6">
-      <h2 id={`na-${section.key}`} className="mb-2 flex items-baseline gap-2 text-base font-extrabold">
+      <h2 id={`na-${section.key}`} className="mb-2 flex items-baseline gap-2 text-base font-semibold">
         {section.title}
         <span className="text-sm font-semibold text-muted">{formatNumber(section.rows.length)}</span>
       </h2>

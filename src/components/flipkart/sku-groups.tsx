@@ -74,7 +74,7 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
       {rows.length === 0 ? (
         <EmptyState title={searching ? "Nothing matches your search" : "No orders here"} body={searching ? "Try a shorter part of the text, or clear the search." : emptyBody} />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="sp-card divide-y divide-line-soft">
           {rows.map((g) => {
             const expanded = open.has(g.sku);
             const detail = details[g.sku];
@@ -85,30 +85,28 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
             const stock = detail?.state === "ready" ? detail.detail.stock : null;
             const anyShort = stock !== null && whIds.some((id) => shortBy(g.by_wh[id], id in stock ? stock[id] : null) > 0);
             return (
-              <li key={g.sku} className="sp-card">
-                <button type="button" aria-expanded={expanded} onClick={() => toggle(g.sku)} className="focus-ring flex w-full min-w-0 flex-col gap-1.5 rounded-xl p-3 text-left">
-                  <span className="flex w-full items-start justify-between gap-2">
+              <li key={g.sku}>
+                <button type="button" aria-expanded={expanded} onClick={() => toggle(g.sku)} className="focus-ring grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5 px-3 py-2.5 text-left transition-colors hover:bg-surface2/60 sm:px-4 lg:grid-cols-[minmax(0,1.5fr)_10rem_minmax(0,1fr)_minmax(0,1.3fr)_8.5rem] lg:items-center">
                     <span className="min-w-0">
                       <span className="block break-all font-mono text-[13px] font-bold">{g.sku || "No SKU"}</span>
                       {g.title ? <span className="block truncate text-xs text-muted">{g.title}</span> : null}
                     </span>
-                    <span className="flex shrink-0 items-center gap-1">
+                    <span className="flex shrink-0 items-center justify-end gap-1 lg:order-last">
                       <span className={`whitespace-nowrap text-xs font-semibold ${red ? "text-bad" : "text-muted"}`}>{due ? formatDue(due, now) : "—"}</span>
-                      <ChevronDownIcon className={`h-4 w-4 text-muted transition ${expanded ? "rotate-180" : ""}`} />
+                      <ChevronDownIcon className={`h-4 w-4 text-muted transition-transform ${expanded ? "rotate-180" : ""}`} />
                     </span>
-                  </span>
-                  <span className="text-sm font-bold">
+                  <span className="col-span-2 font-mono text-[13px] font-semibold tabular-nums lg:col-span-1">
                     {formatNumber(g.orders)} {g.orders === 1 ? "order" : "orders"} · {formatNumber(g.units)} {g.units === 1 ? "unit" : "units"}
-                    {anyShort ? <span className="ml-2 text-xs font-bold text-bad">Short of stock</span> : null}
+                    {anyShort ? <span className="ml-2 font-sans text-xs font-semibold text-bad">Short of stock</span> : null}
                   </span>
-                  <span className="flex flex-wrap gap-1">
+                  <span className="col-span-2 flex flex-wrap gap-1 lg:col-span-1">
                     {whIds.map((id) => (
                       <Chip key={id}>
                         {nameOf(id)} {formatNumber(g.by_wh[id])}
                       </Chip>
                     ))}
                   </span>
-                  <span className="flex flex-wrap gap-1">
+                  <span className="col-span-2 flex flex-wrap gap-1 lg:col-span-1">
                     {BUCKETS.filter((b) => g[b] > 0).map((b) => (
                       <Chip key={b} tone={BUCKET_TONE[b]}>
                         {BUCKET_LABEL[b]} {formatNumber(g[b])}
@@ -118,7 +116,7 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
                 </button>
 
                 {expanded ? (
-                  <div className="border-t border-line p-3">
+                  <div className="border-t border-line-soft bg-surface2/40 px-3 py-3 sm:px-4">
                     {!detail || detail.state === "loading" ? (
                       <div aria-busy="true" aria-label="Loading this SKU's orders">
                         <div className="skeleton mb-2 h-5 w-40" />
@@ -129,12 +127,12 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
                     ) : (
                       <>
                         <table className="mb-3 w-full border-collapse text-sm">
-                          <caption className="pb-1 text-left text-xs font-bold uppercase tracking-wide text-muted">Stock vs units ordered</caption>
+                          <caption className="pb-1 text-left text-xs font-semibold text-muted">Stock vs units ordered</caption>
                           <thead>
-                            <tr className="text-xs uppercase tracking-wide text-muted">
-                              <th scope="col" className="py-1 text-left font-bold">Warehouse</th>
-                              <th scope="col" className="py-1 text-right font-bold">Ordered</th>
-                              <th scope="col" className="py-1 text-right font-bold">Stock</th>
+                            <tr className="text-xs text-muted">
+                              <th scope="col" className="py-1 text-left font-semibold">Warehouse</th>
+                              <th scope="col" className="py-1 text-right font-semibold">Ordered</th>
+                              <th scope="col" className="py-1 text-right font-semibold">Stock</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -157,14 +155,14 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
 
                         <div className="overflow-x-auto">
                           <table className="w-full min-w-max border-collapse text-sm">
-                            <caption className="pb-1 text-left text-xs font-bold uppercase tracking-wide text-muted">Orders</caption>
+                            <caption className="pb-1 text-left text-xs font-semibold text-muted">Orders</caption>
                             <thead>
-                              <tr className="text-xs uppercase tracking-wide text-muted">
-                                <th scope="col" className="py-1 pr-3 text-left font-bold">Order ID</th>
-                                <th scope="col" className="py-1 pr-3 text-right font-bold">Qty</th>
-                                <th scope="col" className="py-1 pr-3 text-left font-bold">Warehouse</th>
-                                <th scope="col" className="py-1 pr-3 text-left font-bold">Status</th>
-                                <th scope="col" className="py-1 text-left font-bold">Dispatch by</th>
+                              <tr className="text-xs text-muted">
+                                <th scope="col" className="py-1 pr-3 text-left font-semibold">Order ID</th>
+                                <th scope="col" className="py-1 pr-3 text-right font-semibold">Qty</th>
+                                <th scope="col" className="py-1 pr-3 text-left font-semibold">Warehouse</th>
+                                <th scope="col" className="py-1 pr-3 text-left font-semibold">Status</th>
+                                <th scope="col" className="py-1 text-left font-semibold">Dispatch by</th>
                               </tr>
                             </thead>
                             <tbody>

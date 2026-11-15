@@ -5,7 +5,8 @@ import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, Toolbar 
 import { OrdersSyncBar } from "@/components/flipkart/orders-sync-bar";
 import { BUCKET_TONE, SkuGroups } from "@/components/flipkart/sku-groups";
 import { DataTable, type Column } from "@/components/stock/data-table";
-import { Chip, EmptyState } from "@/components/ui";
+import { Lanes } from "@/components/signal/lanes";
+import { Chip, EmptyState, SectionHead } from "@/components/ui";
 import { formatDue, isRed, urgency } from "@/lib/flipkart-analysis";
 import { formatDate, formatNumber, todayIST } from "@/lib/format";
 import {
@@ -22,6 +23,7 @@ import {
   type StatusFilter,
   type WarehouseOrders,
 } from "@/lib/orders-view";
+import { warehouseColor } from "@/lib/theme";
 import type { OrderSyncState } from "@/lib/orders-sync";
 import { loadOrdersViewAction } from "@/server/actions/orders-view";
 
@@ -264,48 +266,38 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
     <>
       <OrdersSyncBar state={state} canSync={canSync} kind={query.status === "upcoming" ? "upcoming" : "pending"} today={today} />
 
-      {/* One tidy grid of warehouses: three counts you act on, the rest muted, and the next deadline as a chip. */}
-      <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((w) => {
-          const on = query.wh !== "" && query.wh === w.warehouseId;
-          const u = urgency(w.nextDue, now);
-          const red = w.late > 0 || (Boolean(w.nextDue) && isRed(u));
-          return (
-            <button
-              key={w.warehouseId ?? "unknown"}
-              type="button"
-              aria-pressed={on}
-              disabled={w.warehouseId === null}
-              onClick={() => toggleWarehouse(w.warehouseId)}
-              className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-ink/30"}`}
-            >
-              <span className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-extrabold">{w.name}</span>
-                <span
-                  className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    red ? "bg-bad-soft text-bad" : "bg-surface2 text-muted"
-                  }`}
-                >
-                  {w.nextDue ? (w.late ? `${formatNumber(w.late)} late` : formatDue(w.nextDue, now)) : "No deadline"}
-                </span>
-              </span>
-              <span className="mt-2 grid grid-cols-3 divide-x divide-line text-center">
-                {ACTIVE_BUCKETS.map((b) => (
-                  <span key={b} className="px-1">
-                    <span className="block font-mono text-lg font-bold leading-none tabular-nums">{formatNumber(w[b])}</span>
-                    <span className="mt-1 block text-[11px] font-semibold text-muted">{BUCKET_LABEL[b]}</span>
-                  </span>
-                ))}
-              </span>
-              <span className="mt-2 block text-[11px] text-muted">
-                Upcoming {formatNumber(w.upcoming)} · Processing {formatNumber(w.processing)} · In transit {formatNumber(w.inTransit)}
-                {w.held ? ` · ${w.held} on hold` : ""}
-              </span>
-            </button>
-          );
-        })}
-        {cards.length === 0 ? <p className="text-sm text-muted">No warehouse to show.</p> : null}
-      </div>
+      {/* The warehouse lanes: orders flow To Accept, To Pack, To Dispatch; late orders are the red block at the gate. Tap a lane to look at that warehouse alone. */}
+      <section aria-labelledby="orders-lanes" className="sp-card mb-5 px-4 pb-3 pt-4 sm:px-5">
+        <SectionHead
+          id="orders-lanes"
+          title="Waiting at each warehouse"
+          sub={query.wh ? `Showing ${nameOf(query.wh)} only. Tap it again to see all.` : "Tap a warehouse to look at it alone."}
+          action={<span className="font-mono text-sm font-semibold tabular-nums text-muted">{formatNumber(cards.reduce((n, c) => n + c.active, 0))} active</span>}
+        />
+        {cards.length === 0 ? (
+          <p className="pb-2 text-sm text-muted">No warehouse to show.</p>
+        ) : (
+          <Lanes
+            ariaLabel="Orders waiting at each warehouse, by stage"
+            lanes={cards.map((w, i) => {
+              const u = urgency(w.nextDue, now);
+              return {
+                id: w.warehouseId ?? "unknown",
+                name: w.name,
+                color: warehouseColor(w.name, i),
+                stages: { to_accept: w.to_accept, to_pack: w.to_pack, to_dispatch: w.to_dispatch },
+                late: w.late,
+                next: w.nextDue ? formatDue(w.nextDue, now) : null,
+                chip: w.late ? undefined : w.nextDue ? (isRed(u) ? { label: "Due today", tone: "bad" as const } : undefined) : { label: "No deadline", tone: "neutral" as const },
+                figure: { value: w.active, label: "active" },
+                note: `Upcoming ${formatNumber(w.upcoming)} · Processing ${formatNumber(w.processing)} · In transit ${formatNumber(w.inTransit)}${w.held ? ` · ${w.held} on hold` : ""}`,
+                selected: query.wh !== "" && query.wh === w.warehouseId,
+                onSelect: w.warehouseId === null ? undefined : () => toggleWarehouse(w.warehouseId),
+              };
+            })}
+          />
+        )}
+      </section>
 
       <Toolbar>
         <Segmented<(typeof SHOWN_VIEWS)[number]>
@@ -375,10 +367,10 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
 
       {summary ? (
         <div className="mb-4 overflow-x-auto sp-card">
-          <table className="w-full border-collapse text-sm">
-            <caption className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wide text-muted">Cancellations per day</caption>
+          <table className="ledger w-full border-collapse text-sm">
+            <caption className="px-3 py-2.5 text-left text-sm font-semibold">Cancellations per day</caption>
             <thead>
-              <tr className="border-y border-line bg-surface2 text-xs uppercase tracking-wide text-muted">
+              <tr>
                 <th scope="col" className="px-3 py-2 text-left">Day</th>
                 <th scope="col" className="px-3 py-2 text-right">Seller</th>
                 <th scope="col" className="px-3 py-2 text-right">Buyer</th>

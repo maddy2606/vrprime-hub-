@@ -202,8 +202,8 @@ export function AlertCenter({ initial, total }: { initial: NotificationRow[]; to
 
       {updates.length ? (
         <section aria-label="Other updates" className="mt-5">
-          <h3 className="px-1 text-xs font-bold uppercase tracking-wider text-muted">Other updates</h3>
-          <ul className="mt-2 overflow-hidden rounded-2xl border border-line-soft bg-surface">
+          <h3 className="px-1 text-xs font-bold text-muted">Other updates</h3>
+          <ul className="mt-2 overflow-hidden rounded-xl border border-line-soft bg-surface">
             {updates.slice(0, 6).map((n) => (
               <li key={n.id} className="border-b border-line-soft last:border-b-0">
                 <Link

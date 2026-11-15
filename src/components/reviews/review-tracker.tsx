@@ -110,7 +110,7 @@ function Tile({ href, label, glow, index, children }: { href?: string; label: st
         style={{ background: `radial-gradient(circle, color-mix(in srgb, ${glow} 34%, transparent), transparent 68%)` }}
       />
       <span className="relative flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">{label}</span>
+        <span className="font-mono text-[11px] font-bold text-muted">{label}</span>
         {href ? (
           <span aria-hidden="true" className="text-muted transition-transform group-hover:translate-x-0.5">
             ↓
@@ -463,7 +463,7 @@ function LinkCards({ list }: { list: ReviewLine[] }) {
 
 function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDay: string | null; sort: Sort; onSort: (s: Sort) => void }) {
   const head = (key: SortKey, label: string, right = true) => (
-    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-muted ${right ? "text-right" : "text-left"}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-[11px] font-bold text-muted ${right ? "text-right" : "text-left"}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
       <button type="button" className="focus-ring rounded" onClick={() => onSort(sort.key === key ? { key, dir: sort.dir === 1 ? -1 : 1 } : { key, dir: key === "priority" ? 1 : -1 })}>
         {label}
         {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
@@ -471,12 +471,12 @@ function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDa
     </th>
   );
   const plain = (label: string, extra = "") => (
-    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-muted ${extra}`}>
+    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-left text-[11px] font-bold text-muted ${extra}`}>
       {label}
     </th>
   );
   return (
-    <div className="max-h-[36rem] overflow-auto rounded-2xl border border-line-soft">
+    <div className="max-h-[36rem] overflow-auto rounded-xl border border-line-soft">
       <table className={`w-full border-collapse text-sm ${prevDay ? "min-w-[720px]" : "min-w-[560px]"}`}>
         <thead className="sticky top-0 z-10 bg-panel2">
           <tr>
@@ -485,7 +485,7 @@ function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDa
             {plain("Platform")}
             {head("reviews", "Reviews")}
             {prevDay ? (
-              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wide text-muted">
+              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-bold text-muted">
                 {dayShort(prevDay)}
               </th>
             ) : null}
@@ -785,7 +785,7 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
     <div className="flex min-w-0 flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Flipkart &amp; Shopsy · written reviews</p>
+          <p className="font-mono text-[11px] font-bold text-muted">Flipkart &amp; Shopsy · written reviews</p>
           <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Review tracker</h1>
           <p className="mt-0.5 text-sm text-muted">
             {view.day ? `Checked ${dayYear(view.day)}${view.prevDay ? `, compared with ${dayYear(view.prevDay)}` : ""}${note ? ` · ${note}` : ""}` : "No check saved yet."}

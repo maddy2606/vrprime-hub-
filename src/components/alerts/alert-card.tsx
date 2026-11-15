@@ -105,7 +105,7 @@ export function NotificationCard({
   const tone = kindTone(n.kind);
   // The icon sits in the top row, so the title, the lines and the buttons get the card's full width on a phone.
   return (
-    <div className={`relative overflow-hidden rounded-2xl border ${unread ? "border-line bg-surface" : "border-line-soft bg-surface/70"}`}>
+    <div className={`relative overflow-hidden rounded-xl border ${unread ? "border-line bg-surface" : "border-line-soft bg-surface/70"}`}>
       <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${TONE_BAR[tone]} ${unread ? "" : "opacity-40"}`} />
       <div className="py-3 pl-4 pr-3.5">
         <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export function NotificationCard({
           {unread ? <span aria-label="Unread" className="h-2 w-2 shrink-0 rounded-full bg-accent" /> : null}
           <span className="ml-auto shrink-0 text-xs text-muted">{when}</span>
         </div>
-        <p className={`mt-2 break-words text-[15px] leading-snug ${unread ? "font-extrabold" : "font-bold text-ink/85"}`}>{n.title}</p>
+        <p className={`mt-2 break-words text-[15px] leading-snug ${unread ? "font-semibold" : "font-bold text-ink/85"}`}>{n.title}</p>
         <AlertBody kind={n.kind} body={n.body} />
         {note ? <p className="mt-2 text-xs font-semibold text-muted">{note}</p> : null}
         {children}

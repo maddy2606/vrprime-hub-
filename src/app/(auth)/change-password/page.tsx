@@ -11,7 +11,7 @@ export default async function ChangePasswordPage() {
 
   return (
     <>
-      <h1 className="text-xl font-extrabold tracking-tight">
+      <h1 className="text-xl font-semibold tracking-tight">
         {user.must_change_password ? "Set your own password" : "Change password"}
       </h1>
       <p className="mb-4 mt-1 text-sm text-muted">

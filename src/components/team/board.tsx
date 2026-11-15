@@ -46,31 +46,31 @@ function Hero({ d }: { d: TeamData }) {
   const busiest = d.allDays.reduce<{ day: string; orders: number } | null>((best, x) => (best === null || x.orders > best.orders ? x : best), null);
   return (
     <section className="sp-card sp-card-lg sp-reveal relative overflow-hidden border-t-[5px] p-5 sm:p-7" style={{ ...style(0), borderTopColor: HERO_BAND[tone] }} aria-labelledby="team-headline">
-      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">Team · last 14 days</p>
+      <p className="font-mono text-[11px] font-bold text-muted">Team · last 14 days</p>
       <h1 id="team-headline" className="font-display mt-3 text-[1.7rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl">
         {headline}
       </h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">Real orders only, no predictions. The suggestions below say what stands out.</p>
       <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">People</dt>
+          <dt className="text-[11px] font-bold text-muted">People</dt>
           <dd className="mt-1 text-2xl font-bold tabular-nums">{formatNumber(d.total.staff)}</dd>
           <dd className="text-xs text-muted">{total.attendanceRate === null ? "attendance not marked yet" : `${Math.round(total.attendanceRate * 100)}% turn up on average`}</dd>
         </div>
         <div>
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Orders a day they can pack</dt>
+          <dt className="text-[11px] font-bold text-muted">Orders a day they can pack</dt>
           <dd className="mt-1 text-2xl font-bold tabular-nums">
             {compact(total.comfortable)} <span className="text-base font-semibold text-muted">to {compact(total.limit)}</span>
           </dd>
           <dd className="text-xs text-muted">{formatNumber(d.settings.low)} to {formatNumber(d.settings.high)} a person</dd>
         </div>
         <div>
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Busiest day</dt>
+          <dt className="text-[11px] font-bold text-muted">Busiest day</dt>
           <dd className="mt-1 text-2xl font-bold tabular-nums">{busiest && busiest.orders > 0 ? formatNumber(busiest.orders) : "—"}</dd>
           <dd className="text-xs text-muted">{busiest && busiest.orders > 0 ? `orders on ${formatDate(busiest.day, d.today)}` : "no orders saved yet"}</dd>
         </div>
         <div>
-          <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Today so far</dt>
+          <dt className="text-[11px] font-bold text-muted">Today so far</dt>
           <dd className="mt-1 text-2xl font-bold tabular-nums">{formatNumber(d.allToday)}</dd>
           <dd className={`text-xs ${d.allLate ? "font-bold text-bad" : "text-muted"}`}>{d.allLate ? `${formatNumber(d.allLate)} past dispatch time` : "orders placed"}</dd>
         </div>
@@ -127,17 +127,17 @@ function WarehouseCard({ w, index }: { w: WarehouseView; index: number }) {
 
       <dl className="grid grid-cols-3 gap-2 text-center">
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wider text-muted">People</dt>
+          <dt className="text-[10px] font-bold text-muted">People</dt>
           <dd className="font-mono text-lg font-bold tabular-nums">{w.staff}</dd>
           <dd className="text-[11px] text-muted">{w.marked > 0 ? `${w.inToday} in today` : "not marked"}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wider text-muted">Yesterday</dt>
+          <dt className="text-[10px] font-bold text-muted">Yesterday</dt>
           <dd className="font-mono text-lg font-bold tabular-nums">{w.yesterday === null ? "—" : formatNumber(w.yesterday)}</dd>
           <dd className="text-[11px] text-muted">orders</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wider text-muted">7-day avg</dt>
+          <dt className="text-[10px] font-bold text-muted">7-day avg</dt>
           <dd className="font-mono text-lg font-bold tabular-nums">{w.average === null ? "—" : formatNumber(w.average)}</dd>
           <dd className="text-[11px] text-muted">
             {w.weeklyChangePct !== null ? `${w.weeklyChangePct >= 0 ? "▲" : "▼"} ${Math.abs(Math.round(w.weeklyChangePct))}% on the week before` : "orders a day"}

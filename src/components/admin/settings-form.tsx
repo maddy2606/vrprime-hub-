@@ -90,7 +90,7 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       >
         <input id="new_inactive_days" className="input" inputMode="numeric" value={values.new_inactive_days} onChange={(e) => set("new_inactive_days", e.target.value)} aria-invalid={Boolean(errors.new_inactive_days)} />
       </Field>
-      <h2 className="mt-2 text-base font-extrabold">Flipkart page</h2>
+      <h2 className="mt-2 text-base font-semibold">Flipkart page</h2>
       <Field
         label="Price drop alert (%)"
         htmlFor="price_drop_percent"
@@ -127,7 +127,7 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       >
         <input id="return_rate_percent" className="input" inputMode="numeric" value={values.return_rate_percent} onChange={(e) => set("return_rate_percent", e.target.value)} aria-invalid={Boolean(errors.return_rate_percent)} />
       </Field>
-      <h2 className="mt-2 text-base font-extrabold">Money (owner only)</h2>
+      <h2 className="mt-2 text-base font-semibold">Money (owner only)</h2>
       <Field
         label="Low margin (%)"
         htmlFor="money_low_margin_percent"

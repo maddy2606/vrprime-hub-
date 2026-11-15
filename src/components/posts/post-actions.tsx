@@ -82,7 +82,7 @@ export function PostActions({
         className="flex flex-col gap-4 rounded-xl border border-accent bg-surface p-4"
       >
         <div>
-          <p className="text-base font-extrabold">Mark done</p>
+          <p className="text-base font-semibold">Mark done</p>
           <p className="mt-0.5 text-sm text-muted">{DONE_HINT[post.type]}</p>
         </div>
 

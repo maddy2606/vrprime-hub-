@@ -110,7 +110,7 @@ function UserForm({
         }}
         className="flex flex-col gap-4"
       >
-        <p className="text-base font-extrabold">{editing ? `Edit ${initial.name}` : "Add a user"}</p>
+        <p className="text-base font-semibold">{editing ? `Edit ${initial.name}` : "Add a user"}</p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" htmlFor="u-name" required error={errors.name}>

@@ -14,7 +14,7 @@ export function MoneySwitch({ initial }: { initial: boolean }) {
   const [pending, startTransition] = useTransition();
   return (
     <div className="mb-6 sp-card p-4">
-      <p className="text-base font-extrabold">Money</p>
+      <p className="text-base font-semibold">Money</p>
       <p className="mt-1 text-sm text-muted">
         Settlement reports, SKU costs, profit per SKU and the settlement checks. While it is off there is no Money page or menu link and nothing in Needs action.
         Switching it on needs the reports uploaded again (Money &gt; Uploads).

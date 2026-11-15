@@ -33,3 +33,20 @@
 - Tickets page: the "N open · N waiting · N follow-up due" subtitle became the headline sentence (same numbers).
 - Notifications filter pills: ghost pills as on Flipkart, counts in the segmented-control mono style.
 - Notification rows: tone row with the 3 px bar; unread rows keep the accent dot; read rows use --muted titles.
+- Ads tracker figures (six KPI tiles, not named in 8.8): one StatStrip under the notes.
+- Ads tracker notes: captions; bad and warn notes keep their tone colour in the caption text.
+- Ads tracker campaign form: the 4-column Card shows only while adding or editing; the log is full width otherwise.
+- Ads tracker trend bars: the Bars rule (barFill, radius 6); the selected scan in accent, the rest --surface2.
+- Ads Desk overview hero (spend line and six figures, not named in 8.9): headline sentence plus a StatStrip.
+- Ads Desk sticky section nav: the top bar's glass (vr-bar) on a pill row; ghost pills with mono counts.
+- Ads Desk problem card rows: tone rows in the card's tone (context from the card), kind named by the card header.
+- Review tracker tiles: a StatStrip of link/div cells (tiles link to their sections) instead of a dl.
+- Review tracker priority groups: Cards in a 2-column grid from 700 px; link cards inside are inner boxes.
+- Team hero figures (people, capacity, busiest day, today): StatStrip under the headline sentence.
+- Team per-warehouse row: a layout class (.wh-row) with the column counts from 8.11; card count from the data.
+- Team, Removed people and the people list: one glass ledger at every width (phone card list removed).
+- P&L month switch: segmented control with each month's profit in the count style; it wraps under the title on narrow screens.
+- P&L loss: the last StatStrip cell uses --bad instead of --grad-accent when the month is a loss, and its label reads "Loss after ads".
+- P&L units sold and margin: units as the Sales cell caption; margin Chip beside the month heading.
+- P&L warnings (missing days, uncosted sales): tone rows in a Card under the strip.
+- Glass ledger row headers (th in tbody): body style, not the column-header Label style.

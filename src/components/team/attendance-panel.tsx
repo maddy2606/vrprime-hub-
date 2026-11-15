@@ -64,11 +64,11 @@ export function AttendancePanel({ day, today, warehouses, people }: { day: strin
   const prev = addDays(day, -1);
   const next = addDays(day, 1);
   return (
-    <section className="sp-card p-4 sm:p-5" aria-labelledby="att-title" aria-busy={pending}>
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="sp-card g-pad" aria-labelledby="att-title" aria-busy={pending}>
+      <header className="g-head flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 id="att-title" className="font-display text-lg font-semibold">Attendance</h2>
-          <p className="text-xs text-muted">{day === today ? "Today" : formatDate(day, today)} · mark who came in; planning uses this</p>
+          <h2 id="att-title" className="t-card-title">Attendance</h2>
+          <p className="t-caption mt-1">{day === today ? "Today" : formatDate(day, today)} · mark who came in; planning uses this</p>
         </div>
         <nav aria-label="Choose a day" className="flex items-center gap-1.5">
           <Link prefetch={false} href={`/team?day=${prev}`} className={buttonClass("outline", "px-3")} aria-label="Previous day">
@@ -90,25 +90,25 @@ export function AttendancePanel({ day, today, warehouses, people }: { day: strin
       </header>
 
       {groups.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">Add your team first.</p>
+        <p className="t-caption py-6 text-center">Add your team first.</p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="flex flex-col gap-3">
           {groups.map((w) => {
             const here = people.filter((p) => p.warehouseId === w.id);
             const marked = here.filter((p) => marks[p.id] != null).length;
             const inCount = here.filter((p) => marks[p.id] === "present" || marks[p.id] === "half").length;
             return (
-              <div key={w.key} className="rounded-xl border border-line-soft p-3">
+              <div key={w.key} className="sp-inner p-3">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="flex items-center gap-2 text-sm font-bold">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: w.color }} />
+                  <h3 className="t-body flex items-center gap-2 font-semibold">
+                    <span aria-hidden="true" className="wh-dot" style={{ background: w.color, color: w.color }} />
                     {w.name}
-                    {w.note ? <span className="text-xs font-normal text-muted">· {w.note}</span> : null}
+                    {w.note ? <span className="t-caption font-normal">· {w.note}</span> : null}
                   </h3>
                   <span className="flex items-center gap-2">
                     <Chip tone={marked === here.length ? "ok" : "neutral"}>{marked === here.length ? `${inCount} of ${here.length} in` : `${marked} of ${here.length} marked`}</Chip>
                     {marked < here.length ? (
-                      <button type="button" onClick={() => allPresent(w.id)} className="focus-ring min-h-9 rounded-lg px-2 text-xs font-bold text-accent-text hover:bg-accent-soft">
+                      <button type="button" onClick={() => allPresent(w.id)} className={buttonClass("ghost")}>
                         Mark the rest present
                       </button>
                     ) : null}
@@ -117,7 +117,7 @@ export function AttendancePanel({ day, today, warehouses, people }: { day: strin
                 <ul className="flex flex-col gap-3">
                   {here.map((p) => (
                     <li key={p.id}>
-                      <p className="mb-1 text-sm font-bold">{p.name}</p>
+                      <p className="t-body mb-1 font-semibold">{p.name}</p>
                       <div role="group" aria-label={`${p.name}, ${formatDate(day, today)}`} className="grid grid-cols-4 gap-1">
                         {OPTIONS.map((o) => {
                           const on = marks[p.id] === o.status;
@@ -127,7 +127,7 @@ export function AttendancePanel({ day, today, warehouses, people }: { day: strin
                               type="button"
                               aria-pressed={on}
                               onClick={() => choose(p.id, on ? null : o.status)}
-                              className={`focus-ring min-h-11 rounded-lg border px-1 text-xs font-bold transition ${on ? `${o.on} border-transparent` : "border-line bg-surface text-muted hover:text-ink"}`}
+                              className={`focus-ring min-h-10 rounded-[var(--radius)] border px-1 text-[13px] font-semibold transition-colors duration-160 ${on ? `${o.on} border-transparent` : "border-line bg-surface2 text-muted hover:text-ink"}`}
                             >
                               {o.label}
                             </button>

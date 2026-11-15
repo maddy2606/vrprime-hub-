@@ -115,10 +115,10 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
   const byWarehouse = preview ? Object.entries(Object.groupBy(preview.people, (p) => p.warehouseName)) : [];
   const total = preview ? preview.people.reduce((n, p) => n + (p.salary ?? 0), 0) : 0;
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h3 className="text-sm font-bold">Import the staff sheet</h3>
-        <p className="mb-3 mt-0.5 text-xs text-muted">
+    <div className="g-cards">
+      <div className="sp-card g-pad">
+        <h3 className="t-card-title">Import the staff sheet</h3>
+        <p className="t-caption mb-3 mt-1">
           Adds or updates people, their warehouse and monthly salary, and any attendance marks in the sheet (P, H, A, L). Nobody is removed. &quot;Mumbai&quot; is read as Bhiwandi.
         </p>
         <input ref={fileRef} type="file" accept=".xlsx" className="sr-only" aria-label="Staff Excel sheet" onChange={(e) => readFile(e.target.files?.[0])} />
@@ -127,13 +127,13 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
         </button>
 
         {preview ? (
-          <div className="mt-4 rounded-xl border border-line p-3" role="status">
-            <p className="text-sm font-bold">
+          <div className="sp-inner mt-4 p-3" role="status">
+            <p className="t-body font-semibold">
               {preview.fileName}: {preview.people.length} people in {byWarehouse.length} warehouses
               {preview.marks.length ? `, ${formatNumber(preview.marks.length)} attendance marks` : ", no attendance marks yet"}
             </p>
-            {total > 0 ? <p className="text-xs text-muted">Monthly salaries add up to {formatINR(total)}</p> : null}
-            <ul className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
+            {total > 0 ? <p className="t-caption">Monthly salaries add up to {formatINR(total)}</p> : null}
+            <ul className="t-body mt-2 grid gap-1">
               {byWarehouse.map(([name, list]) => (
                 <li key={name}>
                   <span className="font-bold">{name}:</span> <span className="text-muted">{list?.map((p) => p.name).join(", ")}</span>
@@ -141,11 +141,11 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
               ))}
             </ul>
             {preview.unmatched.length ? (
-              <p className="mt-2 rounded-lg bg-bad-soft px-3 py-2 text-sm font-bold text-bad">
+              <p className="tone-row tone-bad tone-row-title mt-2">
                 Nothing can be saved yet: no warehouse called {preview.unmatched.join(", ")} in this app. Rename it in the sheet and choose the file again.
               </p>
             ) : null}
-            {preview.unknownMarks ? <p className="mt-2 text-xs text-muted">{preview.unknownMarks} marks were not understood and are skipped. Use P, H, A or L.</p> : null}
+            {preview.unknownMarks ? <p className="t-caption mt-2">{preview.unknownMarks} marks were not understood and are skipped. Use P, H, A or L.</p> : null}
             <div className="mt-3 flex gap-2">
               <button type="button" disabled={pending || preview.unmatched.length > 0} onClick={save} className={buttonClass("primary", "px-5")}>
                 Save {preview.people.length} people
@@ -159,22 +159,22 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
       </div>
 
       <form
-        className="border-t border-line-soft pt-5"
+        className="sp-card g-pad"
         onSubmit={(e) => {
           e.preventDefault();
           addOne();
         }}
       >
-        <h3 className="text-sm font-bold">Add one person</h3>
-        <p className="mb-3 mt-0.5 text-xs text-muted">
+        <h3 className="t-card-title">Add one person</h3>
+        <p className="t-caption mb-3 mt-1">
           Choose their warehouse. <span className="font-bold">Remote</span> is for office staff who work from home: they get attendance only and are never counted as packers.
         </p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-sm font-bold">
+        <div className="grid gap-3">
+          <label className="t-body font-semibold">
             Name
             <input className="input mt-1" value={newName} maxLength={100} onChange={(e) => setNewName(e.target.value)} />
           </label>
-          <label className="text-sm font-bold">
+          <label className="t-body font-semibold">
             Where they work
             <select className="input mt-1" value={newPlace} onChange={(e) => setNewPlace(e.target.value)}>
               <option value="" disabled>
@@ -188,7 +188,7 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
               <option value="remote">Remote (attendance only)</option>
             </select>
           </label>
-          <label className="text-sm font-bold">
+          <label className="t-body font-semibold">
             Monthly salary <span className="font-normal text-muted">(optional)</span>
             <input className="input mt-1" inputMode="numeric" value={newSalary} onChange={(e) => setNewSalary(e.target.value)} />
           </label>
@@ -199,24 +199,24 @@ export function TeamTools({ warehouses, settings }: { warehouses: Warehouse[]; s
       </form>
 
       <form
-        className="border-t border-line-soft pt-5"
+        className="sp-card g-pad"
         onSubmit={(e) => {
           e.preventDefault();
           saveSettings();
         }}
       >
-        <h3 className="text-sm font-bold">Planning numbers</h3>
-        <p className="mb-3 mt-0.5 text-xs text-muted">Used for every warehouse. The page counts capacity at the comfortable number and warns when the day goes past it.</p>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-sm font-bold">
+        <h3 className="t-card-title">Planning numbers</h3>
+        <p className="t-caption mb-3 mt-1">Used for every warehouse. The page counts capacity at the comfortable number and warns when the day goes past it.</p>
+        <div className="grid gap-3">
+          <label className="t-body font-semibold">
             Orders a person packs comfortably
             <input className="input mt-1" inputMode="numeric" value={low} onChange={(e) => setLow(e.target.value)} />
           </label>
-          <label className="text-sm font-bold">
+          <label className="t-body font-semibold">
             The most a person can pack
             <input className="input mt-1" inputMode="numeric" value={high} onChange={(e) => setHigh(e.target.value)} />
           </label>
-          <label className="text-sm font-bold">
+          <label className="t-body font-semibold">
             Days to find a new person
             <input className="input mt-1" inputMode="numeric" value={lead} onChange={(e) => setLead(e.target.value)} />
           </label>

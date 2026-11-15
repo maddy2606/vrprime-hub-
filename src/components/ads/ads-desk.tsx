@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, useTransition, type ReactNode } from "react";
 import { RefreshIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 import { useToast } from "@/components/toast";
-import { buttonClass } from "@/components/ui";
+import { buttonClass, Stat, StatStrip } from "@/components/ui";
 import {
   campaigns as campaignRows,
   daySeries,
@@ -68,7 +68,7 @@ const roiColor = (r: number) => (r >= S.good ? "var(--ok)" : r >= S.be ? "var(--
 
 function Pill({ v }: { v: Verdict }) {
   return (
-    <span title={V_TIP[v]} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line-soft px-2 py-0.5 text-[11px] font-bold">
+    <span title={V_TIP[v]} className="g-chip">
       <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: V_COLOR[v] }} />
       {V_LABEL[v]}
     </span>
@@ -76,21 +76,25 @@ function Pill({ v }: { v: Verdict }) {
 }
 const Roi = ({ r }: { r: Result }) => <span style={{ color: roiColor(r.roi) }}>{r.units > 0 || r.rev > 0 ? roi2(r.roi) : r.spend > 0 ? "0 sales" : "—"}</span>;
 
-function Panel({ title, sub, action, children }: { title: string; sub?: string; action?: ReactNode; children: ReactNode }) {
+type PanelTone = "bad" | "warn" | "ok";
+/** The tone of the problem card a Row sits in, so its rows carry the same 3 px bar (glass-spec 8.9). */
+const ToneCtx = createContext<PanelTone | null>(null);
+
+function Panel({ title, sub, action, children, tone, className = "span-12" }: { title: string; sub?: string; action?: ReactNode; children: ReactNode; tone?: PanelTone; className?: string }) {
   return (
-    <section className="sp-card min-w-0 p-4 sm:p-5">
-      <header className="mb-3 flex flex-wrap items-end justify-between gap-2">
+    <section className={`sp-card g-pad min-w-0 ${className}`}>
+      <header className="g-head flex flex-wrap items-end justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="font-display text-lg font-semibold">{title}</h2>
-          {sub ? <p className="text-xs text-muted">{sub}</p> : null}
+          <h2 className={`t-card-title ${tone ? `tone-head tone-${tone}` : ""}`}>{title}</h2>
+          {sub ? <p className={`t-caption mt-1 ${tone ? "pl-[13px]" : ""}`}>{sub}</p> : null}
         </div>
         {action}
       </header>
-      {children}
+      <ToneCtx.Provider value={tone ?? null}>{children}</ToneCtx.Provider>
     </section>
   );
 }
-const Note = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted">{children}</p>;
+const Note = ({ children }: { children: ReactNode }) => <p className="t-caption">{children}</p>;
 
 // ---- Placements: where on Flipkart the money was spent -----------------------------------------------------------------
 
@@ -159,18 +163,18 @@ function DataTable<R extends Result>({ rows, cols, initial, onRow, search, filte
               onFilter(v);
               setLimit(50);
             }}
-            className={`focus-ring inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-bold ${filter === v ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted hover:text-ink"}`}
+            className={`g-btn g-btn-ghost focus-ring gap-1.5 rounded-full ${filter === v ? "bg-accent-soft" : ""}`}
           >
             {v !== "all" ? <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: V_COLOR[v] }} /> : null}
-            {v === "all" ? "All" : V_LABEL[v]} <span className="font-mono tabular-nums opacity-80">{n0(v === "all" ? rows.length : (counts.get(v) ?? 0))}</span>
+            {v === "all" ? "All" : V_LABEL[v]} <span className="seg-count">{n0(v === "all" ? rows.length : (counts.get(v) ?? 0))}</span>
           </button>
         ))}
-        {search ? <input className="input ml-auto min-h-9 w-full sm:w-56" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search this table" /> : null}
+        {search ? <input className="input ml-auto w-full sm:w-56" placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search this table" /> : null}
       </div>
       <div className="relative overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="ledger">
           <thead>
-            <tr className="border-b border-line text-left text-[11px] font-bold text-muted">
+            <tr>
               {cols.map((c, i) => (
                 <th key={c.label} scope="col" className={`whitespace-nowrap px-2 py-2 ${c.num ? "text-right" : ""}`} aria-sort={sort.i === i ? (sort.dir === 1 ? "ascending" : "descending") : undefined}>
                   {c.sort ? (
@@ -317,22 +321,24 @@ function Change({ now, was, goodUp, fmt }: { now: number; was: number | null; go
 }
 
 function Row({ title, sub, right, onClick, children }: { title: ReactNode; sub?: ReactNode; right: ReactNode; onClick?: () => void; children?: ReactNode }) {
+  const tone = useContext(ToneCtx);
   const body = (
     <>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold">{title}</span>
-        {sub ? <span className="block truncate text-xs text-muted">{sub}</span> : null}
+        <span className="tone-row-title block truncate">{title}</span>
+        {sub ? <span className="t-caption block truncate">{sub}</span> : null}
         {children}
       </span>
       <span className="flex shrink-0 flex-col items-end font-mono text-sm tabular-nums">{right}</span>
     </>
   );
+  const cls = `tone-row ${tone ? `tone-${tone}` : ""} !flex-nowrap !items-start border-b border-line-soft last:border-0`;
   return onClick ? (
-    <button type="button" onClick={onClick} className="focus-ring flex w-full items-start gap-3 border-b border-line-soft py-2.5 text-left last:border-0 hover:bg-surface2/50">
+    <button type="button" onClick={onClick} className={`focus-ring ${cls} w-full text-left transition-colors duration-160 hover:bg-[var(--row-hover)]`}>
       {body}
     </button>
   ) : (
-    <div className="flex items-start gap-3 border-b border-line-soft py-2.5 last:border-0">{body}</div>
+    <div className={cls}>{body}</div>
   );
 }
 
@@ -366,11 +372,11 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
   };
 
   const header = (
-    <header className="flex flex-wrap items-end justify-between gap-3">
+    <header className="span-12 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <p className="font-mono text-[11px] font-bold text-muted">Flipkart &amp; Shopsy · PLA ads</p>
-        <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Ads Desk</h1>
-        <p className="mt-0.5 text-sm text-muted">
+        <p className="t-label">Flipkart &amp; Shopsy · PLA ads</p>
+        <h1 className="t-h1 mt-1">Ads Desk</h1>
+        <p className="t-caption mt-0.5">
           {range ? `${span(range.from, range.to)}${range.hasPrev ? `, compared with ${span(range.pFrom, range.pTo)}` : ""}` : "No reports synced yet."}{" "}
           <Link href="/ads" prefetch={false} className="font-semibold text-accent-text underline-offset-2 hover:underline">
             Ads tracker →
@@ -464,34 +470,34 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
   ];
 
   return (
-    <div className="flex min-w-0 flex-col gap-5 [&>*]:min-w-0">
+    <div className="g-grid items-start">
       {header}
 
-      <p className={`rounded-xl border px-3 py-2 text-xs font-semibold ${staleDays > 3 ? "border-warn/40 bg-warn-soft text-warn" : "border-line-soft bg-surface2/50 text-muted"}`} role="status">
+      <p className={`t-caption span-12 ${staleDays > 3 ? "font-semibold text-warn" : ""}`} role="status">
         Daily spend synced up to {dm(range.max)}
         {staleDays > 3 ? ` (${staleDays} days ago; sync is due)` : ""} · {snapNote("Products", data.fsn)} · {snapNote("Search terms", data.st)} · {snapNote("Keywords", data.kw)} · {snapNote("Placements", data.pl)}. Results use break-even ROI {S.be}, good ROI{" "}
         {S.good}, and need ₹{S.minSpend} spend or {S.minClicks} clicks before judging.
       </p>
 
-      <nav aria-label="Ads Desk sections" className="-mx-3 min-[700px]:-mx-4 flex gap-1.5 overflow-x-auto px-3 min-[700px]:px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
+      <nav aria-label="Ads Desk sections" className="vr-bar span-12 sticky top-[56px] z-20 -mx-3 flex gap-1.5 overflow-x-auto px-3 py-2 [scrollbar-width:none] min-[700px]:top-[64px] min-[700px]:-mx-4 min-[700px]:px-4 min-[1100px]:mx-0 min-[1100px]:rounded-full min-[1100px]:px-2 [&::-webkit-scrollbar]:hidden">
         {TABS.map(([k, label, count]) => (
           <button
             key={k}
             type="button"
             aria-current={tab === k ? "page" : undefined}
             onClick={() => setTab(k)}
-            className={`focus-ring flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3.5 text-sm font-semibold ${tab === k ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted hover:text-ink"}`}
+            className={`g-btn g-btn-ghost focus-ring shrink-0 gap-1.5 whitespace-nowrap rounded-full ${tab === k ? "bg-accent-soft" : ""}`}
           >
             {label}
-            {count ? <span className="font-mono text-xs tabular-nums opacity-80">{n0(count)}</span> : null}
+            {count ? <span className="seg-count">{n0(count)}</span> : null}
           </button>
         ))}
       </nav>
 
       {tab === "overview" ? (
         <>
-          <section className="sp-card sp-card-lg p-5 sm:p-6">
-            <p className="font-display text-xl font-semibold leading-snug sm:text-2xl">
+          <section className="span-12">
+            <p className="t-headline">
               <span style={{ color: "var(--madder)" }}>{inr(T.spend)}</span> <span className="text-muted">spent,</span> <span className="text-ok">{inr(T.rev)}</span> <span className="text-muted">back. ROI</span>{" "}
               <span style={{ color: roiColor(T.roi) }}>{roi2(T.roi)}</span>
               <span className="text-muted">.</span>{" "}
@@ -501,7 +507,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                 </>
               ) : null}
             </p>
-            <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <StatStrip className="mt-4" ariaLabel="The period in figures">
               {(
                 [
                   ["Spend", inr(T.spend), <Change key="c" now={T.spend} was={P?.spend ?? null} goodUp={null} fmt={inr} />],
@@ -512,20 +518,17 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                   ["Conversion", pct(T.cvr), <Change key="c" now={T.cvr} was={P?.cvr ?? null} goodUp fmt={(x) => pct(x)} />],
                 ] as [string, string, ReactNode][]
               ).map(([label, value, change]) => (
-                <div key={label} className="min-w-0 rounded-xl bg-surface2/60 p-3">
-                  <dt className="font-mono text-[11px] font-bold text-muted">{label}</dt>
-                  <dd className="mt-1 font-mono text-xl font-bold tabular-nums">{value}</dd>
-                  <dd className="text-[11px] font-bold">{change}</dd>
-                </div>
+                <Stat key={label} label={label} value={value} sub={change} />
               ))}
-            </dl>
+            </StatStrip>
           </section>
 
           <Panel
+            className="span-7"
             title="Where every rupee went"
             sub={fl.rows.length ? `Ad spend split by result · ${fl.label}. Tap a result to see its list.` : "This report is not synced yet."}
             action={
-              <div role="group" aria-label="Split by" className="inline-flex rounded-xl border border-line bg-panel2 p-0.5">
+              <div role="group" aria-label="Split by" className="seg">
                 {(
                   [
                     ["campaigns", "Campaigns"],
@@ -534,7 +537,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                     ["keywords", "Keywords"],
                   ] as [Basis, string][]
                 ).map(([k, l]) => (
-                  <button key={k} type="button" aria-pressed={basis === k} onClick={() => setBasis(k)} className={`focus-ring min-h-9 rounded-[10px] px-2.5 text-xs font-bold ${basis === k ? "bg-ink text-canvas" : "text-muted hover:text-ink"}`}>
+                  <button key={k} type="button" aria-pressed={basis === k} onClick={() => setBasis(k)} className="seg-opt">
                     {l}
                   </button>
                 ))}
@@ -579,13 +582,13 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
             )}
           </Panel>
 
-          <Panel title="By placement" sub={data.pl ? `All campaigns · ${span(data.pl.from, data.pl.to)} · where on Flipkart the ads showed` : "Sync the Placement Performance report to see where the money was spent"}>
+          <Panel className="span-5" title="By placement" sub={data.pl ? `All campaigns · ${span(data.pl.from, data.pl.to)} · where on Flipkart the ads showed` : "Sync the Placement Performance report to see where the money was spent"}>
             {places.length ? <PlacementBar rows={places} /> : <Note>Not synced yet.</Note>}
           </Panel>
 
-          <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
-            <div className="flex min-w-0 flex-col gap-5">
-              <Panel title="Losing money" sub={`ROI under ${S.be} · the worst keywords (KW) and search terms (ST) inside each`} action={losing.length > 8 ? <button type="button" className="text-xs font-bold text-accent-text" onClick={() => goTo("campaigns", "losing")}>All {losing.length} →</button> : null}>
+          <div className="span-12 grid items-start gap-3 min-[700px]:grid-cols-2 min-[700px]:gap-4">
+            <div className="contents">
+              <Panel tone="bad"  title="Losing money" sub={`ROI under ${S.be} · the worst keywords (KW) and search terms (ST) inside each`} action={losing.length > 8 ? <button type="button" className="text-xs font-bold text-accent-text" onClick={() => goTo("campaigns", "losing")}>All {losing.length} →</button> : null}>
                 {losing.length ? (
                   losing.slice(0, 8).map((c) => (
                     <Row
@@ -607,7 +610,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                   <Note>No campaign is under break-even.</Note>
                 )}
               </Panel>
-              <Panel title="Changed for the worse" sub={range.hasPrev ? `${span(range.from, range.to)} against ${span(range.pFrom, range.pTo)}` : "Needs daily spend for the days before"}>
+              <Panel tone="bad"  title="Changed for the worse" sub={range.hasPrev ? `${span(range.from, range.to)} against ${span(range.pFrom, range.pTo)}` : "Needs daily spend for the days before"}>
                 {worse.length ? (
                   worse.slice(0, 8).map((c) => (
                     <Row
@@ -627,8 +630,8 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                   <Note>Nothing got noticeably worse.</Note>
                 )}
               </Panel>
-              <div className="grid gap-5 sm:grid-cols-2">
-                <Panel title="Bids to cut" sub={data.kw ? `${inr(cut.reduce((n, k) => n + k.excess, 0))} overspend · ${span(data.kw.from, data.kw.to)}` : undefined} action={cut.length > 6 ? <button type="button" className="text-xs font-bold text-accent-text" onClick={() => goTo("keywords")}>All {cut.length} →</button> : null}>
+              <div className="contents">
+                <Panel tone="warn"  title="Bids to cut" sub={data.kw ? `${inr(cut.reduce((n, k) => n + k.excess, 0))} overspend · ${span(data.kw.from, data.kw.to)}` : undefined} action={cut.length > 6 ? <button type="button" className="text-xs font-bold text-accent-text" onClick={() => goTo("keywords")}>All {cut.length} →</button> : null}>
                   {!data.kw ? (
                     <Note>Sync the Keyword report.</Note>
                   ) : cut.length ? (
@@ -654,7 +657,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                     <Note>No keyword is paying more than it earns.</Note>
                   )}
                 </Panel>
-                <Panel title="Winners with room" sub={`ROI ${S.good}+, ${S.minUnits}+ units, spend not growing`}>
+                <Panel tone="ok"  title="Winners with room" sub={`ROI ${S.good}+, ${S.minUnits}+ units, spend not growing`}>
                   {room.length ? (
                     room.slice(0, 6).map((c) => (
                       <Row
@@ -676,8 +679,8 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                 </Panel>
               </div>
             </div>
-            <div className="flex min-w-0 flex-col gap-5">
-              <Panel title="Leaks">
+            <div className="contents">
+              <Panel tone="warn"  title="Leaks">
                 <Row
                   title="Zero-sale search terms"
                   sub={data.st ? `${pct(stSpend ? zeroSpend / stSpend : 0)} of search spend · ${span(data.st.from, data.st.to)}` : "Sync the Search Term report"}
@@ -702,7 +705,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
                 </Row>
                 <Row title="Negative keywords to add" sub={`${todo.length} terms in campaigns, ₹${S.minSpend}+ each`} onClick={data.st ? () => goTo("negatives") : undefined} right={<b className="text-bad">{data.st ? inr(todo.reduce((n, x) => n + x.spend, 0)) : "—"}</b>} />
               </Panel>
-              <Panel title="Spend spikes" sub="A day at 1.5× the campaign's usual day">
+              <Panel tone="warn"  title="Spend spikes" sub="A day at 1.5× the campaign's usual day">
                 {spk.length ? (
                   spk.slice(0, 6).map((x) => (
                     <Row
@@ -813,9 +816,9 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
       {tab === "weekdays" ? (
         <Panel title="Day of week" sub={`${span(range.from, range.to)} · the whole account, per average day of each weekday`}>
           <div className="relative overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="ledger">
               <thead>
-                <tr className="border-b border-line text-left text-[11px] font-bold text-muted">
+                <tr>
                   {["Day", "Days", "Spend / day", "Revenue / day", "ROI", "Units / day", "CPC", "CVR"].map((h, i) => (
                     <th key={h} scope="col" className={`whitespace-nowrap px-2 py-2 ${i ? "text-right" : ""}`}>
                       {h}
@@ -825,14 +828,14 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
               </thead>
               <tbody>
                 {weekdayRows(data.daily, range.from, range.to, S).map((w) => (
-                  <tr key={w.name} className="border-b border-line-soft">
-                    <th scope="row" className="px-2 py-2 text-left font-bold">{w.name}</th>
+                  <tr key={w.name} >
+                    <th scope="row" className="text-left">{w.name}</th>
                     {[String(w.days), w.days ? rs(w.spend) : "—", w.days ? rs(w.rev) : "—"].map((x, i) => (
-                      <td key={i} className="px-2 py-2 text-right font-mono tabular-nums">{x}</td>
+                      <td key={i} className="num">{x}</td>
                     ))}
-                    <td className="px-2 py-2 text-right font-mono font-bold tabular-nums" style={{ color: w.days ? roiColor(w.roi) : undefined }}>{w.days ? roi2(w.roi) : "—"}</td>
+                    <td className="num font-bold" style={{ color: w.days ? roiColor(w.roi) : undefined }}>{w.days ? roi2(w.roi) : "—"}</td>
                     {[w.days ? n0(w.units) : "—", w.days ? rs2(w.cpc) : "—", w.days ? pct(w.cvr) : "—"].map((x, i) => (
-                      <td key={i} className="px-2 py-2 text-right font-mono tabular-nums">{x}</td>
+                      <td key={i} className="num">{x}</td>
                     ))}
                   </tr>
                 ))}
@@ -886,7 +889,7 @@ function NegativesPanel({ negs, state, setState, mark, period, onCopied }: { neg
               </option>
             ))}
         </select>
-        <div role="group" aria-label="Status" className="inline-flex rounded-xl border border-line bg-panel2 p-0.5">
+        <div role="group" aria-label="Status" className="seg">
           {(
             [
               ["todo", "To add"],
@@ -894,8 +897,8 @@ function NegativesPanel({ negs, state, setState, mark, period, onCopied }: { neg
               ["ignored", "Ignored"],
             ] as [NegStatus, string][]
           ).map(([k, l]) => (
-            <button key={k} type="button" aria-pressed={state.status === k} onClick={() => setState({ ...state, status: k })} className={`focus-ring min-h-9 rounded-[10px] px-3 text-sm font-bold ${state.status === k ? "bg-ink text-canvas" : "text-muted hover:text-ink"}`}>
-              {l} <span className="font-mono text-xs tabular-nums">{count(k)}</span>
+            <button key={k} type="button" aria-pressed={state.status === k} onClick={() => setState({ ...state, status: k })} className="seg-opt">
+              {l} <span className="seg-count">{count(k)}</span>
             </button>
           ))}
         </div>
@@ -947,9 +950,9 @@ function NegativesPanel({ negs, state, setState, mark, period, onCopied }: { neg
 function MiniTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
     <div className="relative overflow-x-auto">
-      <table className="w-full text-xs">
+      <table className="ledger">
         <thead>
-          <tr className="border-b border-line text-left text-[10px] font-bold text-muted">
+          <tr>
             {head.map((h, i) => (
               <th key={h} scope="col" className={`whitespace-nowrap px-1.5 py-1.5 ${i ? "text-right" : ""}`}>
                 {h}
@@ -959,7 +962,7 @@ function MiniTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-b border-line-soft">
+            <tr key={i} >
               {r.map((c, j) => (
                 <td key={j} className={`px-1.5 py-1.5 ${j ? "whitespace-nowrap text-right font-mono tabular-nums" : "font-semibold [overflow-wrap:anywhere]"}`}>
                   {c}
@@ -1002,10 +1005,10 @@ function CampaignSheet({ cid, onClose, data, camps, kws, from, to, min, max }: {
                 ["Conversion", pct(c.cvr), c.prev ? `was ${pct(c.prev.cvr)}` : ""],
               ] as [string, string, string][]
             ).map(([l, v, w]) => (
-              <div key={l} className="min-w-0 rounded-xl bg-surface2/60 p-2.5">
-                <dt className="text-[10px] font-bold text-muted">{l}</dt>
-                <dd className="font-mono text-base font-bold tabular-nums" style={l === "ROI" ? { color: roiColor(c.roi) } : undefined}>{v}</dd>
-                <dd className="text-[11px] text-muted">{w}</dd>
+              <div key={l} className="sp-inner min-w-0 p-2.5">
+                <dt className="t-label">{l}</dt>
+                <dd className="font-mono text-base font-semibold tabular-nums" style={l === "ROI" ? { color: roiColor(c.roi) } : undefined}>{v}</dd>
+                <dd className="t-caption">{w}</dd>
               </div>
             ))}
           </dl>

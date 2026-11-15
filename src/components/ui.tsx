@@ -98,7 +98,7 @@ export function PageTitle({ title, sub, action }: { title: string; sub?: ReactNo
         <h1 className="t-h1">{title}</h1>
         {sub ? <div className="t-caption mt-1">{sub}</div> : null}
       </div>
-      {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
+      {action ? <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{action}</div> : null}
     </div>
   );
 }
@@ -113,7 +113,7 @@ export function SectionHead({ title, sub, action, id, className = "" }: { title:
         </h2>
         {sub ? <p className="t-caption mt-0.5">{sub}</p> : null}
       </div>
-      {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
+      {action ? <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{action}</div> : null}
     </header>
   );
 }

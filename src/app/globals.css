@@ -1075,3 +1075,58 @@ select optgroup {
     transition: none;
   }
 }
+
+/* Team: per-warehouse 7-day cards (glass-spec 8.11). One row from 1100 px, 3 + 2 at 700-1099 px for five,
+ sideways scroll on a phone. --n is the number of cards. */
+.wh-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.wh-row::-webkit-scrollbar {
+  display: none;
+}
+.wh-row > * {
+  flex: 0 0 82%;
+  min-width: 0;
+  scroll-snap-align: start;
+}
+@media (min-width: 700px) {
+  .wh-row {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 16px;
+    overflow: visible;
+  }
+  .wh-row > * { grid-column: span 2; }
+  .wh-row.n5 > *:nth-child(4),
+  .wh-row.n5 > *:nth-child(5) { grid-column: span 3; }
+}
+@media (min-width: 1100px) {
+  .wh-row { grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); }
+  .wh-row > *,
+  .wh-row.n5 > *:nth-child(4),
+  .wh-row.n5 > *:nth-child(5) { grid-column: auto; }
+}
+
+/* Row headers inside a glass ledger read as body cells, not as the Label-style column header. */
+.ledger tbody th {
+  top: auto;
+  z-index: 1;
+  height: auto;
+  padding: 13px 12px;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink);
+  white-space: normal;
+}
+@media (max-width: 699.98px) {
+  .ledger tbody th:first-child { background: var(--pop); }
+}

@@ -65,3 +65,19 @@ Reviews, Team, P&L · 7 Admin, sign-in, Money · 8 Accessibility pass and colour
   The bell panel uses the same tone rows.
 - Checks: tsc, lint, 298 tests clean. Seen in dark 1440 (mywork, post, notifications); no sideways scroll at 390 on
   mywork, all, post, new, tickets, ticket, newticket, notifications, listings, done.
+
+## 6. Ads tracker, Ads Desk, Review tracker, Team, P&L (spec 8.8–8.12): done
+- Ads tracker: title, scan picker and Sync right, notes as captions; figures as a StatStrip; Needs a look (tone rows)
+  5 / Average daily spend 7; Every tracked SKU as a ledger; Campaign form Card 4 / Campaign log 8 (log full width
+  while the form is closed); Tracked SKUs as chips.
+- Ads Desk: title, dates and Sync reports right; section nav as a sticky glass pill row under the top bar; headline
+  and StatStrip; Where every rupee went 7 / By placement 5; six problem Cards in a 2-column grid with tone bar headers
+  (bad, bad, warn, ok, warn, warn) and tone rows; every list a glass ledger.
+- Review tracker: four tiles as one StatStrip; Progress by priority 7 / Check by check 5; Nearly there 6 / Reviews
+  removed 6 (tone rows); priority link groups as Cards in a 2-column grid; Every link toolbar + ledger.
+- Team: headline + StatStrip; Suggestions as tone rows in a Card; Attendance 5 / capacity chart 7; per-warehouse cards
+  in one row (3 + 2 at 700–1099 px, sideways scroll on phones); Day by day full; The team as a ledger; Owner tools as
+  three Cards.
+- P&L: title with the month switch right; 5-cell StatStrip (Sales, Cost, Ads, Fees, Profit after ads in --grad-accent);
+  notes as captions; By product ledger with the unlinked SKUs as an inner box; Costing 7 / Ads reports + Fees 5.
+- Checks: tsc, lint, 298 tests clean. Seen in dark 1440 (ads, adsdesk, reviews, team, pnl); no sideways scroll at 390.

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useToast } from "@/components/toast";
-import { Chip } from "@/components/ui";
+import { buttonClass, Chip } from "@/components/ui";
 import { formatINR } from "@/lib/format";
 import type { PersonView } from "@/server/team-data";
 import { setStaffActive } from "@/server/actions/team";
@@ -28,117 +28,63 @@ export function PeopleTable({ monthLabel, isOwner, warehouses, people, today }: 
   if (people.length === 0) return null;
   const toggle = (p: PersonView) => startTransition(async () => void toast.result(await setStaffActive(p.id, !p.active)));
   return (
-    <section className="sp-card min-w-0 p-4 sm:p-5" aria-labelledby="people-title">
-      <header className="mb-3 flex flex-wrap items-end justify-between gap-2">
+    <section className="sp-card min-w-0 overflow-hidden" aria-labelledby="people-title">
+      <header className="g-pad flex flex-wrap items-end justify-between gap-2 pb-3">
         <div>
-          <h2 id="people-title" className="font-display text-lg font-semibold">The team, {monthLabel}</h2>
-          <p className="text-xs text-muted">Days in each state this month</p>
+          <h2 id="people-title" className="t-card-title">The team, {monthLabel}</h2>
+          <p className="t-caption mt-1">Days in each state this month</p>
         </div>
         {isOwner && salaryTotal > 0 ? (
-          <p className="text-right text-sm">
-            <span className="text-xs text-muted">Monthly salaries </span>
-            <span className="font-bold tabular-nums">{formatINR(salaryTotal)}</span>
+          <p className="t-body text-right">
+            <span className="t-caption">Monthly salaries </span>
+            <span className="font-mono font-medium tabular-nums">{formatINR(salaryTotal)}</span>
           </p>
         ) : null}
       </header>
-      {/* Phone: one card per person, no sideways scrolling. */}
-      <ul className="flex flex-col gap-2 sm:hidden">
-        {sorted.map((p) => {
-          const w = place(p);
-          return (
-            <li key={p.id} className={`rounded-xl border border-line-soft bg-surface/60 p-3 ${p.active ? "" : "opacity-60"}`}>
-              <div className="flex items-start gap-2">
-                <span aria-hidden="true" className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: w?.color }} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold">{p.name}</p>
-                  <p className="text-xs text-muted">
-                    {placeName(p)}
-                    {isOwner && p.salary !== null ? <span className="font-mono tabular-nums"> · {formatINR(p.salary)}</span> : null}
-                  </p>
-                  {isOwner && p.money ? <AdvanceDue entries={p.money} month={month} /> : null}
-                </div>
-                {!p.active ? <Chip tone="neutral">Removed</Chip> : null}
-                {isOwner ? (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => toggle(p)}
-                    className="focus-ring -mr-1 -mt-1 min-h-11 shrink-0 rounded-lg px-2.5 text-xs font-bold text-accent-text hover:bg-accent-soft disabled:opacity-50"
-                  >
-                    {p.active ? "Remove" : "Add back"}
-                  </button>
-                ) : null}
-              </div>
-              <dl className="mt-2 grid grid-cols-4 gap-1.5 text-center">
-                {(
-                  [
-                    ["Present", p.month.present, "text-ok"],
-                    ["Half", p.month.half, "text-warn"],
-                    ["Absent", p.month.absent, "text-bad"],
-                    ["Leave", p.month.leave, "text-info"],
-                  ] as const
-                ).map(([label, n, tone]) => (
-                  <div key={label} className="rounded-lg bg-surface2/70 px-1 py-1.5">
-                    <dt className="text-[10px] font-bold text-muted">{label}</dt>
-                    <dd className={`font-mono text-base font-bold tabular-nums ${tone}`}>{n}</dd>
-                  </div>
-                ))}
-              </dl>
-              {isOwner ? (
-                  <button type="button" onClick={() => setOpen(p)} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line text-sm font-bold text-accent-text hover:bg-accent-soft">
-                    Advance / expense
-                  </button>
-                ) : null}
-            </li>
-          );
-        })}
-      </ul>
-
-      {/* Wider screens: the table. */}
-      <div className="hidden sm:block">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto border-t border-line-soft">
+        <table className="ledger">
           <thead>
-            <tr className="border-b border-line text-left text-[11px] font-bold text-muted">
-              <th scope="col" className="py-2 pr-3">Person</th>
-              <th scope="col" className="px-2 text-right">Present</th>
-              <th scope="col" className="px-2 text-right">Half</th>
-              <th scope="col" className="px-2 text-right">Absent</th>
-              <th scope="col" className="px-2 text-right">Leave</th>
-              {isOwner ? <th scope="col" className="px-2 text-right">Salary</th> : null}
-              {isOwner ? <th scope="col" className="pl-2"><span className="sr-only">Actions</span></th> : null}
+            <tr>
+              <th scope="col">Person</th>
+              <th scope="col" className="num">Present</th>
+              <th scope="col" className="num">Half</th>
+              <th scope="col" className="num">Absent</th>
+              <th scope="col" className="num">Leave</th>
+              {isOwner ? <th scope="col" className="num">Salary</th> : null}
+              {isOwner ? <th scope="col"><span className="sr-only">Actions</span></th> : null}
             </tr>
           </thead>
           <tbody>
             {sorted.map((p) => {
               const w = place(p);
               return (
-                <tr key={p.id} className={`border-b border-line-soft ${p.active ? "" : "opacity-60"}`}>
-                  <th scope="row" className="py-2 pr-3 text-left font-bold">
+                <tr key={p.id} className={p.active ? "" : "opacity-60"}>
+                  <th scope="row" className="text-left font-semibold">
                     <span className="flex items-center gap-2">
                       <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: w?.color }} />
                       <span>
                         {p.name}
-                        <span className="block text-[11px] font-normal text-muted">{placeName(p)}</span>
+                        <span className="t-caption block">{placeName(p)}</span>
                         {isOwner && p.money ? <AdvanceDue entries={p.money} month={month} /> : null}
                       </span>
                       {!p.active ? <Chip tone="neutral">Removed</Chip> : null}
                     </span>
                   </th>
-                  <td className="px-2 text-right font-mono tabular-nums text-ok">{p.month.present}</td>
-                  <td className="px-2 text-right font-mono tabular-nums text-warn">{p.month.half}</td>
-                  <td className="px-2 text-right font-mono tabular-nums text-bad">{p.month.absent}</td>
-                  <td className="px-2 text-right font-mono tabular-nums text-info">{p.month.leave}</td>
-                  {isOwner ? <td className="px-2 text-right font-mono tabular-nums">{p.salary === null ? "—" : formatINR(p.salary)}</td> : null}
+                  <td className="num text-ok">{p.month.present}</td>
+                  <td className="num text-warn">{p.month.half}</td>
+                  <td className="num text-bad">{p.month.absent}</td>
+                  <td className="num text-info">{p.month.leave}</td>
+                  {isOwner ? <td className="num">{p.salary === null ? "—" : formatINR(p.salary)}</td> : null}
                   {isOwner ? (
-                    <td className="whitespace-nowrap pl-2 text-right">
-                      <button type="button" onClick={() => setOpen(p)} className="focus-ring min-h-9 rounded-lg px-2 text-xs font-bold text-accent-text hover:bg-accent-soft">
+                    <td className="whitespace-nowrap text-right">
+                      <button type="button" onClick={() => setOpen(p)} className={buttonClass("ghost")}>
                         Advance / expense
                       </button>
                       <button
                         type="button"
                         disabled={pending}
                         onClick={() => toggle(p)}
-                        className="focus-ring min-h-9 rounded-lg px-2 text-xs font-bold text-accent-text hover:bg-accent-soft disabled:opacity-50"
+                        className={buttonClass("ghost")}
                       >
                         {p.active ? "Remove" : "Add back"}
                       </button>

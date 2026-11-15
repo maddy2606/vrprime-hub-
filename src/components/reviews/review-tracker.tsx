@@ -54,13 +54,13 @@ const showLinks = () => document.getElementById("reviews-links")?.scrollIntoView
 
 function Section({ id, title, sub, action, index, children }: { id: string; title: string; sub?: string; action?: ReactNode; index: number; children: ReactNode }) {
   return (
-    <section id={id} className="sp-card sp-card-lg sp-reveal min-w-0 scroll-mt-20 p-5 sm:p-6" style={style(index)} aria-labelledby={`${id}-title`}>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <section id={id} className="sp-card g-pad min-w-0 scroll-mt-20" data-i={index} aria-labelledby={`${id}-title`}>
+      <div className="g-head flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={`${id}-title`} className="font-display text-lg font-semibold">
+          <h2 id={`${id}-title`} className="t-card-title">
             {title}
           </h2>
-          {sub ? <p className="max-w-2xl text-xs text-muted">{sub}</p> : null}
+          {sub ? <p className="t-caption mt-1 max-w-2xl">{sub}</p> : null}
         </div>
         {action}
       </div>
@@ -72,7 +72,7 @@ function Section({ id, title, sub, action, index, children }: { id: string; titl
 function PlatformPill({ platform }: { platform: ReviewPlatform }) {
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold text-ink"
+      className="g-chip"
       style={{ background: `color-mix(in srgb, ${PLATFORM_COLOR[platform]} 18%, transparent)` }}
     >
       <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: PLATFORM_COLOR[platform] }} />
@@ -105,7 +105,7 @@ function Tile({ href, label, index, children }: { href?: string; label: string; 
   const inner = (
     <>
       <span className="relative flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px] font-bold text-muted">{label}</span>
+        <span className="t-label">{label}</span>
         {href ? (
           <span aria-hidden="true" className="text-muted transition-transform group-hover:translate-x-0.5">
             ↓
@@ -115,13 +115,13 @@ function Tile({ href, label, index, children }: { href?: string; label: string; 
       <span className="relative mt-2 block">{children}</span>
     </>
   );
-  const cls = "sp-card sp-card-lg sp-reveal group relative block min-w-0 overflow-hidden p-5";
+  const cls = "group relative block min-w-0";
   return href ? (
-    <a href={href} className={`focus-ring sp-lift ${cls}`} style={style(index)}>
+    <a href={href} className={`focus-ring ${cls} transition-colors duration-160 hover:bg-[var(--row-hover)]`} data-i={index}>
       {inner}
     </a>
   ) : (
-    <div className={cls} style={style(index)}>
+    <div className={cls} data-i={index}>
       {inner}
     </div>
   );
@@ -134,10 +134,10 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
   const near = byDistanceToTarget(lines, "nearest").filter((l) => (toGo(l) ?? 0) <= 10).length;
   const share = pct(goal.have, goal.target);
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="sp-card stat-strip span-12" role="group" aria-label="Reviews in figures">
       <Tile href="#reviews-links" label="Written reviews" glow="var(--accent)" index={0}>
-        <CountUp value={t.reviews} className="block font-mono text-4xl font-bold tabular-nums" />
-        <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+        <CountUp value={t.reviews} className="t-stat block" />
+        <span className="t-caption mt-2 flex flex-wrap items-center gap-1.5">
           {prevDay ? <Chip tone={t.change < 0 ? "bad" : t.change > 0 ? "ok" : "neutral"}>{signed(t.change)} since {dayShort(prevDay)}</Chip> : <Chip tone="info">First check</Chip>}
           {t.dropped ? <Chip tone="bad">{t.dropped} lost reviews</Chip> : null}
           <span>{lines.length} links, shared listings once</span>
@@ -150,11 +150,11 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
       </Tile>
 
       <Tile href="#reviews-priority" label="Towards targets" glow="var(--ok)" index={1}>
-        <span className="block font-mono text-4xl font-bold tabular-nums text-ok">{share}%</span>
-        <span className="mt-3 block h-2.5 overflow-hidden rounded-full bg-surface2" aria-hidden="true">
-          <span className="sp-bar block h-full rounded-full" style={{ width: `${share}%`, background: "var(--accent)" }} />
+        <span className="t-stat block text-ok">{share}%</span>
+        <span className="g-track mt-3 block" aria-hidden="true">
+          <span className="sp-bar" style={{ width: `${share}%` }} />
         </span>
-        <span className="mt-2 block text-xs text-muted">
+        <span className="t-caption mt-2 block">
           {formatNumber(goal.have)} of the {formatNumber(goal.target)} reviews the targets ask for
         </span>
       </Tile>
@@ -174,15 +174,15 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
                 onPlatform(p);
                 showLinks();
               }}
-              className="focus-ring flex items-center justify-between gap-2 rounded-lg px-1.5 py-1 text-left text-sm hover:bg-surface2/60"
+              className="focus-ring t-body flex min-h-10 items-center justify-between gap-2 rounded-[var(--radius)] px-1.5 text-left hover:bg-[var(--row-hover)]"
               title={`Show only ${p} links`}
             >
               <span className="flex items-center gap-2 font-semibold">
-                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: PLATFORM_COLOR[p] }} />
+                <span aria-hidden="true" className="wh-dot" style={{ background: PLATFORM_COLOR[p], color: PLATFORM_COLOR[p] }} />
                 {p}
               </span>
-              <span className="font-mono font-bold tabular-nums">
-                {formatNumber(t.byPlatform[p].reviews)} <span className="text-xs font-normal text-muted">{pct(t.byPlatform[p].reviews, t.reviews)}%</span>
+              <span className="font-mono font-medium tabular-nums">
+                {formatNumber(t.byPlatform[p].reviews)} <span className="t-caption">{pct(t.byPlatform[p].reviews, t.reviews)}%</span>
                 {prevDay ? <span className={`ml-1.5 text-xs ${changeClass(t.byPlatform[p].change)}`}>{signed(t.byPlatform[p].change)}</span> : null}
               </span>
             </button>
@@ -192,13 +192,13 @@ function Headline({ view, onPlatform }: { view: ReviewsView; onPlatform: (p: Rev
 
       <Tile href="#reviews-closest" label="At target" glow="var(--warn-mark)" index={3}>
         <span className="flex items-center justify-between gap-3">
-          <span className="block font-mono text-4xl font-bold tabular-nums">
+          <span className="t-stat block">
             {goal.atTarget}
-            <span className="text-xl text-muted"> / {goal.links}</span>
+            <span className="t-caption"> / {goal.links}</span>
           </span>
           <Gauge pct={pct(goal.atTarget, goal.links)} tone="ok" label={`${pct(goal.atTarget, goal.links)}% of links are at target`} />
         </span>
-        <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+        <span className="t-caption mt-2 flex flex-wrap items-center gap-1.5">
           {near ? <Chip tone="warn">{near} within 10 reviews</Chip> : null}
           {t.notChecked ? <Chip tone="warn">{t.notChecked} not read</Chip> : <span>links with reviews ≥ target</span>}
         </span>
@@ -227,7 +227,7 @@ function PriorityChart({ lines, priority, onPriority }: { lines: ReviewLine[]; p
                     onPriority(on ? "all" : String(r.priority));
                     if (!on) showLinks();
                   }}
-                  className={`focus-ring grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-surface2/60 ${on ? "bg-accent-soft ring-1 ring-accent/40" : ""}`}
+                  className={`focus-ring grid min-h-10 w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-3 rounded-[var(--radius)] px-2 py-1.5 text-left hover:bg-[var(--row-hover)] ${on ? "bg-accent-soft ring-1 ring-inset ring-accent" : ""}`}
                   title={`${priorityLong(r.priority)}: ${formatNumber(r.have)} of ${formatNumber(r.target)} reviews, ${r.atTarget} of ${r.links} links at target`}
                 >
                   <span className="font-mono text-sm font-bold">{priorityName(r.priority)}</span>
@@ -248,9 +248,9 @@ function PriorityChart({ lines, priority, onPriority }: { lines: ReviewLine[]; p
           })}
         </ul>
       ) : (
-        <p className="py-8 text-center text-sm text-muted">No targets on the sheet yet.</p>
+        <p className="t-caption py-8 text-center">No targets on the sheet yet.</p>
       )}
-      <p className="mt-3 text-xs text-muted">Bar length is the priority&apos;s total target; the fill is how much of it is reached.</p>
+      <p className="t-caption mt-3">Bar length is the priority&apos;s total target; the fill is how much of it is reached.</p>
     </Section>
   );
 }
@@ -269,9 +269,9 @@ function ClosestChart({ lines }: { lines: ReviewLine[] }) {
       sub={order === "nearest" ? "Links short of target, fewest reviews to go first: the quick wins." : "Links with the most reviews still to go."}
       index={5}
       action={
-        <div role="group" aria-label="Order" className="inline-flex overflow-hidden rounded-xl border border-line">
+        <div role="group" aria-label="Order" className="seg">
           {(["nearest", "furthest"] as const).map((o) => (
-            <button key={o} type="button" aria-pressed={order === o} onClick={() => setOrder(o)} className={`focus-ring min-h-9 px-3 text-xs font-bold ${order === o ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface2"}`}>
+            <button key={o} type="button" aria-pressed={order === o} onClick={() => setOrder(o)} className="seg-opt">
               {o === "nearest" ? "Nearly there" : "Furthest"}
             </button>
           ))}
@@ -288,7 +288,7 @@ function ClosestChart({ lines }: { lines: ReviewLine[] }) {
                   href={l.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="focus-ring grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-1 py-0.5 hover:bg-surface2/50 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto]"
+                  className="focus-ring grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-[var(--radius)] px-1 py-0.5 hover:bg-[var(--row-hover)] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto]"
                   title={`${l.product} (${l.platform}): ${formatNumber(l.reviews ?? 0)} of ${formatNumber(l.target ?? 0)}. Opens the listing.`}
                 >
                   <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
@@ -310,9 +310,9 @@ function ClosestChart({ lines }: { lines: ReviewLine[] }) {
           })}
         </ul>
       ) : (
-        <p className="rounded-xl bg-ok-soft px-3 py-6 text-center text-sm font-semibold text-ok">Every link shown is at its target.</p>
+        <p className="sp-inner tone-row tone-ok"><span className="tone-row-title">Every link shown is at its target.</span></p>
       )}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+      <div className="t-caption mt-3 flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-wrap gap-3">
           {PLATFORMS.map((p) => (
             <span key={p} className="flex items-center gap-1.5">
@@ -322,7 +322,7 @@ function ClosestChart({ lines }: { lines: ReviewLine[] }) {
           ))}
         </span>
         {list.length > 10 ? (
-          <button type="button" className="focus-ring rounded-lg px-2 py-1 font-bold text-accent-text hover:bg-accent-soft" onClick={() => setAll((a) => !a)}>
+          <button type="button" className={buttonClass("ghost")} onClick={() => setAll((a) => !a)}>
             {all ? "Show 10" : `Show all ${list.length}`}
           </button>
         ) : null}
@@ -338,14 +338,14 @@ function Removed({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string }) {
   return (
     <Section id="reviews-removed" title="Reviews removed" sub={`Links with fewer written reviews than on ${dayYear(prevDay)}, the biggest loss first`} index={6}>
       {dropped.length ? (
-        <ul className="grid gap-2">
+        <ul className="sp-inner m-0 list-none overflow-hidden p-0">
           {dropped.map((l) => (
-            <li key={l.rowNo}>
-              <a href={l.url} target="_blank" rel="noopener noreferrer" className="focus-ring flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-bad/30 bg-bad-soft/50 px-3 py-2 text-sm hover:border-bad/60">
+            <li key={l.rowNo} className="tone-row tone-bad !p-0">
+              <a href={l.url} target="_blank" rel="noopener noreferrer" className="focus-ring t-body flex w-full flex-wrap items-center gap-x-3 gap-y-1 py-3 pl-[17px] pr-3.5 hover:bg-[var(--row-hover)]">
                 <Chip tone="bad">{signed(l.change)}</Chip>
-                <span className="font-bold">{l.product}</span>
+                <span className="font-semibold">{l.product}</span>
                 <PlatformPill platform={l.platform} />
-                <span className="font-mono text-xs text-muted">
+                <span className="t-caption font-mono">
                   {priorityName(l.priority)} · {l.sku}
                 </span>
                 <span className="text-muted">
@@ -356,7 +356,7 @@ function Removed({ lines, prevDay }: { lines: ReviewLine[]; prevDay: string }) {
           ))}
         </ul>
       ) : (
-        <p className="rounded-xl bg-ok-soft px-3 py-4 text-center text-sm font-semibold text-ok">No link lost written reviews since {dayShort(prevDay)}.</p>
+        <p className="sp-inner tone-row tone-ok"><span className="tone-row-title">No link lost written reviews since {dayShort(prevDay)}.</span></p>
       )}
     </Section>
   );
@@ -386,7 +386,7 @@ function LinkCard({ l, index }: { l: ReviewLine; index: number }) {
       href={l.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="focus-ring sp-card sp-lift sp-reveal flex min-w-0 items-center gap-3 p-3 transition-colors hover:bg-surface2/60"
+      className="focus-ring sp-inner flex min-w-0 items-center gap-3 p-3 transition-colors duration-160 hover:bg-[var(--row-hover)]"
       style={style(Math.min(index, 12))}
       title={`${l.product} on ${l.platform}: open the listing`}
     >
@@ -423,28 +423,28 @@ function LinkCards({ list }: { list: ReviewLine[] }) {
     for (const l of list) map.set(l.priority ?? 0, [...(map.get(l.priority ?? 0) ?? []), l]);
     return [...map.entries()].sort(([a], [b]) => (a || 99) - (b || 99));
   }, [list]);
-  if (!list.length) return <p className="py-6 text-center text-sm text-muted">No link matches.</p>;
+  if (!list.length) return <p className="t-caption py-6 text-center">No link matches.</p>;
   return (
-    <div className="flex flex-col gap-5">
+    <div className="grid items-start gap-3 min-[700px]:grid-cols-2 min-[700px]:gap-4">
       {lanes.map(([p, ls]) => {
         const g = targetProgress(ls);
         return (
-          <div key={p}>
-            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <h3 className="font-display text-base font-semibold">{priorityLong(p)}</h3>
-              <span className="font-mono text-xs text-muted tabular-nums">
+          <div key={p} className="sp-card g-pad min-w-0">
+            <div className="g-head flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h3 className="t-card-title">{priorityLong(p)}</h3>
+              <span className="t-caption font-mono tabular-nums">
                 {ls.length} link{ls.length === 1 ? "" : "s"} · {g.atTarget} at target
               </span>
               {g.target ? (
                 <span className="flex min-w-[8rem] flex-1 items-center gap-2 sm:max-w-xs">
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface2" aria-hidden="true">
-                    <span className="sp-bar block h-full rounded-full" style={{ width: `${pct(g.have, g.target)}%`, background: "var(--accent)" }} />
+                  <span className="g-track g-track-thin flex-1" aria-hidden="true">
+                    <span className="sp-bar" style={{ width: `${pct(g.have, g.target)}%` }} />
                   </span>
-                  <span className="font-mono text-xs font-bold tabular-nums">{pct(g.have, g.target)}%</span>
+                  <span className="font-mono text-xs font-semibold tabular-nums">{pct(g.have, g.target)}%</span>
                 </span>
               ) : null}
             </div>
-            <div className="grid gap-3 min-[460px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            <div className="grid gap-2 min-[1400px]:grid-cols-2">
               {ls.map((l, i) => (
                 <LinkCard key={l.rowNo} l={l} index={i} />
               ))}
@@ -458,29 +458,29 @@ function LinkCards({ list }: { list: ReviewLine[] }) {
 
 function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDay: string | null; sort: Sort; onSort: (s: Sort) => void }) {
   const head = (key: SortKey, label: string, right = true) => (
-    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-[11px] font-bold text-muted ${right ? "text-right" : "text-left"}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
-      <button type="button" className="focus-ring rounded" onClick={() => onSort(sort.key === key ? { key, dir: sort.dir === 1 ? -1 : 1 } : { key, dir: key === "priority" ? 1 : -1 })}>
+    <th scope="col" className={right ? "num" : "text-left"} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button type="button" className="focus-ring rounded font-[inherit] uppercase tracking-[inherit]" onClick={() => onSort(sort.key === key ? { key, dir: sort.dir === 1 ? -1 : 1 } : { key, dir: key === "priority" ? 1 : -1 })}>
         {label}
         {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
       </button>
     </th>
   );
   const plain = (label: string, extra = "") => (
-    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-left text-[11px] font-bold text-muted ${extra}`}>
+    <th scope="col" className={`text-left ${extra}`}>
       {label}
     </th>
   );
   return (
-    <div className="max-h-[36rem] overflow-auto rounded-xl border border-line-soft">
+    <div className="sp-inner ledger-card max-h-[36rem]">
       <table className={`w-full border-collapse text-sm ${prevDay ? "min-w-[720px]" : "min-w-[560px]"}`}>
-        <thead className="sticky top-0 z-10 bg-panel2">
+        <thead>
           <tr>
             {head("priority", "Priority", false)}
             {plain("Product")}
             {plain("Platform")}
             {head("reviews", "Reviews")}
             {prevDay ? (
-              <th scope="col" className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-bold text-muted">
+              <th scope="col" className="num whitespace-nowrap">
                 {dayShort(prevDay)}
               </th>
             ) : null}
@@ -492,25 +492,25 @@ function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDa
         <tbody>
           {list.length ? (
             list.map((l) => (
-              <tr key={l.rowNo} className="border-t border-line-soft align-top hover:bg-surface2/40">
-                <td className="px-3 py-2 font-mono font-bold">{priorityName(l.priority)}</td>
-                <td className="min-w-[13rem] px-3 py-2">
+              <tr key={l.rowNo} className="align-top">
+                <td className="font-bold">{priorityName(l.priority)}</td>
+                <td className="min-w-[13rem]">
                   <a href={l.url} target="_blank" rel="noopener noreferrer" className="focus-ring rounded font-bold hover:underline">
                     {l.product}
                   </a>
                   <span className="block font-mono text-[11px] text-muted">{l.sku}</span>
                 </td>
-                <td className="px-3 py-2">
+                <td>
                   <PlatformPill platform={l.platform} />
                 </td>
-                <td className="px-3 py-2 text-right font-mono tabular-nums">{l.reviews == null ? "—" : formatNumber(l.reviews)}</td>
-                {prevDay ? <td className="px-3 py-2 text-right font-mono tabular-nums text-muted">{l.before == null ? "—" : formatNumber(l.before)}</td> : null}
+                <td className="num">{l.reviews == null ? "—" : formatNumber(l.reviews)}</td>
+                {prevDay ? <td className="num text-muted">{l.before == null ? "—" : formatNumber(l.before)}</td> : null}
                 {prevDay ? <td className={`px-3 py-2 text-right font-mono font-bold tabular-nums ${changeClass(l.change)}`}>{signed(l.change)}</td> : null}
-                <td className="px-3 py-2">
+                <td>
                   <TargetBar reviews={l.reviews} target={l.target} color={PLATFORM_COLOR[l.platform]} />
                 </td>
                 {prevDay ? (
-                  <td className="px-3 py-2">
+                  <td>
                     <Chip tone={STATUS_TONE[l.status]}>{l.status}</Chip>
                   </td>
                 ) : null}
@@ -518,7 +518,7 @@ function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDa
             ))
           ) : (
             <tr>
-              <td colSpan={8} className="px-3 py-6 text-center text-sm text-muted">
+              <td colSpan={8} className="text-center text-muted">
                 No link matches.
               </td>
             </tr>
@@ -581,9 +581,9 @@ function EveryLink({ lines, prevDay, filters, setFilters }: { lines: ReviewLine[
       sub={`Written reviews only, not star ratings. ${list.length} of ${lines.length} links shown. Tap a card to open the listing.`}
       index={8}
       action={
-        <div role="group" aria-label="View" className="inline-flex overflow-hidden rounded-xl border border-line">
+        <div role="group" aria-label="View" className="seg">
           {(["cards", "table"] as const).map((m) => (
-            <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={`focus-ring min-h-10 px-3 text-sm font-bold ${mode === m ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface2"}`}>
+            <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className="seg-opt">
               {m === "cards" ? "Cards" : "Table"}
             </button>
           ))}
@@ -591,14 +591,14 @@ function EveryLink({ lines, prevDay, filters, setFilters }: { lines: ReviewLine[
       }
     >
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Platform" className="inline-flex overflow-hidden rounded-xl border border-line">
+        <div role="group" aria-label="Platform" className="seg">
           {(["all", ...PLATFORMS] as const).map((p) => (
             <button
               key={p}
               type="button"
               aria-pressed={filters.platform === p}
               onClick={() => setFilters({ ...filters, platform: p })}
-              className={`focus-ring flex min-h-10 items-center gap-1.5 px-3 text-sm font-bold ${filters.platform === p ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface2"}`}
+              className="seg-opt gap-1.5"
             >
               {p !== "all" ? <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ background: PLATFORM_COLOR[p] }} /> : null}
               {p === "all" ? "All" : p}
@@ -625,7 +625,7 @@ function EveryLink({ lines, prevDay, filters, setFilters }: { lines: ReviewLine[
         {filtered ? (
           <button
             type="button"
-            className="focus-ring rounded-lg px-2 py-1 text-xs font-bold text-accent-text hover:bg-accent-soft"
+            className={buttonClass("ghost")}
             onClick={() => {
               setFilters({ platform: "all", priority: "all" });
               setQuery("");
@@ -743,7 +743,7 @@ function Trend({ trend, day }: { trend: ReviewsView["trend"]; day: string | null
           const prev = trend[i - 1];
           const change = prev ? t.reviews - prev.reviews : null;
           return (
-            <li key={t.day} className={`rounded-xl px-3 py-1.5 font-mono text-xs tabular-nums ${t.day === day ? "bg-accent-soft text-accent-text" : "bg-surface2/60"}`}>
+            <li key={t.day} className={`g-chip font-mono ${t.day === day ? "tone-accent" : ""}`}>
               <b>{dayShort(t.day)}</b> {formatNumber(t.reviews)}
               {change != null ? <span className={`ml-1.5 ${changeClass(change)}`}>{signed(change)}</span> : null}
               {t.missing ? <span className="ml-1.5 text-warn">{t.missing} not read</span> : null}
@@ -763,7 +763,7 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
   if (!view) {
     return (
       <div className="flex min-w-0 flex-col gap-5">
-        <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Review tracker</h1>
+        <h1 className="t-h1">Review tracker</h1>
         <EmptyState
           title="The Review tracker isn't set up in the database yet"
           body="Apply the review tracker migrations (in supabase/migrations, starting 20261021120000) to the Supabase project, then reload this page."
@@ -777,12 +777,12 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
   const chartLines = view.lines.filter((l) => filters.platform === "all" || l.platform === filters.platform);
   const closestLines = chartLines.filter((l) => filters.priority === "all" || String(l.priority ?? 0) === filters.priority);
   return (
-    <div className="flex min-w-0 flex-col gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+    <div className="g-grid items-start">
+      <header className="span-12 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[11px] font-bold text-muted">Flipkart &amp; Shopsy · written reviews</p>
-          <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Review tracker</h1>
-          <p className="mt-0.5 text-sm text-muted">
+          <p className="t-label">Flipkart &amp; Shopsy · written reviews</p>
+          <h1 className="t-h1 mt-1">Review tracker</h1>
+          <p className="t-caption mt-0.5">
             {view.day ? `Checked ${dayYear(view.day)}${view.prevDay ? `, compared with ${dayYear(view.prevDay)}` : ""}${note ? ` · ${note}` : ""}` : "No check saved yet."}
           </p>
         </div>
@@ -799,30 +799,40 @@ export function ReviewTracker({ view }: { view: ReviewsView | null }) {
           <SyncButton />
         </div>
       </header>
-      <p className="-mt-2 text-xs text-muted">Every 5 days the counts are read on Aman&apos;s PC (Flipkart and Shopsy block the site&apos;s own server) and saved here. Sync now tries from the site and adds what it can read; links it can&apos;t read keep their latest count.</p>
+      <p className="t-caption span-12">Every 5 days the counts are read on Aman&apos;s PC (Flipkart and Shopsy block the site&apos;s own server) and saved here. Sync now tries from the site and adds what it can read; links it can&apos;t read keep their latest count.</p>
       {view.day ? (
         <>
           <Headline view={view} onPlatform={(p) => setFilters({ ...filters, platform: p })} />
           {unread.length ? (
-            <p className="rounded-xl border border-warn/40 bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
+            <p className="sp-card tone-row tone-warn tone-row-title span-12">
               {unread.length} link{unread.length > 1 ? "s" : ""} could not be read this time ({unread.map((l) => l.product).join(", ")}), so a change there would not show.
             </p>
           ) : null}
           {filters.platform !== "all" ? (
-            <p className="-mb-2 flex items-center gap-2 text-xs text-muted">
+            <p className="t-caption span-12 flex items-center gap-2">
               Charts show <PlatformPill platform={filters.platform} /> only.
-              <button type="button" className="focus-ring rounded px-1 font-bold text-accent-text hover:underline" onClick={() => setFilters({ ...filters, platform: "all" })}>
+              <button type="button" className={buttonClass("ghost")} onClick={() => setFilters({ ...filters, platform: "all" })}>
                 Show both
               </button>
             </p>
           ) : null}
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="span-7 min-w-0">
             <PriorityChart lines={chartLines} priority={filters.priority} onPriority={(p) => setFilters({ ...filters, priority: p })} />
+          </div>
+          <div className="span-5 min-w-0">
+            <Trend trend={view.trend} day={view.day} />
+          </div>
+          <div className="span-6 min-w-0">
             <ClosestChart lines={closestLines} />
           </div>
-          {view.prevDay ? <Removed lines={view.lines} prevDay={view.prevDay} /> : null}
-          <Trend trend={view.trend} day={view.day} />
-          <EveryLink lines={view.lines} prevDay={view.prevDay} filters={filters} setFilters={setFilters} />
+          {view.prevDay ? (
+            <div className="span-6 min-w-0">
+              <Removed lines={view.lines} prevDay={view.prevDay} />
+            </div>
+          ) : null}
+          <div className="span-12 min-w-0">
+            <EveryLink lines={view.lines} prevDay={view.prevDay} filters={filters} setFilters={setFilters} />
+          </div>
         </>
       ) : (
         <EmptyState title="No review check yet" body="Once the first counts are saved, every link's written reviews show here." />

@@ -274,7 +274,7 @@ Numbers on every page must be identical before and after. Do not change any quer
 
 - **Do not apply migrations and do not run SQL against the database.** The local site reads the live business
   database. Write each migration as a file in `supabase/migrations/` (names given below), write the code against it,
-  and test the screens with fake data in `/dev/preview`. Manas applies and checks the migrations afterwards.
+  and test the screens with fake data in `/dev/preview`. VRPRIME applies and checks the migrations afterwards.
 - Do not deploy any Edge Function.
 - Every new table has Row Level Security on, with the policies stated. Use the helpers that exist:
   `private.is_staff()` (owner or admin), `private.user_role()`, and the `user_warehouses` table for the warehouse role.
@@ -409,7 +409,7 @@ tests use short trimmed snippets of those pages, never whole pages. If the PC ca
 write the parser against the same markers `src/lib/review-count.ts` relies on for recognising a product page, mark
 the price and stock detection as unverified in the report, and leave the tests for them as `todo`.
 **`scripts/install-listing-check.ps1`**, modelled on `install-review-counter.ps1`: a daily Windows task at 09:15. Do
-not run it; the report tells Manas to.
+not run it; the report tells VRPRIME to.
 
 **Screen.** KPI row: Buyable, Out of stock, Unavailable, Price differs, Not read. Caption "Read on the PC each
 morning · last read <date>". Segmented control Problems (default) / All. Table: Product, Platform, Priority, Status

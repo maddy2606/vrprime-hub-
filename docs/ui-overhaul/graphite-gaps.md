@@ -63,3 +63,7 @@ Each line: what, where, which rule (spec section 14) was applied.
 - 12.1 subtitles: Targets "This month against your monthly targets, from the same figures as the Dashboard."; Dead stock "Stock that is not selling, by its value at cost."; the week subtitle before the migration "The week against the week before." Rule 14.1.
 - 12.1 Dead stock "Products with no cost entered" counts dead and slow products without a cost; rows without a cost sort last by stock. Rule 14.2.
 - 12.1 Business tabs are a link segmented control (WorkSwitch's), so `?tab=` stays the address. Rule 14.1.
+- 12.5 rupees in the message use Indian grouping through a small private.inr() in the migration; the percents use a true minus ("−5%") like the app. When the week before had no orders the title is "Last week: N orders" and the sales percent is left out. Rule 14.3.
+- 12.5 "Returns" in the body is customer plus courier returns. Rule 14.2.
+- 12.4/12.5 the bell splits a closing report's body by line (one warehouse a line); other kinds still split on " · ". `alertLines` in `src/lib/alerts.ts` (+ test). Rule 14.2.
+- 12.4/12.5 preview: one closing report and one weekly summary added (read) to the fake notifications. `src/lib/dev-fixtures.ts`.

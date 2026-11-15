@@ -256,6 +256,8 @@ export const FAKE_NOTIFICATIONS: NotificationRow[] = [
   note(2, { kind: "comment", title: "Sample Admin commented on VR-1042", body: "Raise a wrong-return claim today please.", post_id: id(1001), read_at: null }),
   note(3, { kind: "follow_up", title: "1 ticket follow-up due", body: "VR-T-119 (FAKE-FK-CASE-0004712)", ticket_id: id(3002), read_at: new Date().toISOString() }),
   note(4, { kind: "done", title: "VR-1039 marked done", body: "Fake Warehouse BLR marked it done: Restock FAKE-SKU-GRN-S × 400 to Delhi", post_id: id(1006), read_at: new Date().toISOString() }),
+  note(5, { kind: "closing_report", title: "Closing report · 15 Nov", body: "Bangalore: 412 units out, 3 pending, 1 late, 1 absent\nBhiwandi: 268 units out, 0 pending, 0 late, 0 absent", read_at: new Date().toISOString() }),
+  note(6, { kind: "weekly_summary", title: "Last week: 412 orders, up 12%", body: "Sales ₹1,68,420 (+11%) · Returns 18 · Cancelled 18 · Flagged late 3", read_at: new Date().toISOString() }),
 ];
 
 // --- Stock (fake) -----------------------------------------------------------------------------------

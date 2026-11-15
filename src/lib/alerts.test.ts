@@ -98,3 +98,9 @@ test("closing report, listing check and weekly summary links", () => {
   assert.ok(!isAlertKind("closing_report"));
   assert.ok(!isAlertKind("weekly_summary"));
 });
+
+test("a closing report reads one line per warehouse", () => {
+  const { lead, lines } = alertLines("closing_report", "Bangalore: 412 units out, 3 pending, 1 late, 1 absent\nDelhi: 155 units out, 2 pending, 0 late, 0 absent");
+  assert.equal(lead, null);
+  assert.deepEqual(lines.map((l) => l.text), ["Bangalore: 412 units out, 3 pending, 1 late, 1 absent", "Delhi: 155 units out, 2 pending, 0 late, 0 absent"]);
+});

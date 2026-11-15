@@ -86,8 +86,9 @@ export function alertLines(kind: string, body: string | null | undefined): { lea
       rest = text.slice(at + 2);
     }
   }
+  // The closing report writes one warehouse per line.
   const lines = rest
-    .split(" · ")
+    .split(kind === "closing_report" ? "\n" : " · ")
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => lineFor(kind, p));

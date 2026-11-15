@@ -86,3 +86,14 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
   from the P&L loader; Dead stock lists real products from the forecast and inventory.
 - Not testable until applied: the week figures, saving targets (Settings Save needs both migrations).
 - Checks: tsc, lint clean; npm test 323 pass.
+
+## 8. Weekly summary (Part C 12.5): done, migration not applied
+- Migration `supabase/migrations/20261116094000_weekly_summary.sql`: private.inr, private.signed_pct,
+  private.weekly_summary() (last Monday to Sunday against the week before, every active owner), cron 'weekly-summary'
+  at '30 3 * * 1'. Needs 20261116090000 first.
+- notificationUrl and the notify function link weekly_summary to /business?tab=week&start=<that Monday>; the Business
+  page reads start (Phase 7).
+- Preview: view=notifications shows a closing report and a weekly summary. Screens:
+  weekly-summary-notifications-dark-1440.png and -390.png.
+- Not testable until applied: the Monday run and the real message.
+- Checks: tsc, lint clean; npm test 324 pass.

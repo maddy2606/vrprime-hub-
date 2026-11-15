@@ -106,3 +106,13 @@ Not now), and the full card stays on the Notifications page.
 - New fake-data previews: `?view=ads` and `?view=reviews` (src/lib/dev-fixtures-trackers.ts), `?view=adsdesk` added to the list.
 - Decision: P&L and Dashboard have no fake data (owner money data), so no file screenshots; they were type-checked and linted only.
 - Checks: tsc clean, lint clean, 298 tests pass.
+
+### 6. Admin and sign-in (done, lighter touch)
+- Sign-in and change-password: brand mark matches the sidebar, with a small still picture of the warehouse lanes above it. Forms unchanged.
+- People and Settings take the new look from the design system (flat cards, ink toggles, ledger tables). No field, button or rule changed.
+- The sign-in page screenshot was taken without typing anything.
+
+### Not verified
+- Pages behind sign-in were not opened with real data (no credentials were entered): Dashboard and P&L have no fake data, so they were only type-checked, linted and built.
+- Nothing that writes was pressed. Buttons were restyled, not exercised.
+- Colour contrast was checked by eye on screenshots in light and dark, not with a tool.

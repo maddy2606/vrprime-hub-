@@ -10,12 +10,12 @@ overhaul; they are listed so the checklist can be read per role.
 ## Shell (every page)
 
 - [x] Side rail (561px and up): logo "VR", Command Deck, Dashboard (O), Work board, Tickets, Flipkart, Forecast, Ads tracker (OA), Review tracker (OA), Team (OA), P&L (O), People (O), Settings (O); tooltips on hover; active marker. — kept, regrouped Operate / Marketplace / Admin, labels shown
-- [x] Bottom bar (560px and under): Deck, Flipkart, Forecast, Team (OA) + More sheet with the rest. — kept
+- [x] Bottom bar (560px and under): Deck, Flipkart, Forecast, Team (OA) + More sheet with the rest. — moved → bar is now Deck, Work, Tickets, Flipkart + More; Forecast and Team are under More
 - [x] Top bar: logo (phone), search button / search box "Search SKUs, orders, tickets" (Ctrl K), sync status "Synced 42s ago · scope" with green/amber dot, Sync now button (OA), + Post, bell with unread count and pulse ring, account avatar. — kept
 - [x] Account menu: name, role · email, Theme Light/Dark/Auto, Money link (O, when on), Notifications, Change password, Sign out. — kept
 - [x] Command palette (Ctrl K): pages, SKUs, orders, tickets, posts; keyboard hints. — kept
 - [x] Alerts panel (opens itself on new alerts, and from the bell): title, "N things need your attention", grouped alert cards with Open and Mark read, "+N earlier alerts like this", Other updates list (6, "+N more"), footer All notifications + Mark all read, All clear state. — kept
-- [x] Push prompt "Get alerts on this phone?" on every page (hidden 7 days after Not now): Turn on notifications, Not now, iPhone Home Screen note. — moved → compact one-line bar on Command Deck and Notifications only; full card on Notifications
+- [x] Push prompt "Get alerts on this phone?" on every page (hidden 7 days after Not now): Turn on notifications, Not now, iPhone Home Screen note. — moved → one-line bar on the Command Deck only; the full card stays on Notifications
 - [x] Toasts (ok and bad). — kept
 - [x] Loading skeletons (app, Flipkart, Money). — kept
 - [x] Error and not-found pages. — kept
@@ -68,7 +68,7 @@ overhaul; they are listed so the checklist can be read per role.
 - [x] Show filter: All active, To Accept, To Pack, To Dispatch, Upcoming, Under Processing with counts. — kept
 - [x] Cancelled: By filter All / Seller / Buyer with counts; Cancellations per day table (Day, Seller, Buyer). — kept
 - [x] Warehouse dropdown, Sort (Most orders, Most units, Earliest dispatch-by, SKU A to Z), search, CSV, info tip (In transit count, explanations). — kept
-- [x] By SKU groups: caption "N SKUs · N orders · N units", card per SKU (SKU, title, due, orders · units, Short of stock, per-warehouse chips, bucket chips); opened: Stock vs units ordered table (Warehouse, Ordered, Stock, short by), Orders table (Order ID, Qty, Warehouse, Status, Dispatch by), "first N of M" note; Show more. — kept
+- [x] By SKU groups: caption "N SKUs · N orders · N units", row per SKU in one ledger card (SKU, title, due, orders · units, Short of stock, per-warehouse chips, bucket chips); opened: Stock vs units ordered table (Warehouse, Ordered, Stock, short by), Orders table (Order ID, Qty, Warehouse, Status, Dispatch by), "first N of M" note; Show more. — kept
 - [x] Order list table: Dispatch by (Late/Today/On hold chips), Order ID, SKU, Qty, Warehouse, Status, Active from; Show more. — kept
 - [x] Cancelled table: Cancelled, By, SKU, Order ID, Qty, Warehouse, Reason. — kept
 - [x] Empty states and "Could not load" alert. — kept

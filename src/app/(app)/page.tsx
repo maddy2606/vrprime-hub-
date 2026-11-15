@@ -4,7 +4,7 @@ import { PushPrompt } from "@/components/notifications/push-prompt";
 import { requireUser } from "@/lib/auth";
 import { loadDeck } from "@/server/deck-data";
 
-export const metadata: Metadata = { title: "Command Deck" };
+export const metadata: Metadata = { title: "Command Centre" };
 
 export default async function CommandDeckPage() {
   const user = await requireUser();

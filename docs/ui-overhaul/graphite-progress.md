@@ -12,3 +12,15 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
   78%), ItemRow, buttons, chips, inputs, segmented, tables per section 4. icons.tsx: megaphone, star, return, bars added.
 - lanes.tsx: the flow map (section 5), same props. charts.tsx: section 6 (bar-and-line TrendChart, no glow).
 - Checks: tsc clean, lint clean, 298 tests pass. Seen on /dev/preview (tokens and fonts load).
+
+## 2. App shell (Part A 8): done
+- Rail 228 px (surface2, padding 22/16, 30 px mark, 44 px items, accent-soft active), three groups with a 14 px gap
+  and no headings; "Command Deck" renamed "Command Centre" in rail, page title and palette. Sync status card at the
+  bottom (dot, healthy line, "Orders read N ago · scope", Sync now for owner and admin); on the 72 px rail just the dot
+  with a tooltip.
+- Top bar 64 px on --canvas, no border: search pill (surface, line border, Ctrl K), date and time with green dot,
+  + Post, bell, 34 px avatar with name and role. Sync status left the top bar; on phones it still leads the page.
+- Bottom bar unchanged apart from tokens (--pop, no blur).
+- Repair: removing the old worktree deleted part of node_modules through its link; restored with `npm ci` (lock file
+  unchanged, no new packages).
+- Checks: tsc, lint, 298 tests clean. Seen at 1440 (headless Edge).

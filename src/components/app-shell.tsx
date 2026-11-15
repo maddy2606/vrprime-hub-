@@ -40,12 +40,10 @@ export async function AppShell({
   const theme = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
     <div className="vr-shell min-h-dvh">
-      <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} />
+      <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} sync={{ syncedAt, scope, canSync: user.role !== "warehouse" }} />
       <CommandBar
-        user={{ name: user.name, role: user.role, sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}
+        user={{ name: user.name, role: user.role, roleLabel: ROLE_LABEL[user.role], sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}
         unread={unread}
-        scope={scope}
-        syncedAt={syncedAt}
         menu={
           <>
             <ThemeSwitch initial={theme} />
@@ -67,7 +65,7 @@ export async function AppShell({
       <main className="vr-page pb-[calc(5.5rem+env(safe-area-inset-bottom))] min-[700px]:pb-12">
         {/* Phone: the sync status (and Sync now for the owner and admin) leaves the top bar and leads the page. */}
         <div className="mb-3 min-[700px]:hidden">
-          <SyncControl since={syncedAt} scope={scope} canSync={user.role !== "warehouse"} place="phone" />
+          <SyncControl since={syncedAt} scope={scope} canSync={user.role !== "warehouse"} />
         </div>
         {children}
       </main>

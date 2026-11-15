@@ -4,6 +4,12 @@ import { ClaimsTab } from "@/components/flipkart/claims-tab";
 import { fakeClaimRows } from "@/lib/dev-fixtures-claims";
 import { ClosingReport } from "@/components/reports/closing-report";
 import { fakeClosingRows } from "@/lib/dev-fixtures-closing";
+import { BusinessFrame } from "@/components/business/business-board";
+import { DeadTab } from "@/components/business/dead-tab";
+import { TargetsTab } from "@/components/business/targets-tab";
+import { WeekTab } from "@/components/business/week-tab";
+import { businessWeekStart, weekDays, weekSentence } from "@/lib/business";
+import { fakeBusinessWeek, fakeDeadRows } from "@/lib/dev-fixtures-business";
 import { UsersAdmin, type AdminUser } from "@/components/admin/users-admin";
 import { AppShell } from "@/components/app-shell";
 import { ChangePasswordForm } from "@/components/auth/auth-forms";
@@ -67,7 +73,7 @@ import {
   fakeReturnRates,
   fakeReturnsPage,
 } from "@/lib/dev-fixtures-flipkart";
-import { addDays, todayIST } from "@/lib/format";
+import { addDays, formatINR, todayIST } from "@/lib/format";
 import { defaultQuery, type OrderView, type StatusFilter } from "@/lib/orders-view";
 import { EMPTY_POST } from "@/lib/post-options";
 import type { DeskListing } from "@/lib/stock-analysis";
@@ -85,6 +91,9 @@ const VIEWS = [
   "deck",
   "deckclear",
   "dashboard",
+  "business",
+  "btargets",
+  "bdead",
   "mywork",
   "listings",
   "empty",
@@ -185,6 +194,25 @@ export default async function PreviewPage({
 
       {view === "deck" || view === "deckclear" ? <CommandDeck d={fakeDeck(view === "deckclear")} /> : null}
       {view === "dashboard" ? <DashboardBoard d={fakeDashboard()} /> : null}
+      {view === "business" ? (() => {
+        const start = businessWeekStart(today);
+        const w = fakeBusinessWeek(today);
+        return (
+          <BusinessFrame tab="week" sub={weekSentence(w.cur, w.prev, (n) => formatINR(Math.round(n)))} base="/dev/preview?view=business">
+            <WeekTab start={start} days={weekDays(start, today)} today={today} cur={w.cur} prev={w.prev} ready={sp.ready !== "0"} base="/dev/preview?view=business" />
+          </BusinessFrame>
+        );
+      })() : null}
+      {view === "btargets" ? (
+        <BusinessFrame tab="targets" sub="This month against your monthly targets, from the same figures as the Dashboard.">
+          <TargetsTab months={fakePnl().months} today={today} sales={1_500_000} profit={sp.empty === "1" ? null : 240_000} />
+        </BusinessFrame>
+      ) : null}
+      {view === "bdead" ? (
+        <BusinessFrame tab="dead" sub="Stock that is not selling, by its value at cost.">
+          <DeadTab rows={fakeDeadRows()} warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))} error={false} />
+        </BusinessFrame>
+      ) : null}
       {view === "closing" ? (
         <ClosingReport day={typeof sp.day === "string" ? sp.day : today} today={today} rows={sp.empty === "1" ? [] : fakeClosingRows()} ready={sp.ready !== "0"} base="/dev/preview?view=closing" />
       ) : null}
@@ -335,7 +363,7 @@ export default async function PreviewPage({
       {view === "settings" ? (
         <div>
           <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
-          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10", return_claim_days: "7", money_low_margin_percent: "10", money_default_fee_percent: "12", money_unpaid_after_days: "15", money_fee_deviation_points: "2", money_upload_reminder_days: "14", money_keep_months: "12" }} />
+          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10", return_claim_days: "7", target_sales_month: "1500000", target_profit_month: "", money_low_margin_percent: "10", money_default_fee_percent: "12", money_unpaid_after_days: "15", money_fee_deviation_points: "2", money_upload_reminder_days: "14", money_keep_months: "12" }} />
         </div>
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}

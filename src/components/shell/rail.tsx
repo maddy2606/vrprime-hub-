@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BarsIcon, BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 import { SyncCard } from "@/components/shell/command-bar";
 import { Sheet } from "@/components/shell/sheet";
 
@@ -11,14 +11,19 @@ type Group = { label: string; items: Item[] };
 
 /**
  * The navigation (graphite-spec section 8), in three groups with no headings and a 14px gap between them: Command
- * Centre, Dashboard (owner), Work board, Tickets, Team (owner and admin); Flipkart, Forecast, Ads tracker and Review
+ * Centre, Dashboard and Business (owner), Work board, Tickets, Team (owner and admin); Flipkart, Forecast, Ads tracker and Review
  * tracker (owner and admin); P&L, People, Settings (owner). Who sees what is exactly as before.
  * Under 700px it is a bottom bar of five: Deck, Work, Tickets and Flipkart within thumb reach, with the rest under More.
  */
 function groups(isOwner: boolean, isStaff: boolean): Group[] {
   const operate: Item[] = [
     { key: "deck", href: "/", label: "Command Centre", icon: DeckIcon },
-    ...(isOwner ? [{ key: "dashboard", href: "/dashboard", label: "Dashboard", icon: DashIcon }] : []),
+    ...(isOwner
+      ? [
+          { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: DashIcon },
+          { key: "business", href: "/business", label: "Business", icon: BarsIcon },
+        ]
+      : []),
     { key: "work", href: "/work", label: "Work board", icon: BoardIcon },
     { key: "tickets", href: "/tickets", label: "Tickets", icon: TicketIcon },
     ...(isStaff ? [{ key: "team", href: "/team", label: "Team", icon: GaugeIcon }] : []),
@@ -50,6 +55,7 @@ function groups(isOwner: boolean, isStaff: boolean): Group[] {
 function activeKey(pathname: string, tab: string | null): string {
   if (pathname === "/") return "deck";
   if (pathname.startsWith("/dashboard")) return "dashboard";
+  if (pathname.startsWith("/business")) return "business";
   if (pathname.startsWith("/flipkart")) return tab === "forecast" ? "forecast" : "flipkart";
   if (pathname === "/work" || pathname === "/all" || pathname.startsWith("/posts")) return "work";
   if (pathname.startsWith("/tickets")) return "tickets";

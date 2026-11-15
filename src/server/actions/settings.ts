@@ -21,7 +21,9 @@ export async function saveSettings(input: unknown): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
-  for (const [key, value] of Object.entries(parsed.data)) {
+  for (const [key, raw] of Object.entries(parsed.data)) {
+    // A blank target is saved as an empty string: the column is not null, and JSON null would arrive as SQL null.
+    const value = raw === null ? "" : raw;
     const { data, error } = await supabase
       .from("app_settings")
       .update({ value, updated_at: new Date().toISOString(), updated_by: user.id })

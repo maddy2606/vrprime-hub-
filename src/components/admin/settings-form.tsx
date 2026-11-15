@@ -16,6 +16,8 @@ export type SettingsValues = {
   running_out_days: string;
   return_rate_percent: string;
   return_claim_days: string;
+  target_sales_month: string;
+  target_profit_month: string;
   money_low_margin_percent: string;
   money_default_fee_percent: string;
   money_unpaid_after_days: string;
@@ -135,6 +137,15 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       </Field>
       <Field label="Days to claim a return" htmlFor="return_claim_days" required error={errors.return_claim_days}>
         <input id="return_claim_days" className="input" inputMode="numeric" value={values.return_claim_days} onChange={(e) => set("return_claim_days", e.target.value)} aria-invalid={Boolean(errors.return_claim_days)} />
+      </Field>
+      </section>
+      <section className="sp-card g-pad span-12 grid gap-4 min-[700px]:grid-cols-2" aria-labelledby="set-targets">
+      <h2 id="set-targets" className="t-card-title min-[700px]:col-span-2">Targets</h2>
+      <Field label="Sales target a month (₹)" htmlFor="target_sales_month" error={errors.target_sales_month} hint="Shown on Business › Targets. Leave blank for no target.">
+        <input id="target_sales_month" className="input" inputMode="numeric" value={values.target_sales_month} onChange={(e) => set("target_sales_month", e.target.value)} aria-invalid={Boolean(errors.target_sales_month)} />
+      </Field>
+      <Field label="Profit target a month (₹)" htmlFor="target_profit_month" error={errors.target_profit_month} hint="Profit after ads, as on the Dashboard. Leave blank for no target.">
+        <input id="target_profit_month" className="input" inputMode="numeric" value={values.target_profit_month} onChange={(e) => set("target_profit_month", e.target.value)} aria-invalid={Boolean(errors.target_profit_month)} />
       </Field>
       </section>
       <section className="sp-card g-pad span-12 grid gap-4 min-[700px]:grid-cols-2" aria-labelledby="set-money">

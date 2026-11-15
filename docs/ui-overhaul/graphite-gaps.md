@@ -53,3 +53,13 @@ Each line: what, where, which rule (spec section 14) was applied.
 - 12.4 day arrows copy the Team attendance panel's (← and →, the next arrow dimmed on today); the subtitle reads "Today · 16 Nov" on today. Not-set-up state "The closing report is not set up yet". Rule 14.1.
 - 12.4 no rail item for the closing report (the spec names only the Team header button); warehouse users reach it from the notification. Rule 14.3.
 - 12.5 the weekly summary notification has no date in it, so its link takes the Monday a week before the day it was created (India time). `weeklySummaryStart` in `src/lib/notifications.ts` and the notify function. Rule 14.2.
+- 12.1 a blank target is saved as an empty JSON string, not null: app_settings.value is not null and the REST API turns JSON null into SQL null. The migration seeds both keys as "". `saveSettings`, `readTargetValue`. Rule 14.2.
+- 12.1 business_week_data: `sales` sums selling_price of the same non-cancelled rows; `by_product` groups by master product (several listings of one product are one entry), with units × units_per_order. `cancelled_by` keys a missing cancel_type as "unknown". Rule 14.2.
+- 12.1 Change column shows "new" in place of a percent when last week was 0. `signedPct`. Rule 14.3 (no invented figure).
+- 12.1 week table: the thin pair of bars is this week in --accent over last week in --muted, 6 px each, on the --surface2 track (Bar's track, thinner). `week-tab.tsx`. Rule 14.1.
+- 12.1 week arrows copy the attendance panel's ← and → (next dimmed on the current week); the card caption names the dates and the days compared. Rule 14.1.
+- 12.1 Rising and Falling rows use the trend icon (green; mirrored and red for Falling) with a signed Chip. Rule 14.1.
+- 12.1 Targets tab: "on pace" for sales uses the Dashboard's profit pace rule (figure so far ÷ covered days × days in month). The marker is 2 px --ink, 4 px taller than the bar. Month bars copy the Dashboard's Month by month bars, without the ads bar; targets are 1 px dashed --muted lines (TrendChart's average line). Rule 14.1/14.2.
+- 12.1 subtitles: Targets "This month against your monthly targets, from the same figures as the Dashboard."; Dead stock "Stock that is not selling, by its value at cost."; the week subtitle before the migration "The week against the week before." Rule 14.1.
+- 12.1 Dead stock "Products with no cost entered" counts dead and slow products without a cost; rows without a cost sort last by stock. Rule 14.2.
+- 12.1 Business tabs are a link segmented control (WorkSwitch's), so `?tab=` stays the address. Rule 14.1.

@@ -73,3 +73,16 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
 - Seen live: /reports/closing shows the not-set-up state (table missing); the Team button links there.
 - Not testable until applied: the report rows, the 21:50 run, the notifications.
 - Checks: tsc, lint clean; npm test 313 pass.
+
+## 7. Business page (Part C 12.1): done, migration not applied
+- Migration `supabase/migrations/20261116090000_business.sql`: private.business_week_data, public.business_week
+  (owner only), the two target settings.
+- src/lib/business.ts (+ 8 tests), src/lib/dead-stock.ts (+ 2 tests), src/server/business-data.ts.
+- /business (owner; others get the owner-only notice) with This week, Targets and Dead stock; loading.tsx; rail item
+  "Business" (bars) after Dashboard, owner only. Settings: new "Targets" card (target_sales_month,
+  target_profit_month in SETTING_KEYS and validation).
+- Preview: view=business, btargets, bdead. Screens: business-week/targets/dead-dark-1440.png and -390.png.
+- Seen live (read only): This week shows the not-set-up state; Targets shows the empty states and the last months
+  from the P&L loader; Dead stock lists real products from the forecast and inventory.
+- Not testable until applied: the week figures, saving targets (Settings Save needs both migrations).
+- Checks: tsc, lint clean; npm test 323 pass.

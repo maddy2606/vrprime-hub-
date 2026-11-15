@@ -128,6 +128,8 @@ export default async function PreviewPage({
   const lookups = buildLookups(FAKE_PEOPLE, FAKE_WAREHOUSES);
   const today = todayIST();
   const me = FAKE_PEOPLE[0];
+  // Preview only: which role the fake shell is drawn for. It touches no real user, role or access check.
+  const role = sp.role === "admin" || sp.role === "warehouse" ? sp.role : "owner";
   const open = FAKE_POSTS.filter((p) => p.status !== "done");
 
   const users: AdminUser[] = FAKE_PEOPLE.map((p, i) => ({
@@ -143,16 +145,22 @@ export default async function PreviewPage({
 
   return (
     <AppShell
-      user={{ name: me.name, role: "owner", email: "fake.owner@example.test" }}
+      user={{ name: me.name, role, email: `fake.${role}@example.test` }}
       unread={3 + FAKE_ALERTS.length}
       alerts={sp.alerts === "none" ? [] : [...FAKE_ALERTS, ...FAKE_NOTIFICATIONS.filter((n) => !n.read_at)]}
-      scope="All warehouses"
+      scope={role === "warehouse" ? "2 warehouses" : "All warehouses"}
       syncedAt={PREVIEW_SYNCED}
     >
       <nav className="mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">
-        <span>Preview (fake data):</span>
+        <span>Preview (fake data), drawn as {role}:</span>
+        {(["owner", "admin", "warehouse"] as const).map((r) => (
+          <Link prefetch={false} key={r} href={`/dev/preview?view=${view}&role=${r}`} className={r === role ? "" : "underline"}>
+            as {r}
+          </Link>
+        ))}
+        <span aria-hidden="true">|</span>
         {VIEWS.map((v) => (
-          <Link prefetch={false} key={v} href={`/dev/preview?view=${v}`} className="underline">
+          <Link prefetch={false} key={v} href={`/dev/preview?view=${v}${role === "owner" ? "" : `&role=${role}`}`} className="underline">
             {v}
           </Link>
         ))}
@@ -285,7 +293,7 @@ export default async function PreviewPage({
           <SyncBar latest={{ ...FAKE_SYNC, status: "running", cursor: 24, total: 66 }} lastDone={FAKE_SYNC} snapshotDate={FAKE_SYNC.snapshotDate} previousDate={null} canSync />
         </>
       ) : null}
-      {view.startsWith("f") ? <FlipkartPreview view={view} sp={sp} /> : null}
+      {view.startsWith("f") ? <FlipkartPreview view={view} sp={sp} role={role} /> : null}
       {view === "settings" ? (
         <div className="mx-auto max-w-2xl">
           <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
@@ -303,7 +311,7 @@ export default async function PreviewPage({
   );
 }
 
-function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string | string[] | undefined> }) {
+function FlipkartPreview({ view, sp, role }: { view: string; sp: Record<string, string | string[] | undefined>; role: "owner" | "admin" | "warehouse" }) {
   const today = todayIST();
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
@@ -314,7 +322,7 @@ function FlipkartPreview({ view, sp }: { view: string; sp: Record<string, string
   return (
     <>
       <PageTitle title="Flipkart" sub="Fake data" />
-      <TabBar tabs={tabsFor("owner")} active={active} />
+      <TabBar tabs={tabsFor(role)} active={active} />
       {needs ? (
         <NeedsAction
           sections={needs.sections}

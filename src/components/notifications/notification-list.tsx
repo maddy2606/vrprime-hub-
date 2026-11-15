@@ -52,12 +52,12 @@ export function NotificationList({ items }: { items: NotificationRow[] }) {
               role="tab"
               aria-selected={on}
               onClick={() => setFilter(f.key)}
-              className={`focus-ring flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-bold transition ${
-                on ? "border-accent bg-accent text-accent-ink" : "border-line bg-surface text-muted hover:text-ink"
+              className={`focus-ring flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-4 text-sm font-semibold transition-colors ${
+                on ? "border-ink bg-ink text-canvas" : "border-line bg-surface text-muted hover:text-ink"
               }`}
             >
               {f.label}
-              <span className={`font-mono text-xs ${on ? "text-accent-ink/80" : "text-faint"}`}>{counts[f.key]}</span>
+              <span className={`font-mono text-xs ${on ? "text-canvas/80" : "text-faint"}`}>{counts[f.key]}</span>
             </button>
           );
         })}

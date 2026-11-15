@@ -91,3 +91,11 @@ Not now), and the full card stays on the Notifications page.
 - Fix: sidebar labels were hidden on desktop because the CSS build reordered two rules; now a max-width rule.
 - Sweep across all pages: capital-letter labels, extra-heavy weights, oversized corners, hover lifts and blur removed (class changes only).
 - Checks: tsc clean, lint clean, 298 tests pass.
+
+### 4. Work board, posts, Tickets, Notifications (done)
+- Work board: headline sentence (open, overdue, due today, coloured), sections with a rule and a count.
+- Phone bottom bar is now Deck, Work, Tickets, Flipkart, More, so the work board and tickets are in thumb reach. Decision: Forecast and Team moved under More to make room; nothing was removed.
+- Alert and notification cards: no coloured side bar or boxed icon; an inline icon and chip carry the urgency, plus the unread dot. Same text, same links, same buttons.
+- Notification filters are 44px tall. Post, ticket and form pages take the new look from the design system.
+- Preview role switch added: `/dev/preview?view=...&role=owner|admin|warehouse`. It only changes the fake shell and the Flipkart tab list in the preview; no real role or access check is touched.
+- Checks: tsc clean, lint clean, 298 tests pass.

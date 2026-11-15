@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PostGrid } from "@/components/posts/post-card";
-import { buttonClass, EmptyState, PageTitle } from "@/components/ui";
+import { buttonClass, EmptyState, Headline, Num, PageTitle } from "@/components/ui";
 import type { Lookups } from "@/lib/data";
 import { dueState } from "@/lib/format";
 import type { Post } from "@/lib/types";
@@ -29,9 +29,10 @@ function Section({
 }) {
   if (!posts.length) return null;
   return (
-    <section className="mb-6">
-      <h2 className={`mb-2 text-sm font-semibold ${tone}`}>
-        {title} · {posts.length}
+    <section className="mb-7">
+      <h2 className="mb-2.5 flex items-baseline gap-2 border-b border-line pb-2 font-display text-[1.0625rem] font-semibold tracking-[-0.01em]">
+        {title}
+        <span className={`font-mono text-sm tabular-nums ${tone}`}>{posts.length}</span>
       </h2>
       <PostGrid posts={posts} lookups={lookups} today={today} />
     </section>
@@ -59,9 +60,23 @@ export function MyWork({ posts, lookups, today, firstName }: Props) {
 
   return (
     <>
-      <PageTitle title={`Hi ${firstName}`} sub={summary} />
+      <PageTitle title={`Hi ${firstName}`} sub={posts.length ? "Your open work, most urgent first" : summary} />
       {posts.length ? (
         <>
+          <Headline size="md" className="mb-6">
+            <Num>{posts.length}</Num> open
+            {overdue.length ? (
+              <>
+                , <Num tone="bad">{overdue.length}</Num> overdue
+              </>
+            ) : null}
+            {dueToday.length ? (
+              <>
+                , <Num tone="warn">{dueToday.length}</Num> due today
+              </>
+            ) : null}
+            .
+          </Headline>
           <Section title="Overdue" tone="text-bad" posts={overdue} lookups={lookups} today={today} />
           <Section title="Due today" tone="text-warn" posts={dueToday} lookups={lookups} today={today} />
           <Section title="Next" tone="text-muted" posts={rest} lookups={lookups} today={today} />

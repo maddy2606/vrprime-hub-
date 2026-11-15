@@ -12,7 +12,7 @@ type Group = { label: string; items: Item[] };
  * The navigation, in three groups. Operate: Command Deck, Dashboard (owner), Work board, Tickets, Team (owner and
  * admin). Marketplace: Flipkart, Forecast, Ads tracker and Review tracker (owner and admin). Admin (owner): P&L,
  * People, Settings. Who sees what is exactly as before; only the grouping and the labels are new.
- * On a phone it is a bottom bar of five: Deck, Flipkart, Forecast and Team, with the rest under More.
+ * On a phone it is a bottom bar of five: Deck, Work, Tickets and Flipkart within thumb reach, with the rest under More.
  */
 function groups(isOwner: boolean, isStaff: boolean): Group[] {
   const operate: Item[] = [
@@ -121,7 +121,7 @@ const SHORT: Record<string, string> = { deck: "Deck", work: "Work", tickets: "Ti
 /** The places that get a slot of their own on a phone; the rest go under More. Five slots at most. */
 function splitForPhone(list: Item[]): { bar: Item[]; more: Item[] } {
   if (list.length <= 5) return { bar: list, more: [] };
-  const first = ["deck", "flipkart", "forecast", "team"];
+  const first = ["deck", "work", "tickets", "flipkart"];
   const bar = first.map((k) => list.find((i) => i.key === k)).filter((i): i is Item => Boolean(i)).slice(0, 4);
   return { bar, more: list.filter((i) => !bar.includes(i)) };
 }

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ClaimsTab } from "@/components/flipkart/claims-tab";
+import { fakeClaimRows } from "@/lib/dev-fixtures-claims";
 import { UsersAdmin, type AdminUser } from "@/components/admin/users-admin";
 import { AppShell } from "@/components/app-shell";
 import { ChangePasswordForm } from "@/components/auth/auth-forms";
@@ -104,6 +106,7 @@ const VIEWS = [
   "fcancelled",
   "freturns",
   "frates",
+  "fclaim",
   "fprices",
   "fhealth",
   "fforecast",
@@ -326,7 +329,7 @@ export default async function PreviewPage({
       {view === "settings" ? (
         <div>
           <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
-          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10", money_low_margin_percent: "10", money_default_fee_percent: "12", money_unpaid_after_days: "15", money_fee_deviation_points: "2", money_upload_reminder_days: "14", money_keep_months: "12" }} />
+          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10", return_claim_days: "7", money_low_margin_percent: "10", money_default_fee_percent: "12", money_unpaid_after_days: "15", money_fee_deviation_points: "2", money_upload_reminder_days: "14", money_keep_months: "12" }} />
         </div>
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}
@@ -344,14 +347,14 @@ function FlipkartPreview({ view, sp, role }: { view: string; sp: Record<string, 
   const today = todayIST();
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
-  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : view === "fstockouts" ? "stockouts" : "health";
+  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fclaim" ? "claim" : view === "fprices" ? "prices" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : view === "fstockouts" ? "stockouts" : "health";
   const ordersView = FAKE_ORDER_VIEW[view]?.view ?? "sku";
   const needs = view === "fneeds" ? fakeNeedsAction() : null;
   const health = view === "fhealth" ? fakeHealthRows() : null;
   return (
     <>
       <PageTitle title="Flipkart" sub="Fake data" />
-      <TabBar tabs={tabsFor(role)} active={active} />
+      <TabBar tabs={tabsFor(role)} active={active} counts={active === "returns" || active === "claim" ? { claim: fakeClaimRows(today).filter((r) => r.daysLeft >= 0).length } : {}} />
       {needs ? (
         <NeedsAction
           sections={needs.sections}
@@ -374,6 +377,7 @@ function FlipkartPreview({ view, sp, role }: { view: string; sp: Record<string, 
       {view === "freturns" || view === "frates" ? (
         <ReturnsTab initialPage={fakeReturnsPage().page} initialSummary={fakeReturnsPage().summary} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
       ) : null}
+      {view === "fclaim" ? <ClaimsTab rows={fakeClaimRows(today)} checkedThisWeek={4} ready={sp.ready !== "0"} warehouses={wh} today={today} /> : null}
       {view === "fprices" ? <PricesTab rows={fakePriceRows()} today={today} dropLimit={15} snapshotDate={today} /> : null}
       {view === "foverfill" ? (
         <OverfillTab

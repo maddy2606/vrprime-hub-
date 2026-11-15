@@ -171,6 +171,9 @@ export const ticketSchema = z
     next_follow_up: optionalDate,
     status: z.enum(TICKET_STATUSES).default("open"),
     resolution_notes: optionalText(2000),
+    // Hidden fields from Returns to claim (graphite-spec 12.2).
+    return_id: optionalText(120).optional(),
+    order_item_id: optionalText(120).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.next_follow_up && v.next_follow_up < v.raised_on) {
@@ -201,6 +204,7 @@ export const settingsSchema = z.object({
   dispatch_sla_days: wholeNumber("the number of days", 1, 30),
   running_out_days: wholeNumber("the number of days", 1, 365),
   return_rate_percent: wholeNumber("the percentage", 1, 100),
+  return_claim_days: wholeNumber("the number of days", 1, 30),
   money_low_margin_percent: wholeNumber("the percentage", 1, 99),
   money_default_fee_percent: wholeNumber("the percentage", 1, 60),
   money_unpaid_after_days: wholeNumber("the number of days", 1, 120),

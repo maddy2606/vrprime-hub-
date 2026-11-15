@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { SHOW_LISTING_HEALTH } from "@/lib/feature-flags";
+import { formatNumber } from "@/lib/format";
 
 // The order of the tabs. "health" (Listing health) is only shown while SHOW_LISTING_HEALTH is on.
-export const TAB_KEYS = ["needs", "orders", "stock", "stockouts", "returns", "prices", "health", "forecast", "overfill", "masters"] as const;
+export const TAB_KEYS = ["needs", "orders", "stock", "stockouts", "returns", "claim", "prices", "health", "forecast", "overfill", "masters"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 export const TAB_LABEL: Record<TabKey, string> = {
@@ -11,6 +12,7 @@ export const TAB_LABEL: Record<TabKey, string> = {
   stock: "Stock",
   stockouts: "Stock-outs",
   returns: "Returns",
+  claim: "To claim",
   prices: "Prices",
   health: "Listing health",
   forecast: "Forecasting",
@@ -32,7 +34,7 @@ export const TAB_GROUPS: { label: string; keys: TabKey[] }[] = [
   { label: "Today", keys: ["needs", "orders", "overfill"] },
   { label: "Stock", keys: ["stock", "stockouts", "forecast"] },
   { label: "Listings", keys: ["prices", "health", "masters"] },
-  { label: "Returns", keys: ["returns"] },
+  { label: "Returns", keys: ["returns", "claim"] },
 ];
 
 const hrefFor = (key: TabKey) => (key === "needs" ? "/flipkart" : `/flipkart?tab=${key}`);
@@ -42,7 +44,7 @@ const hrefFor = (key: TabKey) => (key === "needs" ? "/flipkart" : `/flipkart?tab
  * shown only when the reader may open at least one of its tabs, and it opens on the first of them. Plain links: each
  * tab loads only its own data.
  */
-export function TabBar({ tabs, active }: { tabs: TabKey[]; active: TabKey }) {
+export function TabBar({ tabs, active, counts = {} }: { tabs: TabKey[]; active: TabKey; counts?: Partial<Record<TabKey, number>> }) {
   const groups = TAB_GROUPS.map((g) => ({ ...g, keys: g.keys.filter((k) => tabs.includes(k)) })).filter((g) => g.keys.length > 0);
   const open = groups.find((g) => g.keys.includes(active)) ?? groups[0];
   return (
@@ -74,6 +76,7 @@ export function TabBar({ tabs, active }: { tabs: TabKey[]; active: TabKey }) {
               className={`g-btn g-btn-ghost focus-ring shrink-0 whitespace-nowrap rounded-full ${active === key ? "bg-accent-soft" : ""}`}
             >
               {TAB_LABEL[key]}
+              {counts[key] !== undefined ? <span className="seg-count">{formatNumber(counts[key])}</span> : null}
             </Link>
           ))}
         </div>

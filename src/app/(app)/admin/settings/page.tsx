@@ -45,6 +45,7 @@ export default async function SettingsPage() {
           dispatch_sla_days: String(read("dispatch_sla_days", DEFAULT_FLIPKART_SETTINGS.dispatchSlaDays)),
           running_out_days: String(read("running_out_days", DEFAULT_FLIPKART_SETTINGS.runningOutDays)),
           return_rate_percent: String(read("return_rate_percent", DEFAULT_FLIPKART_SETTINGS.returnRatePercent)),
+          return_claim_days: String(read("return_claim_days", 7)),
           money_low_margin_percent: String(read("money_low_margin_percent", 10)),
           money_default_fee_percent: String(read("money_default_fee_percent", 12)),
           money_unpaid_after_days: String(read("money_unpaid_after_days", 15)),

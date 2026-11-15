@@ -25,6 +25,10 @@ export type TicketFormValues = {
   status: TicketStatus;
   /** Free-text notes (stored in the resolution_notes column). */
   resolution_notes: string;
+  /** Hidden: the Flipkart return this ticket is raised for (Returns to claim, graphite-spec 12.2). */
+  return_id?: string;
+  /** Hidden: that return's order item. */
+  order_item_id?: string;
 };
 
 /** The page address for a set of filters. The default tab is left out. */

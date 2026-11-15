@@ -36,6 +36,15 @@ export default async function NewTicketPage({
   const issue = one(sp.issue);
   if ((ISSUE_TYPES as readonly string[]).includes(issue)) initial.issue_type = issue as IssueType;
 
+  // /tickets/new?return=...&item=... (Returns to claim, graphite-spec 12.2): carried as hidden fields so the saved
+  // ticket records the return and the return leaves the To check list.
+  const returnId = one(sp.return).trim().slice(0, 120);
+  const itemId = one(sp.item).trim().slice(0, 120);
+  if (returnId && itemId) {
+    initial.return_id = returnId;
+    initial.order_item_id = itemId;
+  }
+
   // /tickets/new?notes=... (from the Money checks) fills in the order details.
   const notes = one(sp.notes).trim().slice(0, 900);
   if (notes) initial.resolution_notes = notes;

@@ -1,3 +1,4 @@
+import { ClaimsTab } from "@/components/flipkart/claims-tab";
 import { ForecastTab } from "@/components/flipkart/forecast-tab";
 import { MastersTab } from "@/components/flipkart/masters-tab";
 import { OverfillTab } from "@/components/flipkart/overfill-tab";
@@ -46,6 +47,7 @@ import {
   warehousesFor,
 } from "@/server/flipkart-data";
 import { loadOrderCounts, loadOrdersView, pickWarehouseOf } from "@/server/orders-view";
+import { loadReturnsToClaim } from "@/server/return-claims";
 import { loadReturnsPage, loadReturnsSummary } from "@/server/returns-view";
 import { loadStockPage } from "@/server/stock-data";
 import { loadStockDesk } from "@/server/stock-view";
@@ -213,6 +215,14 @@ export async function ReturnsPanel({ user }: { user: SessionUser }) {
       today={today}
     />
   );
+}
+
+// --- Returns to claim (graphite-spec 12.2) ---------------------------------------------------------------------
+
+export async function ClaimsPanel({ user }: { user: SessionUser }) {
+  const today = todayIST();
+  const [data, warehouses] = await Promise.all([loadReturnsToClaim(today), warehousesFor(user)]);
+  return <ClaimsTab rows={data.rows} checkedThisWeek={data.checkedThisWeek} ready={data.ready} warehouses={warehouses} today={today} />;
 }
 
 // --- Prices and listing health ----------------------------------------------------------------------------------

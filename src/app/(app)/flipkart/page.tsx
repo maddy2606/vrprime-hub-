@@ -5,7 +5,8 @@ import { PanelSkeleton } from "@/components/flipkart/panel-skeleton";
 import { isTabKey, TabBar, tabsFor, type TabKey } from "@/components/flipkart/tab-bar";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { ForecastPanel, HealthPanel, MastersPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockoutsPanel, StockPanel } from "./panels";
+import { loadToCheckCount } from "@/server/return-claims";
+import { ClaimsPanel, ForecastPanel, HealthPanel, MastersPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockoutsPanel, StockPanel } from "./panels";
 
 export const metadata: Metadata = { title: "Flipkart" };
 
@@ -19,6 +20,7 @@ const SUB: Record<TabKey, string> = {
   stock: "Flipkart stock across the warehouses",
   stockouts: "SKUs that stocked out or came back in stock since the day before",
   returns: "Returns and return rates",
+  claim: "Returns to claim",
   prices: "Selling prices, MRP and price changes",
   health: "Listings with problems to fix",
   forecast: "Expected dispatches, by dispatch day",
@@ -34,11 +36,13 @@ export default async function FlipkartPage({ searchParams }: { searchParams: Pro
   // A warehouse user asking for Prices, or anyone asking for Listing health while it is hidden, lands on the first tab.
   if (requested && (!isTabKey(requested) || !tabs.includes(requested))) redirect("/flipkart");
   const tab: TabKey = isTabKey(requested) ? requested : "needs";
+  // The To claim label shows its To check count (graphite-spec 12.2), read only while the Returns group is open.
+  const toCheck = tab === "returns" || tab === "claim" ? await loadToCheckCount() : null;
 
   return (
     <>
       <PageTitle title="Flipkart" sub={user.role === "warehouse" ? `${SUB[tab]}, at your warehouses` : SUB[tab]} />
-      <TabBar tabs={tabs} active={tab} />
+      <TabBar tabs={tabs} active={tab} counts={toCheck === null ? {} : { claim: toCheck }} />
       {/* The title and tabs above are sent at once; each tab's numbers stream in behind a skeleton. */}
       <Suspense key={`${tab}|${JSON.stringify(sp)}`} fallback={<PanelSkeleton tab={tab} />}>
         {tab === "needs" ? <NeedsPanel user={user} /> : null}
@@ -46,6 +50,7 @@ export default async function FlipkartPage({ searchParams }: { searchParams: Pro
         {tab === "stock" ? <StockPanel user={user} sp={sp} /> : null}
         {tab === "stockouts" ? <StockoutsPanel user={user} /> : null}
         {tab === "returns" ? <ReturnsPanel user={user} /> : null}
+        {tab === "claim" ? <ClaimsPanel user={user} /> : null}
         {tab === "prices" ? <PricesPanel /> : null}
         {tab === "health" ? <HealthPanel /> : null}
         {tab === "forecast" ? <ForecastPanel user={user} sp={sp} /> : null}

@@ -50,3 +50,13 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
   - before: loadDeck 672, 1052, 2198, 2162, 3488 · loadDashboard 1814, 1753, 5777, 787, 738
   - after: loadDeck 129, 135, 101, 134, 153 · loadDashboard 209, 224, 328, 229, 241
   Timing code removed. No query or calculation changed.
+
+## 5. Returns to claim (Part C 12.2): done, migration not applied
+- Migration `supabase/migrations/20261116091000_return_checks.sql`: return_claim_days setting (7), tickets.return_id,
+  return_checks (RLS select like fk_returns), private.can_see_return, return_check_ok, return_check_ticket,
+  returns_to_claim().
+- src/lib/return-claims.ts (+ 6 unit tests); src/server/return-claims.ts; markReturnChecked action; createTicket saves
+  return_id and the 'ticket' check; new-ticket form carries ?return= and ?item= as hidden fields; All returns Raise
+  ticket carries them too. Flipkart › Returns › To claim tab with the To check count; Settings "Days to claim a return".
+- Preview: /dev/preview?view=fclaim (and &ready=0 for the not-set-up state). Seen at 1440.
+- Not testable until the migration is applied: the live list, Looks fine, the 'ticket' check, the tab count.

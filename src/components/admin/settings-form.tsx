@@ -15,6 +15,7 @@ export type SettingsValues = {
   dispatch_sla_days: string;
   running_out_days: string;
   return_rate_percent: string;
+  return_claim_days: string;
   money_low_margin_percent: string;
   money_default_fee_percent: string;
   money_unpaid_after_days: string;
@@ -131,6 +132,9 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
         hint="Flag a SKU when returns are more than this percent of the units sold in the last 30 days (needs at least 10 units sold). Normal setting: 10."
       >
         <input id="return_rate_percent" className="input" inputMode="numeric" value={values.return_rate_percent} onChange={(e) => set("return_rate_percent", e.target.value)} aria-invalid={Boolean(errors.return_rate_percent)} />
+      </Field>
+      <Field label="Days to claim a return" htmlFor="return_claim_days" required error={errors.return_claim_days}>
+        <input id="return_claim_days" className="input" inputMode="numeric" value={values.return_claim_days} onChange={(e) => set("return_claim_days", e.target.value)} aria-invalid={Boolean(errors.return_claim_days)} />
       </Field>
       </section>
       <section className="sp-card g-pad span-12 grid gap-4 min-[700px]:grid-cols-2" aria-labelledby="set-money">

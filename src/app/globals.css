@@ -457,6 +457,13 @@ select optgroup {
     gap: 8px;
     min-width: 0;
   }
+  /* Under 700 px a row with buttons puts them on their own line under the title, so the title keeps its width. */
+  @media (max-width: 699.98px) {
+    .item-row-end:has(.g-btn) {
+      grid-column: 2 / -1;
+      justify-content: flex-start;
+    }
+  }
 
   /* ---- KPI card: a Card with 16px padding; 46px badge; label, number, context line; 72×28 sparkline at the right ---- */
   .kpi-card {

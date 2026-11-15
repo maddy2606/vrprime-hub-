@@ -186,6 +186,7 @@ export type KpiKind = "orders" | "time" | "stock-alert" | "tickets" | "money" | 
 export function kpiKind(label: string): KpiKind {
   const l = label.toLowerCase();
   if (/ticket/.test(l)) return "tickets";
+  if (/sales|revenue/.test(l)) return "money";
   if (/out of stock|low stock|stock-out|weight|price/.test(l)) return "stock-alert";
   if (/return|cancel/.test(l)) return "returns";
   if (/review|rating/.test(l)) return "reviews";

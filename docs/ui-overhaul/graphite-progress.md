@@ -24,3 +24,16 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
 - Repair: removing the old worktree deleted part of node_modules through its link; restored with `npm ci` (lock file
   unchanged, no new packages).
 - Checks: tsc, lint, 298 tests clean. Seen at 1440 (headless Edge).
+
+## 3. Every page (Part A 9): done
+- 9.1 Command Centre: header (title, headline subtitle, two buttons), KPI row of four (To dispatch today with the
+  capacity sentence and late Chip, then the three pulses with sparklines), Order flow map 8 cols with Live pill,
+  Orders and stock (first 4, View all) and Orders pulse stacked in 4 cols, Work and tickets / Stock by warehouse /
+  Stock health (five list rows) 4+4+4, Dispatch 5 / Forecast 7.
+- 9.2 Dashboard: greeting title, summary subtitle, month Chip; KPI row (Profit, Revenue with share bar, Ads with
+  gauge, To dispatch with sparkline); pulses KPI row; charts as before; flow map 8 / Needs a look 4 (item rows).
+- 9.3 Flipkart: Needs action sections use item rows with icon badges; the Orders flow map shows the stage captions.
+- 9.4 Every other page: KPI rows everywhere (incl. the Review tracker and Stock warehouse tiles), item rows in the
+  Ads tracker, Ads Desk problem cards, Team suggestions, Reviews removed and the alerts panel; section 8 page headers
+  on Team, Tickets, My work, Ads tracker, Ads Desk, Review tracker. Figures in Inter tabular; Geist Mono only for IDs.
+- Checks: tsc, lint clean. Seen in dark 1440 and 390 (headless Edge), light 1440 for the Command Centre.

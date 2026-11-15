@@ -202,8 +202,8 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
       sort: (r) => r.sku,
       cell: (r) => (
         <div className="min-w-0">
-          <span className="break-all font-mono text-[13px] font-bold leading-tight">{r.sku}</span>
-          {r.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.title}</p> : null}
+          <span className="break-all font-mono text-[13px] font-medium leading-tight">{r.sku}</span>
+          {r.title ? <p className="t-caption mt-0.5 line-clamp-2 break-words">{r.title}</p> : null}
           {split ? <p className="mt-0.5 text-xs font-semibold text-muted">{nameOf(r.wid)}</p> : null}
         </div>
       ),
@@ -286,37 +286,37 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
   return (
     <>
       {canUpload && inventorySync?.lastError && (!inventorySync.lastOkAt || (inventorySync.lastTryAt ?? "") > inventorySync.lastOkAt) ? (
-        <p role="status" className="mb-4 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+        <p role="status" className="sp-card tone-row tone-bad tone-row-title mb-4">
           The latest live stock sync from VR Prime failed: {inventorySync.lastError}. {inventoryUpload ? "Showing the last numbers that were saved." : "No stock has been saved yet."}
         </p>
       ) : null}
       {!inventoryUpload ? (
-        <p role="status" className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-sm font-semibold text-warn">
+        <p role="status" className="sp-card tone-row tone-warn tone-row-title mb-4">
           Stock comes from the VR Prime inventory report.{" "}
           {canUpload ? "Download it from the inventory site (Reports, .xlsx) and use Upload inventory report." : "Ask the owner or an admin to upload it."}
         </p>
       ) : null}
       {unmatched.length && canUpload ? (
-        <p role="status" className="mb-4 rounded-lg bg-info-soft px-3 py-2 text-sm font-semibold text-info">
+        <p role="status" className="sp-card tone-row tone-info tone-row-title mb-4">
           {unmatched.length} {unmatched.length === 1 ? "product" : "products"} in the inventory report {unmatched.length === 1 ? "matches" : "match"} no master SKU, so{" "}
           {unmatched.length === 1 ? "its" : "their"} stock is not counted: {unmatched.slice(0, 6).join(", ")}
           {unmatched.length > 6 ? ` and ${unmatched.length - 6} more` : ""}. Add them on the Master SKUs tab (Import Master SKU Excel).
         </p>
       ) : null}
       {note ? (
-        <p role="status" className="mb-4 rounded-lg bg-info-soft px-3 py-2 text-sm font-semibold text-info">
+        <p role="status" className="sp-card tone-row tone-info tone-row-title mb-4">
           {note}
         </p>
       ) : null}
 
       {movers.length ? (
         <div className="mb-4">
-          <p className="mb-1 text-xs font-semibold text-muted">Top movers, 30-day forecast{view === "master" ? " (products combined)" : ""}</p>
+          <p className="t-label mb-2">Top movers, 30-day forecast{view === "master" ? " (products combined)" : ""}</p>
           <ul className="flex flex-wrap gap-2">
             {movers.map((m) => (
-              <li key={m.key} className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs">
-                <span className={view === "master" && m.key.startsWith("m:") ? "font-bold" : "font-mono font-bold"}>{m.sku}</span> <span className="text-muted">—</span>{" "}
-                <span className="font-mono font-semibold tabular-nums">{n0(m.f30)}</span>
+              <li key={m.key} className="g-chip">
+                <span className={view === "master" && m.key.startsWith("m:") ? "" : "font-mono"}>{m.sku}</span> <span className="text-muted">—</span>{" "}
+                <span className="font-mono tabular-nums text-ink">{n0(m.f30)}</span>
               </li>
             ))}
           </ul>

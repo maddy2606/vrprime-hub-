@@ -8,10 +8,11 @@ import type { Column } from "@/components/stock/data-table";
 import { ticketHref } from "@/lib/flipkart-analysis";
 import { formatNumber } from "@/lib/format";
 import { restockHref } from "@/lib/stock-analysis";
+import { buttonClass } from "@/components/ui";
 
 export type OverfillRow = { sku: string; title: string | null; warehouseId: string; orders: number; units: number };
 
-const SMALL_BUTTON = "focus-ring inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-xs font-bold hover:bg-surface2 sm:min-h-9";
+const SMALL_BUTTON = buttonClass("secondary");
 
 /**
  * SKUs that have orders waiting at a warehouse where that SKU's stock is 0 ("overfill": more ordered than there is).
@@ -38,8 +39,8 @@ export function OverfillTab({ rows, warehouses }: { rows: OverfillRow[]; warehou
       sort: (r) => r.sku,
       cell: (r) => (
         <div className="min-w-0">
-          <span className="break-all font-mono text-[13px] font-bold leading-tight">{r.sku}</span>
-          {r.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.title}</p> : null}
+          <span className="break-all font-mono text-[13px] font-medium leading-tight">{r.sku}</span>
+          {r.title ? <p className="t-caption mt-0.5 line-clamp-2 break-words">{r.title}</p> : null}
         </div>
       ),
       csv: (r) => r.sku,

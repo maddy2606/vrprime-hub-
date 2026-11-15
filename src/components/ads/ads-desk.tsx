@@ -473,7 +473,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
         {S.good}, and need ₹{S.minSpend} spend or {S.minClicks} clicks before judging.
       </p>
 
-      <nav aria-label="Ads Desk sections" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
+      <nav aria-label="Ads Desk sections" className="-mx-3 min-[700px]:-mx-4 flex gap-1.5 overflow-x-auto px-3 min-[700px]:px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
         {TABS.map(([k, label, count]) => (
           <button
             key={k}

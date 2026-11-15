@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, StatTile, Toolbar } from "@/components/flipkart/kit";
+import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
 import { ListView } from "@/components/flipkart/list-view";
 import { OrdersSyncBar } from "@/components/flipkart/orders-sync-bar";
 import { DataTable, type Column } from "@/components/stock/data-table";
-import { Chip, EmptyState } from "@/components/ui";
+import { Chip, EmptyState, Stat, StatStrip, buttonClass } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/format";
 import { ticketHref, type ReturnRate } from "@/lib/flipkart-analysis";
 import type { OrderSyncState } from "@/lib/orders-sync";
@@ -35,7 +35,7 @@ const sortable = () => null;
 
 function TicketLink({ sku }: { sku: string | null }) {
   return (
-    <Link prefetch={false} href={ticketHref(sku, "wrong_return")} className="focus-ring inline-flex min-h-11 items-center whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-xs font-bold hover:bg-surface2 sm:min-h-9">
+    <Link prefetch={false} href={ticketHref(sku, "wrong_return")} className={buttonClass("secondary")}>
       Raise ticket
     </Link>
   );
@@ -97,7 +97,7 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
 
   const columns: Column<ReturnLine>[] = [
     { key: "date", label: "Created", sort: sortable, cell: (r) => <span className="whitespace-nowrap">{r.created_date ? formatDate(r.created_date, today) : "—"}</span>, csv: () => null },
-    { key: "sku", label: "SKU", sort: sortable, cell: (r) => (r.sku ? <span className="break-all font-mono text-[13px] font-bold">{r.sku}</span> : <span className="text-xs text-muted">Not known (older order)</span>), csv: () => null },
+    { key: "sku", label: "SKU", sort: sortable, cell: (r) => (r.sku ? <span className="break-all font-mono text-[13px] font-medium">{r.sku}</span> : <span className="text-xs text-muted">Not known (older order)</span>), csv: () => null },
     { key: "type", label: "Type", sort: sortable, cell: (r) => <Chip tone={r.source === "courier_return" ? "warn" : "info"}>{SOURCE_LABEL[r.source]}</Chip>, csv: () => null },
     { key: "reason", label: "Reason", sort: sortable, cell: (r) => <span className="text-xs">{[r.reason, r.sub_reason].filter(Boolean).join(" · ").replaceAll("_", " ") || "—"}</span>, csv: () => null },
     { key: "qty", label: "Qty", align: "right", sort: sortable, cell: (r) => formatNumber(r.quantity), csv: () => null },
@@ -108,7 +108,7 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
   ];
 
   const rateColumns: Column<ReturnRate>[] = [
-    { key: "sku", label: "SKU", sort: (r) => r.sku, cell: (r) => <span className="break-all font-mono text-[13px] font-bold">{r.sku}</span>, csv: (r) => r.sku },
+    { key: "sku", label: "SKU", sort: (r) => r.sku, cell: (r) => <span className="break-all font-mono text-[13px] font-medium">{r.sku}</span>, csv: (r) => r.sku },
     { key: "rate", label: "Return rate", align: "right", sort: (r) => r.ratePct, cell: (r) => (r.ratePct === null ? <span className="text-muted">—</span> : <span className={r.flagged ? "font-bold text-bad" : ""}>{r.ratePct}%</span>), csv: (r) => r.ratePct },
     { key: "returned", label: "Returned", align: "right", sort: (r) => r.returned, cell: (r) => formatNumber(r.returned), csv: (r) => r.returned },
     { key: "sold", label: "Sold (30 days)", align: "right", sort: (r) => r.sold, cell: (r) => formatNumber(r.sold), csv: (r) => r.sold },
@@ -136,16 +136,16 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
       <OrdersSyncBar state={state} canSync={canSync} kind="daily" today={today} />
 
       {!historyReady ? (
-        <p className="mb-4 rounded-lg bg-warn-soft px-3 py-2 text-xs font-semibold text-warn">
+        <p className="sp-card tone-row tone-warn t-caption mb-4">
           Only returns that changed in the last few days are loaded so far. The full 30 days arrive when the nightly load finishes, so the counts are low until then.
         </p>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        <StatTile label="Returns, 30 days" value={formatNumber(units)} sub={`${formatNumber(lines)} lines`} />
-        <StatTile label="Courier returns" value={formatNumber(summary.courier_units)} sub="came back undelivered" />
-        <StatTile label="Customer returns" value={formatNumber(summary.customer_units)} sub="sent back by the buyer" />
-      </div>
+      <StatStrip className="mb-4">
+        <Stat label="Returns, 30 days" value={units} sub={`${formatNumber(lines)} lines`} />
+        <Stat label="Courier returns" value={summary.courier_units} sub="came back undelivered" />
+        <Stat label="Customer returns" value={summary.customer_units} sub="sent back by the buyer" />
+      </StatStrip>
 
       {view === "list" ? (
         <>
@@ -173,7 +173,7 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
             {query.wh ? ` · ${nameOf(query.wh)} only` : ""}
           </Caption>
           {failed ? (
-            <p role="alert" className="mb-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+            <p role="alert" className="sp-card tone-row tone-bad tone-row-title mb-3">
               Could not load this list. Check your connection and try again.
             </p>
           ) : null}
@@ -185,7 +185,7 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
                 <DataTable columns={columns} rows={page.rows} sortKey={query.sort} sortDir={query.dir} onSort={onSort} rowKey={(r) => `${r.return_id}|${r.order_item_id}`} />
               </div>
               {page.rows.length < page.total ? (
-                <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">
+                <button type="button" onClick={more} disabled={loading} className={buttonClass("secondary", "mt-2 w-full")}>
                   {loading ? "Loading…" : `Show ${formatNumber(Math.min(RETURNS_PAGE_SIZE, page.total - page.rows.length))} more (${formatNumber(page.total - page.rows.length)} not shown; the CSV has all of them)`}
                 </button>
               ) : null}

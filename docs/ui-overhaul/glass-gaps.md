@@ -15,3 +15,11 @@
 - Deck queue: split into "Orders and stock" and "Work and tickets" by queue kind, as section 8.1 allows.
 - Push banner: placed in the Deck headline slot (it only shows on the Deck route), not in the shell.
 - Phone tables: the ledger table shows at every width with a sticky first column; the old phone card view is gone (section 4 Tables).
+- Flipkart second-level tabs: "ghost-style pills" built as the ghost button with radius 999 px; the open tab takes the ghost hover background (--accent-soft). Rule 1.
+- Needs action tone rows carry no kind Chip: the section's tone bar header names the kind (closest reading of section 4 Tone rows).
+- Needs action section tone: the most urgent tone among its rows (bad, then warn, then info).
+- Status and notice lines on Flipkart tabs (sync failed, backfill, forecast warnings): tone row inside a Card, tone kept from main.
+- Forecasting and Master SKUs phone card views replaced by the glass ledger with a sticky first column (section 4 Tables); Sort by stays above on phones.
+- Forecasting top movers strip: each mover as a neutral Chip (rule 1).
+- Master SKU links: each SKU as a neutral Chip with its × inside (20 px button within the 22 px chip).
+- Edge-to-edge pill rows on phones now bleed by the 12 px phone gutter (they used 16 px and caused a sideways scroll).

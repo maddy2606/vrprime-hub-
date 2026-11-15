@@ -38,3 +38,16 @@ Reviews, Team, P&L · 7 Admin, sign-in, Money · 8 Accessibility pass and colour
   pulses; orders a day 7 / money ring 5; month by month 7 / products 5; lanes 7 / needs a look 5.
 - Added fake data: src/lib/dev-fixtures-pnl.ts (fakePnl, fakeDashboard) and preview views ?view=dashboard, ?view=pnl.
 - Checks: tsc, lint, 298 tests clean. Seen in dark 1440 and dark 390 (deck, dashboard).
+
+## 4. Flipkart, all tabs (spec 8.3): done
+- Tab bar: groups as a segmented control; tabs of the open group as ghost pills (active on --accent-soft). Addresses unchanged.
+- Needs action: caption, section Cards with tone bar header and count Chip, tone rows, Show N more; two columns from 1100 px, most urgent first.
+- Orders: sync bar as a slim Card (status left, Sync now right, 4 px progress under; notices as tone rows); lanes as the
+  hero card; toolbar; By SKU list, Order list, Cancelled and Cancellations per day as glass ledgers; "Could not load"
+  as a bad tone row in a Card.
+- Stock: sync bar as above; warehouse StatStrip (tap to filter, 3 + 2 wrap for five); list switch segmented; toolbar; ledger.
+- Stock-outs, Forecasting, Overfill, Returns, Prices, Listing health: status lines as tone rows; Returns tiles as a
+  StatStrip; Forecasting ranked list in the Forecast row style; its table is a glass ledger at every width.
+- Master SKUs: toolbar; new master form as a Card; products as Cards with SKU chips; Not linked yet and Removed as ledgers.
+- Fixed a 4 px sideways scroll on phones from edge-to-edge pill rows (Flipkart, Ads Desk, P&L, Expenses, Money, Team).
+- Checks: tsc, lint, 298 tests clean. Seen in dark 1440 (needs, orders, stock, forecast, masters) and dark 390 (orders).

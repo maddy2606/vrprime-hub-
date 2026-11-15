@@ -5,7 +5,7 @@ import { useId, useMemo, useRef, useState, useTransition, type ReactNode } from 
 import { CloseIcon } from "@/components/icons";
 import { Caption, InfoTip, SearchField, Toolbar } from "@/components/flipkart/kit";
 import { useToast } from "@/components/toast";
-import { buttonClass, EmptyState } from "@/components/ui";
+import { buttonClass, Chip, EmptyState } from "@/components/ui";
 import { downloadCsv, toCsv } from "@/lib/csv";
 import { formatNumber } from "@/lib/format";
 import { masterLookup, parseMasterTable, suggestMaster, type MasterRow } from "@/lib/master-csv";
@@ -176,17 +176,17 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
         {shownProducts.length === 0 ? (
           <EmptyState title="No master SKU matches" body="Try another part of the code, name or SKU, or clear the search." />
         ) : (
-          <ul className="divide-y divide-line">
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {shownProducts.map((p) => (
-              <li key={p.id} className="flex flex-col gap-2 py-3 lg:flex-row lg:flex-wrap lg:items-start">
+              <li key={p.id} className="sp-card g-pad flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-start">
                 <div className="min-w-0 lg:w-48 lg:shrink-0">
-                  {p.code ? <p className="break-all font-mono text-[13px] font-bold">{p.code}</p> : null}
-                  <p className={p.code ? "text-xs text-muted" : "text-sm font-bold"}>{p.name}</p>
+                  {p.code ? <p className="break-all font-mono text-[13px] font-medium">{p.code}</p> : null}
+                  <p className={p.code ? "t-caption" : "t-card-title"}>{p.name}</p>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
-                  {(linksOf.get(p.id) ?? []).length === 0 ? <span className="text-xs text-muted">No Flipkart SKUs linked</span> : null}
+                  {(linksOf.get(p.id) ?? []).length === 0 ? <span className="t-caption">No Flipkart SKUs linked</span> : null}
                   {(linksOf.get(p.id) ?? []).map((l) => (
-                    <span key={l.sku} className="inline-flex max-w-full items-center gap-1 rounded-full bg-surface2 py-0.5 pl-2.5 pr-1 text-xs font-semibold">
+                    <span key={l.sku} className="g-chip max-w-full">
                       <span className="break-all font-mono">{l.sku}</span>
                       {l.units > 1 ? <span className="font-mono text-accent-text">×{l.units}</span> : null}
                       <button
@@ -194,7 +194,7 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
                         disabled={pending}
                         onClick={() => run(() => unlinkSku(l.sku))}
                         aria-label={`Unlink ${l.sku}`}
-                        className="focus-ring flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-ink"
+                        className="focus-ring -mr-1.5 flex h-5 w-5 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-ink"
                       >
                         <CloseIcon className="h-3.5 w-3.5" />
                       </button>
@@ -219,14 +219,24 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
       </Section>
 
       <Section title="Not linked yet" count={shownNotLinked.length}>
-        <p className="mb-3 text-xs text-muted">
+        <p className="t-caption mb-3">
           Only active Flipkart listings are shown. Pick the Master SKU (and how many units one order uses), then Save. Suggestions are filled in from similar SKUs; check them before saving. Remove
           takes a SKU out of the checks and this list. These are left out of the product totals until linked (Forecasting lists them under Unmapped).
         </p>
         {shownNotLinked.length === 0 ? (
           <EmptyState title="Every Flipkart SKU is linked" body="Nothing is waiting to be linked, or nothing matches the search." />
         ) : (
-          <div className="flex flex-col divide-y divide-line">
+          <div className="sp-card ledger-card">
+          <table className="ledger">
+            <thead>
+              <tr>
+                <th scope="col">SKU</th>
+                <th scope="col">Title</th>
+                <th scope="col" className="num">Sold (14 days)</th>
+                <th scope="col">Master SKU</th>
+              </tr>
+            </thead>
+            <tbody>
             {shownNotLinked.map((l) => (
               <NotLinkedRow
                 key={l.sku}
@@ -251,35 +261,50 @@ export function MastersTab({ products, links, removed, listings, sold, canReplac
                 onRemove={() => run(() => excludeSku(l.sku))}
               />
             ))}
+            </tbody>
+          </table>
           </div>
         )}
       </Section>
 
-      <details className="mb-6 sp-card p-4">
-        <summary className="cursor-pointer text-base font-semibold">
-          Removed ({formatNumber(removed.length)}) <span className="text-xs font-semibold text-muted">never checked or listed; click × to put one back under Not linked yet</span>
-        </summary>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {removed.length === 0 ? <span className="text-xs text-muted">Nothing removed.</span> : null}
-          {removed.map((sku) => (
-            <span key={sku} className="inline-flex items-center gap-1 rounded-full bg-surface2 py-0.5 pl-2.5 pr-1 text-xs font-semibold">
-              <span className="break-all font-mono">{sku}</span>
-              <button type="button" disabled={pending} onClick={() => run(() => restoreSku(sku))} aria-label={`Put ${sku} back`} className="focus-ring flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-ink">
-                <CloseIcon className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          ))}
-        </div>
-      </details>
+      <Section title="Removed" count={removed.length}>
+        <p className="t-caption mb-3">never checked or listed; click × to put one back under Not linked yet</p>
+        {removed.length === 0 ? (
+          <p className="t-caption">Nothing removed.</p>
+        ) : (
+          <div className="sp-card ledger-card">
+            <table className="ledger">
+              <thead>
+                <tr>
+                  <th scope="col">SKU</th>
+                  <th scope="col" className="w-14"><span className="sr-only">Put back</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {removed.map((sku) => (
+                  <tr key={sku}>
+                    <td className="break-all font-mono">{sku}</td>
+                    <td className="text-right">
+                      <button type="button" disabled={pending} onClick={() => run(() => restoreSku(sku))} aria-label={`Put ${sku} back`} className={buttonClass("ghost", "w-10 px-0")}>
+                        <CloseIcon className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
     </>
   );
 }
 
 function Section({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   return (
-    <section className="mb-6 sp-card p-4">
-      <h2 className="mb-3 text-base font-semibold">
-        {title} <span className="font-mono text-sm font-semibold text-muted">({formatNumber(count)})</span>
+    <section className="mb-6">
+      <h2 className="t-card-title mb-3 flex items-center gap-2">
+        {title} <Chip>{formatNumber(count)}</Chip>
       </h2>
       {children}
     </section>
@@ -360,9 +385,9 @@ function KitEditor({
       <div className="flex w-full flex-wrap items-center gap-1.5 text-xs lg:pl-50">
         {product.kit.length ? (
           <>
-            <span className="rounded-full bg-accent-soft px-2 py-0.5 font-bold text-accent-text">Kit</span>
+            <span className="g-chip tone-accent">Kit</span>
             {product.kit.map((k) => (
-              <span key={k.partId} className="rounded-full bg-surface2 px-2 py-0.5 font-semibold">
+              <span key={k.partId} className="g-chip">
                 {k.qty} × {nameOf(k.partId) || "a removed master SKU"}
               </span>
             ))}
@@ -370,7 +395,7 @@ function KitEditor({
         ) : null}
         {partOf.length ? <span className="text-muted">Part of {partOf.join(", ")}</span> : null}
         {partOf.length ? null : (
-          <button type="button" disabled={pending} onClick={start} className="focus-ring min-h-8 rounded-lg px-1.5 font-semibold text-accent-text hover:underline">
+          <button type="button" disabled={pending} onClick={start} className={buttonClass("ghost")}>
             {product.kit.length ? "Edit kit" : "Make it a kit"}
           </button>
         )}
@@ -380,13 +405,13 @@ function KitEditor({
 
   return (
     <form
-      className="flex w-full flex-col gap-1.5 rounded-lg border border-line bg-canvas/60 p-2.5 lg:ml-50 lg:max-w-xl"
+      className="sp-inner flex w-full flex-col gap-2 p-3 lg:ml-50 lg:max-w-xl"
       onSubmit={(e) => {
         e.preventDefault();
         save(parts);
       }}
     >
-      <p className="text-xs text-muted">
+      <p className="t-caption">
         One {product.name} is made of: (stock shown on Forecasting = ready stock + how many the parts make)
       </p>
       {parts.map((p, i) => (
@@ -421,7 +446,7 @@ function KitEditor({
             type="button"
             onClick={() => setParts(parts.filter((_, j) => j !== i))}
             aria-label={`Remove part ${i + 1}`}
-            className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted hover:bg-surface hover:text-ink"
+            className={buttonClass("ghost", "w-10 px-0")}
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -453,7 +478,7 @@ function NewMaster({ pending, onSave }: { pending: boolean; onSave: (code: strin
   const id = useId();
   return (
     <form
-      className="mb-2 flex flex-wrap gap-1.5 border-b border-line pb-3"
+      className="sp-card g-pad mb-3 flex flex-wrap gap-2"
       onSubmit={(e) => {
         e.preventDefault();
         onSave(code, name, () => {
@@ -500,16 +525,12 @@ function NotLinkedRow({
   const [units, setUnits] = useState("1");
   const id = useId();
   return (
-    <div className="flex flex-col gap-2 py-3 lg:flex-row lg:items-center">
-      <div className="min-w-0 lg:w-36 lg:shrink-0">
-        <p className="break-all font-mono text-[13px] font-bold">{sku}</p>
-      </div>
-      <p className="min-w-0 flex-1 text-sm leading-snug">{title ?? <span className="text-muted">No title</span>}</p>
-      <p className="font-mono text-sm tabular-nums lg:w-24 lg:text-right">
-        <span className="text-xs text-muted lg:hidden">Sold (14 days) </span>
-        {formatNumber(sold)}
-      </p>
-      <div className="flex flex-wrap gap-1.5 lg:flex-nowrap">
+    <tr>
+      <td className="break-all font-mono">{sku}</td>
+      <td className="min-w-48">{title ?? <span className="text-muted">No title</span>}</td>
+      <td className="num">{formatNumber(sold)}</td>
+      <td>
+      <div className="flex flex-nowrap gap-1.5">
         <label htmlFor={`${id}-m`} className="sr-only">
           Master SKU for {sku}
         </label>
@@ -519,7 +540,7 @@ function NotLinkedRow({
           value={master}
           onChange={(e) => setMaster(e.target.value)}
           placeholder="Pick Master SKU"
-          className={`input min-w-0 basis-full text-sm sm:basis-auto sm:flex-1 lg:w-56 lg:flex-none ${suggestion && master === suggestion ? "border-accent" : ""}`}
+          className={`input w-56 min-w-0 flex-none text-sm ${suggestion && master === suggestion ? "border-accent" : ""}`}
           autoComplete="off"
         />
         <label htmlFor={`${id}-u`} className="sr-only">
@@ -533,6 +554,7 @@ function NotLinkedRow({
           Remove
         </button>
       </div>
-    </div>
+      </td>
+    </tr>
   );
 }

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { ChevronDownIcon } from "@/components/icons";
 import { Picker } from "@/components/flipkart/kit";
 import { Bar } from "@/components/signal/charts";
-import { Chip, EmptyState } from "@/components/ui";
+import { Chip, EmptyState, buttonClass } from "@/components/ui";
 import { formatNumber } from "@/lib/format";
 import type { ForecastRow, KitInfo, MasterChild, MasterGroup } from "@/lib/forecast";
 
@@ -29,19 +29,6 @@ const n0 = (v: number) => formatNumber(Math.round(v));
 export function CoverValue({ cover }: { cover: number | null }) {
   if (cover === null) return <span className="text-muted">—</span>;
   return <span className={cover < 7 ? "font-bold text-bad" : cover < 14 ? "font-bold text-warn" : ""}>{cover < 10 ? cover.toFixed(1) : n0(cover)}</span>;
-}
-
-/** A phone card's headline: days of cover as a coloured pill (red under a week, amber under two, green after). */
-function CoverPill({ cover }: { cover: number | null }) {
-  if (cover === null) return null;
-  const tone = cover < 7 ? "bg-bad-soft text-bad" : cover < 14 ? "bg-warn-soft text-warn" : "bg-ok-soft text-ok";
-  const value = cover < 10 ? cover.toFixed(1) : n0(cover);
-  return (
-    <span title="Days of cover" className={`mt-px inline-flex shrink-0 items-baseline gap-1 rounded-full px-2.5 py-1 ${tone}`}>
-      <span className="font-mono text-sm font-bold tabular-nums">{value}</span>
-      <span className="text-[11px] font-semibold">{cover === 1 ? "day" : "days"} left</span>
-    </span>
-  );
 }
 
 const NUMBERS: { key: Exclude<MasterSortKey, "product">; label: string; value: (r: ForecastRow) => number | null; cell: (r: ForecastRow) => ReactNode }[] = [
@@ -101,84 +88,30 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
 
   const skuLabel = (r: ForecastRow, units = 1) => (
     <div className="min-w-0">
-      <span className="break-all font-mono text-[13px] font-bold leading-tight">{r.sku}</span>
+      <span className="break-all font-mono text-[13px] font-medium leading-tight">{r.sku}</span>
       {units > 1 ? (
-        <span title={`One order uses ${units} of the product`} className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 font-mono text-[11px] font-semibold text-accent-text">
+        <span title={`One order uses ${units} of the product`} className="g-chip tone-accent ml-1.5 font-mono">
           ×{units}
         </span>
       ) : null}
-      {r.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.title}</p> : null}
+      {r.title ? <p className="t-caption mt-0.5 line-clamp-2 break-words">{r.title}</p> : null}
     </div>
   );
   const count = (n: number) => (
-    <span className="ml-2 inline-flex shrink-0 items-center rounded-full bg-surface2 px-2 py-0.5 font-mono text-[11px] font-semibold text-muted">
+    <span className="g-chip ml-2 font-mono">
       {n} {n === 1 ? "SKU" : "SKUs"}
     </span>
   );
 
   return (
     <div>
-      {/* Phone: cards */}
-      <div className="flex flex-col gap-2 min-[481px]:hidden">
+      <div className="mb-2 min-[700px]:hidden">
         <SortControls sort={sort} onSort={onSort} />
-        {sortedGroups.map((g) => {
-          const expanded = isOpen(g.key);
-          return (
-            <article key={g.key} className="sp-card p-3">
-              <button type="button" aria-expanded={expanded} onClick={() => toggle(g.key)} className="focus-ring flex w-full min-w-0 items-start gap-2 rounded-lg text-left">
-                <span className="min-w-0 flex-1">
-                  <span className="text-[15px] font-bold leading-snug">{g.name}</span>
-                  {g.kit ? <KitBadge /> : null}
-                  {count(g.children.length)}
-                </span>
-                <CoverPill cover={g.total.cover} />
-                <ChevronDownIcon className={`mt-1 h-5 w-5 shrink-0 text-muted transition ${expanded ? "rotate-180" : ""}`} />
-              </button>
-              <Numbers row={g.total} hideCover={g.total.cover !== null} />
-              {expanded && g.kit ? <KitNote kit={g.kit} className="mt-3 border-t border-line pt-3" /> : null}
-              {expanded && g.children.length ? (
-                <ul className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
-                  {childrenOf(g).map((c) => (
-                    <li key={c.key} className="rounded-lg border border-line-soft bg-canvas/60 p-2.5">
-                      {skuLabel(c, c.units)}
-                      <Numbers row={c} small />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-          );
-        })}
-        {unmapped.length ? (
-          <section className="mt-2">
-            <button type="button" aria-expanded={unmappedOpen} onClick={() => setUnmappedOpen((v) => !v)} className="focus-ring mb-2 flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-left">
-              <span className="text-sm font-bold">Unmapped</span>
-              {count(searching ? unmapped.length : unmappedTotal)}
-              <span className="text-xs text-muted">no product yet</span>
-              <ChevronDownIcon className={`ml-auto h-5 w-5 text-muted transition ${unmappedOpen ? "rotate-180" : ""}`} />
-            </button>
-            {unmappedOpen ? (
-              <div className="flex flex-col gap-2">
-                {sortedUnmapped.map((r) => (
-                  <article key={r.key} className="sp-card p-3">
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 flex-1">{skuLabel(r)}</div>
-                      <CoverPill cover={r.cover} />
-                    </div>
-                    <Numbers row={r} hideCover={r.cover !== null} />
-                  </article>
-                ))}
-              </div>
-            ) : null}
-          </section>
-        ) : null}
       </div>
-
-      {/* Wider screens: table */}
-      <div className="hidden max-h-[75vh] overflow-auto sp-card min-[481px]:block">
-        <table className="w-full border-collapse text-sm">
-          <thead className="sticky top-0 z-20">
-            <tr className="border-b border-line bg-panel2">
+      <div className="sp-card ledger-card max-h-[75vh]">
+        <table className="ledger">
+          <thead>
+            <tr>
               <SortHeader label="Product / SKU" active={sort.key === "product"} dir={sort.dir} onClick={() => tap("product")} first />
               {NUMBERS.map((c) => (
                 <SortHeader key={c.key} label={c.label} active={sort.key === c.key} dir={sort.dir} onClick={() => tap(c.key)} />
@@ -189,25 +122,25 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
             {sortedGroups.map((g) => {
               const expanded = isOpen(g.key);
               return [
-                <tr key={g.key} className="group border-b border-line hover:bg-surface2/60">
-                  <td className="sticky left-0 z-10 max-w-[18rem] bg-surface p-0 group-hover:bg-surface2">
+                <tr key={g.key} className={expanded ? "is-expanded" : ""}>
+                  <td className="max-w-[18rem] !p-0">
                     <button type="button" aria-expanded={expanded} onClick={() => toggle(g.key)} className="focus-ring flex min-h-11 w-full items-center gap-1.5 px-2 py-2 text-left">
                       <ChevronDownIcon className={`h-4 w-4 shrink-0 text-muted transition ${expanded ? "" : "-rotate-90"}`} />
-                      <span className="min-w-0 font-bold leading-snug">{g.name}</span>
+                      <span className="t-card-title min-w-0">{g.name}</span>
                       {g.kit ? <KitBadge /> : null}
                       {count(g.children.length)}
                     </button>
                   </td>
                   {NUMBERS.map((c) => (
-                    <td key={c.key} className="px-2 py-2 text-right font-mono font-semibold tabular-nums">
+                    <td key={c.key} className="num">
                       {c.cell(g.total)}
                     </td>
                   ))}
                 </tr>,
                 ...(expanded && g.kit
                   ? [
-                      <tr key={`${g.key}|kit`} className="border-b border-line-soft bg-canvas/50">
-                        <td colSpan={NUMBERS.length + 1} className="py-1.5 pl-8 pr-2">
+                      <tr key={`${g.key}|kit`} className="is-expanded">
+                        <td colSpan={NUMBERS.length + 1} className="!pl-8">
                           <KitNote kit={g.kit} className="sticky left-8" />
                         </td>
                       </tr>,
@@ -215,10 +148,10 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
                   : []),
                 ...(expanded
                   ? childrenOf(g).map((r) => (
-                      <tr key={`${g.key}|${r.key}`} className="border-b border-line-soft bg-canvas/50">
-                        <td className="sticky left-0 z-10 max-w-[18rem] bg-panel2 py-1.5 pl-8 pr-2">{skuLabel(r, r.units)}</td>
+                      <tr key={`${g.key}|${r.key}`} className="is-expanded">
+                        <td className="max-w-[18rem] !pl-8">{skuLabel(r, r.units)}</td>
                         {NUMBERS.map((c) => (
-                          <td key={c.key} className="px-2 py-1.5 text-right font-mono text-[13px] tabular-nums text-muted">
+                          <td key={c.key} className="num text-muted">
                             {c.cell(r)}
                           </td>
                         ))}
@@ -228,23 +161,23 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
               ];
             })}
             {unmapped.length ? (
-              <tr className="border-y border-line bg-panel2">
-                <td colSpan={NUMBERS.length + 1} className="p-0">
+              <tr>
+                <td colSpan={NUMBERS.length + 1} className="!p-0">
                   <button type="button" aria-expanded={unmappedOpen} onClick={() => setUnmappedOpen((v) => !v)} className="focus-ring sticky left-0 flex min-h-11 items-center gap-1.5 px-2 text-left">
                     <ChevronDownIcon className={`h-4 w-4 shrink-0 text-muted transition ${unmappedOpen ? "" : "-rotate-90"}`} />
-                    <span className="font-bold">Unmapped</span>
+                    <span className="t-card-title">Unmapped</span>
                     {count(searching ? unmapped.length : unmappedTotal)}
-                    <span className="ml-1 text-xs text-muted">SKUs that belong to no product yet</span>
+                    <span className="t-caption ml-1">SKUs that belong to no product yet</span>
                   </button>
                 </td>
               </tr>
             ) : null}
             {unmappedOpen
               ? sortedUnmapped.map((r) => (
-                  <tr key={`u|${r.key}`} className="group border-b border-line last:border-b-0 hover:bg-surface2/60">
-                    <td className="sticky left-0 z-10 max-w-[18rem] bg-surface px-2 py-2 group-hover:bg-surface2">{skuLabel(r)}</td>
+                  <tr key={`u|${r.key}`}>
+                    <td className="max-w-[18rem]">{skuLabel(r)}</td>
                     {NUMBERS.map((c) => (
-                      <td key={c.key} className="px-2 py-2 text-right font-mono tabular-nums">
+                      <td key={c.key} className="num">
                         {c.cell(r)}
                       </td>
                     ))}
@@ -272,7 +205,7 @@ function SortControls({ sort, onSort }: { sort: MasterSort; onSort: (sort: Maste
         type="button"
         onClick={() => onSort({ ...sort, dir: sort.dir === "asc" ? "desc" : "asc" })}
         aria-label={sort.dir === "asc" ? "Ascending: tap to reverse" : "Descending: tap to reverse"}
-        className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-line bg-surface text-sm font-bold text-ink"
+        className={buttonClass("secondary", "w-10 px-0")}
       >
         {sort.dir === "asc" ? "▲" : "▼"}
       </button>
@@ -317,10 +250,10 @@ function RankedRow({
   onToggle?: () => void;
   children?: ReactNode;
 }) {
-  const name = <span className={`min-w-0 truncate ${mono ? "font-mono text-[13px]" : "text-[15px]"} font-bold`}>{title}</span>;
+  const name = <span className={`min-w-0 truncate ${mono ? "font-mono text-[13px] font-medium" : "t-card-title"}`}>{title}</span>;
   return (
     <li>
-      <div className="grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3.5">
+      <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3">
         <span className="font-mono text-xs tabular-nums text-faint">{rank}</span>
         <span className="min-w-0">
           {onToggle ? (
@@ -335,11 +268,11 @@ function RankedRow({
               {badge}
             </span>
           )}
-          {sub ? <span className="block truncate text-xs text-muted">{sub}</span> : null}
+          {sub ? <span className="t-caption block truncate">{sub}</span> : null}
         </span>
         <span className="text-right">
-          <span className="block font-mono text-base font-bold tabular-nums">{n0(row.f30)}</span>
-          <span className="block text-[11px] text-muted">{perDay(row.rate)} a day</span>
+          <span className="block font-mono text-[13px] font-medium tabular-nums">{n0(row.f30)}</span>
+          <span className="t-caption block">{perDay(row.rate)} a day</span>
         </span>
         <span />
         <Bar share={share} tone="cyan" index={Math.min(rank - 1, 12)} />
@@ -400,7 +333,7 @@ export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, auto
               expanded={isOpen(g.key)}
               onToggle={() => toggle(g.key)}
             >
-              <div className="border-t border-line-soft bg-canvas/40 px-4 py-2.5">
+              <div className="border-t border-line-soft bg-surface2 px-4 py-2.5">
                 {g.kit ? <KitNote kit={g.kit} className="mb-2 pl-10" /> : null}
                 {g.children.length ? (
                   <ul className="flex flex-col">
@@ -448,11 +381,11 @@ export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, auto
 
 function SortHeader({ label, active, dir, onClick, first = false }: { label: string; active: boolean; dir: "asc" | "desc"; onClick: () => void; first?: boolean }) {
   return (
-    <th scope="col" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : undefined} className={`bg-panel2 p-0 font-bold ${first ? "sticky left-0 z-10 text-left" : "text-right"}`}>
+    <th scope="col" aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : undefined} className={`!p-0 ${first ? "text-left" : "num"}`}>
       <button
         type="button"
         onClick={onClick}
-        className={`focus-ring flex min-h-11 w-full items-center gap-0.5 px-2 text-xs leading-tight ${first ? "justify-start" : "justify-end"} ${active ? "text-accent-text" : "text-muted hover:text-ink"}`}
+        className={`focus-ring flex min-h-11 w-full items-center gap-0.5 px-3 font-[inherit] uppercase tracking-[inherit] ${first ? "justify-start" : "justify-end"} ${active ? "text-accent-text" : "hover:text-ink"}`}
       >
         {label}
         <span aria-hidden="true" className="w-3 text-[10px]">
@@ -465,7 +398,7 @@ function SortHeader({ label, active, dir, onClick, first = false }: { label: str
 
 function KitBadge() {
   return (
-    <span title="A kit (combo) made of other products" className="ml-2 inline-flex shrink-0 items-center rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-text">
+    <span title="A kit (combo) made of other products" className="g-chip tone-accent ml-2">
       Kit
     </span>
   );
@@ -492,19 +425,5 @@ function KitNote({ kit, className = "" }: { kit: KitInfo; className?: string }) 
         <p className="text-muted">No parts set yet: add them on the Master SKUs tab.</p>
       )}
     </div>
-  );
-}
-
-/** A card's numbers: the six columns as label and value pairs (five when the cover is already the card's pill). */
-function Numbers({ row, small = false, hideCover = false }: { row: ForecastRow; small?: boolean; hideCover?: boolean }) {
-  return (
-    <dl className={`mt-2.5 grid gap-x-4 ${small ? "grid-cols-3 gap-y-1.5" : "grid-cols-3 gap-y-2.5"}`}>
-      {NUMBERS.filter((c) => !(hideCover && c.key === "cover")).map((c) => (
-        <div key={c.key} className="min-w-0">
-          <dt className="text-[11px] font-semibold leading-tight text-muted">{c.label}</dt>
-          <dd className={`mt-0.5 font-mono tabular-nums ${small ? "text-[13px]" : "text-sm font-semibold"}`}>{c.cell(row)}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }

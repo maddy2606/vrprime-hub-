@@ -697,7 +697,7 @@ export function ExpensesBoard({
       />
       <ScreenshotReader rows={expenses} />
 
-      <nav aria-label="Months" className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
+      <nav aria-label="Months" className="-mx-3 min-[700px]:-mx-4 mb-5 flex gap-2 overflow-x-auto px-3 min-[700px]:px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:px-0 [&::-webkit-scrollbar]:hidden">
         {months.map((m) => {
           const on = m.month === month;
           return (

@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { Caption, CsvButton, InfoTip, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, buttonClass } from "@/components/ui";
 import { downloadCsv, toCsv, type CsvCell } from "@/lib/csv";
 import { formatNumber } from "@/lib/format";
 
@@ -106,7 +106,7 @@ export function ListView<T>({
         <>
           <DataTable columns={columns} rows={shown.slice(0, limit)} sortKey={column?.key ?? ""} sortDir={sort.dir} onSort={onSort} rowKey={rowKey} />
           {shown.length > limit ? (
-            <button type="button" onClick={() => setLimit((n) => n + PAGE_ROWS)} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-bold hover:bg-surface2">
+            <button type="button" onClick={() => setLimit((n) => n + PAGE_ROWS)} className={buttonClass("secondary", "mt-2 w-full")}>
               Show {formatNumber(Math.min(PAGE_ROWS, shown.length - limit))} more ({formatNumber(shown.length - limit)} not shown; the CSV has all of them)
             </button>
           ) : null}

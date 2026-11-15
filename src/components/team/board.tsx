@@ -182,7 +182,7 @@ function StatusGrid({ d }: { d: TeamData }) {
         </p>
       </header>
       {/* relative: the screen-reader words in each cell are positioned absolutely; this keeps them inside the scrolling box. */}
-      <div className="relative -mx-4 overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:px-0">
+      <div className="relative -mx-3 min-[700px]:-mx-4 overflow-x-auto overscroll-x-contain px-3 min-[700px]:px-4 sm:mx-0 sm:px-0">
         <table className="w-full min-w-[47rem] border-separate border-spacing-[3px] text-center text-xs">
           <thead>
             <tr>

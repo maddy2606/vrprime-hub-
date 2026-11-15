@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { SyncBar } from "@/components/stock/sync-bar";
 import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
-import { Chip, EmptyState } from "@/components/ui";
+import { Chip, EmptyState, buttonClass } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/format";
 import { formatDays, type CoverState } from "@/lib/flipkart-analysis";
 import type { Tone } from "@/lib/labels";
@@ -45,10 +45,10 @@ function SkuCell({ row }: { row: StockRow }) {
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="break-all font-mono text-[13px] font-bold leading-tight">{row.sku}</span>
+        <span className="break-all font-mono text-[13px] font-medium leading-tight">{row.sku}</span>
         {row.status === "INACTIVE" ? <Chip>Inactive</Chip> : null}
       </div>
-      {row.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{row.title}</p> : null}
+      {row.title ? <p className="t-caption mt-0.5 line-clamp-2 break-words">{row.title}</p> : null}
     </div>
   );
 }
@@ -77,7 +77,7 @@ function RestockLink({ href }: { href: string }) {
     <Link
       prefetch={false}
       href={href}
-      className="focus-ring inline-flex min-h-9 items-center whitespace-nowrap rounded-lg px-2 text-xs font-bold text-accent-text hover:bg-accent-soft"
+      className={buttonClass("ghost")}
     >
       + Restock
     </Link>
@@ -329,7 +329,7 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
           <DataTable columns={cols} rows={data.rows} sortKey={sortKnown ? query.sort : ""} sortDir={query.dir} onSort={onSort} rowKey={(r) => r.sku} />
         </div>
         {data.rows.length < data.total ? (
-          <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">
+          <button type="button" onClick={more} disabled={loading} className={buttonClass("secondary", "mt-2 w-full")}>
             {loading ? "Loading…" : `Show ${formatNumber(Math.min(STOCK_PAGE_SIZE, data.total - data.rows.length))} more (${formatNumber(data.total - data.rows.length)} not shown; the CSV has all of them)`}
           </button>
         ) : null}
@@ -347,7 +347,7 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
     <>
       <SyncBar latest={latest} lastDone={lastDone} snapshotDate={meta.snapshotDate} previousDate={meta.previousDate} canSync={canSync} />
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className={`sp-card stat-strip mb-4 ${data.cards.length === 5 ? "wrap-5" : ""}`} role="group" aria-label="Stock at each warehouse. Tap one to filter.">
         {data.cards.map((card) => {
           const on = selected === card.index;
           return (
@@ -356,14 +356,14 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
               type="button"
               aria-pressed={on}
               onClick={() => pickWarehouse(on ? "" : card.id)}
-              className={`focus-ring min-w-0 rounded-xl border p-3 text-left transition ${on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-ink/30"}`}
+              className={`focus-ring text-left transition-colors duration-160 ${on ? "bg-accent-soft" : "hover:bg-[var(--row-hover)]"}`}
             >
               <span className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-sm font-semibold">{card.name}</span>
-                <span className="shrink-0 text-xs font-semibold text-muted">{Math.round(card.share * 100)}%</span>
+                <span className="t-label truncate">{card.name}</span>
+                <span className="t-caption shrink-0">{Math.round(card.share * 100)}%</span>
               </span>
-              <span className="mt-1 block font-mono text-xl font-bold leading-none tabular-nums">{formatNumber(card.units)}</span>
-              <span className="mt-2 flex flex-wrap gap-x-3 text-xs font-semibold">
+              <span className="t-stat mt-2 block">{formatNumber(card.units)}</span>
+              <span className="t-caption mt-1.5 flex flex-wrap gap-x-3">
                 <span className={card.empty ? "text-bad" : "text-muted"}>{formatNumber(card.empty)} out</span>
                 <span className={card.low ? "text-warn" : "text-muted"}>{formatNumber(card.low)} low</span>
               </span>
@@ -396,7 +396,7 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
           <Dropdown label="Warehouse" value={query.wh} onChange={pickWarehouse} options={[{ value: "", label: meta.fullAccess ? "All warehouses" : "All mine" }, ...warehouses.map((w) => ({ value: w.id, label: w.name }))]} />
         ) : null}
         <SearchField value={qInput} onChange={setQInput} placeholder="Search SKU or title" />
-        <label className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold sm:min-h-9">
+        <label className="toolbar-ctl flex h-10 items-center gap-2 whitespace-nowrap rounded-[var(--radius)] border border-line bg-surface2 px-3 text-[13px] font-semibold">
           <input type="checkbox" className="h-4 w-4 accent-(--accent)" checked={query.hide} onChange={(e) => patch({ hide: e.target.checked })} />
           Hide inactive
         </label>
@@ -423,7 +423,7 @@ export function StockDesk({ meta, initialQuery, initialData, latest, lastDone, c
         {!oneWarehouse ? ` · ${formatNumber(tiles.units)} units in stock${change === null ? "" : change === 0 ? ` (no change ${sinceLabel})` : ` (${change > 0 ? "+" : "−"}${formatNumber(Math.abs(change))} ${sinceLabel})`}` : ""}
       </Caption>
       {failed ? (
-        <p role="alert" className="mb-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+        <p role="alert" className="sp-card tone-row tone-bad tone-row-title mb-3">
           Could not load this list. Check your connection and try again.
         </p>
       ) : null}

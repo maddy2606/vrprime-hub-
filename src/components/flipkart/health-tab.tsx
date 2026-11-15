@@ -26,7 +26,7 @@ export function HealthTab({ rows, total, taxUnread, slaLimit }: { rows: HealthRo
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             {/* A space at the start or end is the problem, so show it. */}
-            <span className="break-all font-mono text-[13px] font-bold leading-tight">{r.problems.includes("sku_space") ? `"${r.sku}"` : r.sku}</span>
+            <span className="break-all font-mono text-[13px] font-medium leading-tight">{r.problems.includes("sku_space") ? `"${r.sku}"` : r.sku}</span>
             {r.status === "INACTIVE" ? <Chip>Inactive</Chip> : null}
             {r.listingPost ? (
               <Link prefetch={false} href={`/posts/${r.listingPost.id}`} className="focus-ring rounded font-mono text-xs font-semibold text-accent-text underline">
@@ -34,7 +34,7 @@ export function HealthTab({ rows, total, taxUnread, slaLimit }: { rows: HealthRo
               </Link>
             ) : null}
           </div>
-          {r.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.title}</p> : null}
+          {r.title ? <p className="t-caption mt-0.5 line-clamp-2 break-words">{r.title}</p> : null}
         </div>
       ),
       csv: (r) => r.sku,

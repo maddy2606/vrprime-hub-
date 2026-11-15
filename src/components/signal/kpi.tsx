@@ -40,17 +40,17 @@ export function KpiTile({
 }) {
   const body = (
     <>
-      <span className="block text-[11px] font-bold text-muted">{label}</span>
-      <CountUp value={value} className={`mt-1 block text-3xl font-bold leading-none ${TEXT[tone]}`} />
-      {sub ? <span className="mt-1.5 block text-xs text-muted">{sub}</span> : null}
+      <span className="t-label block">{label}</span>
+      <CountUp value={value} className={`t-stat mt-2 block font-display ${TEXT[tone]}`} />
+      {sub ? <span className="t-caption mt-1.5 block">{sub}</span> : null}
       {spark && spark.length > 1 ? (
         <div className="mt-3">
-          <Sparkline values={spark} tone={sparkTone ?? (tone === "neutral" ? "cyan" : tone)} label={sparkLabel ?? `${label} trend`} />
+          <Sparkline values={spark} tone={sparkTone ?? (tone === "neutral" ? "accent" : tone)} label={sparkLabel ?? `${label} trend`} className="h-9 w-full" />
         </div>
       ) : null}
     </>
   );
-  const cls = "sp-card sp-lift sp-reveal block min-w-0 p-4";
+  const cls = "sp-card g-pad block min-w-0";
   const style = { ["--i" as string]: index };
   return href ? (
     <Link prefetch={false} href={href} className={`${cls} focus-ring`} style={style}>

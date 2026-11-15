@@ -12,8 +12,9 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { ChevronDownIcon, SearchIcon } from "@/components/icons";
 import { formatNumber } from "@/lib/format";
 
+/** Filters above a table: one Card, 12px padding, one wrapping row (phone: a 2-column grid). */
 export function Toolbar({ children }: { children: ReactNode }) {
-  return <div className="mb-4 flex flex-wrap items-center gap-2">{children}</div>;
+  return <div className="sp-card toolbar mb-4">{children}</div>;
 }
 
 export type SegmentOption<K extends string> = { key: K; label: string; count?: number };
@@ -30,21 +31,13 @@ export function Segmented<K extends string>({
   onChange: (key: K) => void;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-lg border border-line bg-surface p-0.5">
+    <div role="group" aria-label={label} className="seg">
       {options.map((o) => {
         const on = value === o.key;
         return (
-          <button
-            key={o.key}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onChange(o.key)}
-            className={`focus-ring flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-semibold transition-colors sm:min-h-8 ${
-              on ? "bg-ink text-canvas" : "text-muted hover:bg-surface2 hover:text-ink"
-            }`}
-          >
+          <button key={o.key} type="button" aria-pressed={on} onClick={() => onChange(o.key)} className="seg-opt focus-ring">
             {o.label}
-            {o.count !== undefined ? <span className={`font-mono text-xs font-medium tabular-nums ${on ? "text-canvas/70" : "text-faint"}`}>{formatNumber(o.count)}</span> : null}
+            {o.count !== undefined ? <span className="seg-count">{formatNumber(o.count)}</span> : null}
           </button>
         );
       })}
@@ -65,15 +58,15 @@ export function Dropdown({
 }) {
   const id = useId();
   return (
-    <div className="flex min-h-11 min-w-[9.5rem] flex-1 items-center gap-1.5 rounded-lg border border-line bg-surface pl-2.5 sm:min-h-9 sm:flex-none">
-      <label htmlFor={id} className="shrink-0 text-xs font-semibold text-muted">
+    <div className="toolbar-ctl">
+      <label htmlFor={id} className="t-label shrink-0">
         {label}
       </label>
       <select
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="focus-ring min-h-10 min-w-0 flex-1 truncate bg-transparent py-1 pl-1 pr-2 text-sm font-semibold sm:min-h-8 sm:max-w-44"
+        className="focus-ring h-[38px] min-w-0 flex-1 truncate rounded-[var(--radius)] bg-transparent pl-1 pr-2 text-[13px] font-semibold sm:max-w-44"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -151,7 +144,7 @@ export function Picker({
   };
 
   return (
-    <div ref={box} className="relative min-w-[9.5rem] flex-1 sm:flex-none">
+    <div ref={box} className="toolbar-ctl relative !p-0">
       <button
         ref={button}
         type="button"
@@ -165,11 +158,11 @@ export function Picker({
             show();
           }
         }}
-        className="focus-ring flex min-h-11 w-full items-center gap-1.5 rounded-lg border border-line bg-surface pl-2.5 pr-2 text-left sm:min-h-9"
+        className="focus-ring flex h-[38px] w-full items-center gap-1.5 rounded-[var(--radius)] pl-3 pr-2 text-left"
       >
-        <span className="shrink-0 text-xs font-semibold text-muted">{label}</span>
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink sm:max-w-44">{current?.label}</span>
-        <ChevronDownIcon className={`h-4 w-4 shrink-0 text-muted transition ${open ? "rotate-180" : ""}`} />
+        <span className="t-label shrink-0">{label}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink sm:max-w-44">{current?.label}</span>
+        <ChevronDownIcon className={`h-4 w-4 shrink-0 text-muted transition-transform duration-160 ${open ? "rotate-180" : ""}`} />
       </button>
       {open ? (
         <ul
@@ -180,7 +173,7 @@ export function Picker({
           aria-label={label}
           aria-activedescendant={`${id}-opt-${active}`}
           onKeyDown={onListKey}
-          className="sp-pop absolute left-0 z-50 mt-1 max-h-72 min-w-full overflow-auto p-1 focus:outline-none"
+          className="sp-pop vr-sheet vr-pop absolute left-0 top-full z-50 mt-1 max-h-72 min-w-full overflow-auto p-1 focus:outline-none"
         >
           {options.map((o, i) => {
             const selected = o.value === value;
@@ -192,7 +185,7 @@ export function Picker({
                 aria-selected={selected}
                 onPointerEnter={() => setActive(i)}
                 onClick={() => choose(i)}
-                className={`flex min-h-11 cursor-pointer items-center whitespace-nowrap rounded-lg px-3 text-sm font-semibold sm:min-h-9 ${
+                className={`flex min-h-10 cursor-pointer items-center whitespace-nowrap rounded-[var(--radius)] px-3 text-[13px] font-semibold ${
                   i === active ? "bg-accent-soft text-ink" : "text-ink"
                 } ${selected ? "text-accent-text" : ""}`}
               >
@@ -210,15 +203,15 @@ export function Picker({
 export function SearchField({ value, onChange, placeholder, label }: { value: string; onChange: (v: string) => void; placeholder: string; label?: string }) {
   const id = useId();
   return (
-    <div className="relative min-w-40 flex-1">
-      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+    <div className="toolbar-search relative">
+      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-faint" />
       <label htmlFor={id} className="sr-only">
         {label ?? placeholder}
       </label>
       <input
         id={id}
         type="search"
-        className="input min-h-11 pl-10 text-sm sm:min-h-9 sm:py-1"
+        className="input h-10 pl-10"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -228,8 +221,7 @@ export function SearchField({ value, onChange, placeholder, label }: { value: st
   );
 }
 
-const OUTLINE_BUTTON =
-  "focus-ring inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-sm font-semibold transition-colors hover:bg-surface2 disabled:opacity-50 sm:min-h-9";
+const OUTLINE_BUTTON = "g-btn g-btn-secondary focus-ring shrink-0";
 
 export function CsvButton({ href, onClick, disabled }: { href?: string; onClick?: () => void; disabled?: boolean }) {
   if (href) {
@@ -252,26 +244,26 @@ export function InfoTip({ children, label = "More about this" }: { children: Rea
     <details className="group relative inline-block">
       <summary
         aria-label={label}
-        className="focus-ring flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-full text-muted hover:text-ink sm:h-9 sm:w-9 [&::-webkit-details-marker]:hidden"
+        className="focus-ring flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-full text-muted transition-colors duration-160 hover:text-ink [&::-webkit-details-marker]:hidden"
       >
         <span className="flex h-5 w-5 items-center justify-center rounded-full border border-current text-xs font-bold leading-none">i</span>
       </summary>
-      <div className="sp-pop absolute right-0 z-30 mt-1 w-72 max-w-[85vw] p-3 text-xs leading-relaxed sm:left-0 sm:right-auto">{children}</div>
+      <div className="sp-pop sp-tip vr-sheet vr-pop absolute right-0 z-30 mt-1 w-72 max-w-[85vw] p-3 text-xs leading-relaxed sm:left-0 sm:right-auto">{children}</div>
     </details>
   );
 }
 
 /** One line of small text under the toolbar: counts and scope. */
 export function Caption({ children }: { children: ReactNode }) {
-  return <p className="mb-2 text-xs text-muted">{children}</p>;
+  return <p className="t-caption mb-2">{children}</p>;
 }
 
 export function PageSection({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
   return (
     <section className="mb-6">
-      <h2 className="mb-2 flex items-baseline gap-2 font-display text-[1.0625rem] font-semibold tracking-[-0.01em]">
+      <h2 className="t-card-title g-head flex items-center gap-2">
         {title}
-        {count !== undefined ? <span className="text-sm font-semibold text-muted">{formatNumber(count)}</span> : null}
+        {count !== undefined ? <span className="g-chip font-mono">{formatNumber(count)}</span> : null}
       </h2>
       {children}
     </section>
@@ -282,10 +274,10 @@ export function PageSection({ title, count, children }: { title: string; count?:
 export function StatTile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "bad" | "warn" | "ok" }) {
   const color = tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : tone === "ok" ? "text-ok" : "";
   return (
-    <div className="min-w-0 border-l border-line pl-3 first:border-l-0 first:pl-0">
-      <span className="block text-xs font-medium leading-tight text-muted">{label}</span>
-      <span className={`mt-1 block font-mono text-2xl font-semibold leading-none tracking-[-0.03em] tabular-nums ${color}`}>{value}</span>
-      {sub ? <span className="mt-1 block text-xs text-muted">{sub}</span> : null}
+    <div className="min-w-0">
+      <span className="t-label block">{label}</span>
+      <span className={`t-stat mt-2 block ${color}`}>{value}</span>
+      {sub ? <span className="t-caption mt-1.5 block">{sub}</span> : null}
     </div>
   );
 }

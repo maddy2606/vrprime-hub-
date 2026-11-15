@@ -1,14 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Archivo, IBM_Plex_Mono } from "next/font/google";
+import { Geist_Mono, Manrope, Unbounded } from "next/font/google";
 import { cookies } from "next/headers";
 import { ServiceWorker } from "@/components/service-worker";
 import { ToastProvider } from "@/components/toast";
 import { readThemeMode, THEME_COOKIE } from "@/lib/theme-mode";
 import "./globals.css";
 
-// Ledger: Archivo for words and headings, IBM Plex Mono for every figure, SKU and order ID.
-const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], display: "swap" });
-const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500", "600"], display: "swap" });
+// Aurora Glass (glass-spec section 2): Manrope for all interface text, Unbounded for titles and big numbers, Geist Mono
+// for every figure, SKU and ID. globals.css maps these onto --font-sans, --font-display and --font-mono.
+const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap" });
+const unbounded = Unbounded({ variable: "--font-unbounded", subsets: ["latin"], weight: ["500", "600"], display: "swap" });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"], weight: ["400", "500", "600"], display: "swap" });
 
 export const metadata: Metadata = {
   title: { default: "VR Prime Ops", template: "%s · VR Prime Ops" },
@@ -18,30 +20,23 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const PAPER = "#f4f3ef";
-const NIGHT = "#111113";
+// The page canvas in each mode (glass-spec section 1), for the browser bar.
+const PAPER = "#eef0f7";
+const NIGHT = "#07080d";
 
-/** The browser bar and form controls follow the chosen mode; Auto follows the device (the page itself does too, in CSS). */
+/** The browser bar and form controls follow the chosen mode. Auto is dark, like the page (glass-spec section 1). */
 export async function generateViewport(): Promise<Viewport> {
   const mode = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   const base = { width: "device-width", initialScale: 1, viewportFit: "cover" } as const;
   if (mode === "light") return { ...base, themeColor: PAPER, colorScheme: "light" };
-  if (mode === "dark") return { ...base, themeColor: NIGHT, colorScheme: "dark" };
-  return {
-    ...base,
-    themeColor: [
-      { media: "(prefers-color-scheme: light)", color: PAPER },
-      { media: "(prefers-color-scheme: dark)", color: NIGHT },
-    ],
-    colorScheme: "light dark",
-  };
+  return { ...base, themeColor: NIGHT, colorScheme: "dark" };
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const mode = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    // data-theme is left off for Auto, so the CSS follows prefers-color-scheme; the switch in the account menu sets it.
-    <html lang="en-IN" data-theme={mode === "auto" ? undefined : mode} className={`${archivo.variable} ${plexMono.variable} h-full antialiased`}>
+    // data-theme is left off for Auto, which the CSS draws dark; the switch in the account menu sets it.
+    <html lang="en-IN" data-theme={mode === "auto" ? undefined : mode} className={`${manrope.variable} ${unbounded.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full">
         <ToastProvider>{children}</ToastProvider>
         <ServiceWorker />

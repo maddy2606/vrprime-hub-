@@ -1,9 +1,14 @@
-// Charts. Plain SVG and HTML, so every number and shape is there at rest without JavaScript;
+// Charts (glass-spec section 5). Plain SVG and HTML, so every number and shape is there at rest without JavaScript;
 // the draw-in animations are CSS only and switch off under prefers-reduced-motion.
 // Marks carry the colour; every label and value stays in text colours (ink, muted), never the series colour.
 import { useId } from "react";
 import { formatNumber } from "@/lib/format";
 import { COLOR, TONE_COLOR, type SignalTone } from "@/lib/theme";
+
+/** The soft glow under a chart line: drop-shadow 6px in the series colour at 55% (glass-spec section 5). */
+const glow = (color: string) => ({ filter: `drop-shadow(0 0 6px color-mix(in srgb, ${color} 55%, transparent))` });
+/** A bar fill: a vertical gradient from the series colour to the same colour at 60%. */
+export const barFill = (color: string) => `linear-gradient(to bottom, ${color}, color-mix(in srgb, ${color} 60%, transparent))`;
 
 function points(values: number[], w: number, h: number, pad = 2, max?: number, min = 0): [number, number][] {
   const top = max ?? Math.max(...values, 1);
@@ -25,7 +30,7 @@ function smooth(p: [number, number][]): string {
 }
 
 /** A small trend line. `values` oldest first. Nothing is drawn for fewer than two points. */
-export function Sparkline({ values, tone = "cyan", label, className = "h-8 w-full" }: { values: number[]; tone?: SignalTone; label: string; className?: string }) {
+export function Sparkline({ values, tone = "accent", label, className = "h-8 w-full" }: { values: number[]; tone?: SignalTone; label: string; className?: string }) {
   const id = useId();
   if (values.length < 2) return <div className={className} aria-hidden="true" />;
   const color = TONE_COLOR[tone];
@@ -33,30 +38,52 @@ export function Sparkline({ values, tone = "cyan", label, className = "h-8 w-ful
   const p = points(values, 100, 32, 3, undefined, lo > 0 ? lo * 0.9 : 0);
   const line = smooth(p);
   return (
-    <svg role="img" aria-label={label} viewBox="0 0 100 32" preserveAspectRatio="none" className={`${className} sp-wipe`}>
+    <svg role="img" aria-label={label} viewBox="0 0 100 32" preserveAspectRatio="none" className={`${className} overflow-visible`}>
       <defs>
         <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" style={{ stopColor: color }} stopOpacity="0.32" />
+          <stop offset="0" style={{ stopColor: color }} stopOpacity="0.22" />
           <stop offset="1" style={{ stopColor: color }} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={`${line} L100 32 L0 32 Z`} fill={`url(#${id})`} />
-      <path d={line} fill="none" style={{ stroke: color }} strokeWidth="1.8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      <path d={`${line} L100 32 L0 32 Z`} fill={`url(#${id})`} className="sp-area" />
+      <path d={line} fill="none" style={{ stroke: color }} strokeWidth="1.5" strokeLinecap="round" vectorEffect="non-scaling-stroke" className="sp-line" />
     </svg>
   );
 }
 
 /** The health ring: `pct` 0 to 100, with the number in the middle. */
 export function Gauge({ pct, tone, size = 56, label }: { pct: number; tone: SignalTone; size?: number; label: string }) {
+  const id = useId();
   const v = Math.max(0, Math.min(100, Math.round(pct)));
-  const color = TONE_COLOR[tone];
+  // Value stroke: --grad-accent, or the tone colour when the tone is bad, warn or ok. A 6px stroke at any size.
+  const toned = tone === "bad" || tone === "warn" || tone === "ok";
+  const stroke = (6 * 100) / size;
+  const r = 50 - stroke / 2 - 1;
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }} role="img" aria-label={label}>
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-        <circle cx="50" cy="50" r="42" fill="none" style={{ stroke: COLOR.lineSoft }} strokeWidth="10" />
-        <circle cx="50" cy="50" r="42" fill="none" style={{ stroke: color }} strokeWidth="10" strokeLinecap="round" pathLength={100} strokeDasharray={`${v} 100`} className="sp-gauge-arc" />
+        <defs>
+          <linearGradient id={id} x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" style={{ stopColor: COLOR.indigo }} />
+            <stop offset="1" style={{ stopColor: COLOR.cyan }} />
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r={r} fill="none" style={{ stroke: COLOR.raised }} strokeWidth={stroke} />
+        <circle
+          cx="50"
+          cy="50"
+          r={r}
+          fill="none"
+          stroke={toned ? undefined : `url(#${id})`}
+          style={toned ? { stroke: TONE_COLOR[tone] } : undefined}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          pathLength={100}
+          strokeDasharray={`${v} 100`}
+          className="sp-gauge-arc"
+        />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center font-mono text-[13px] font-bold tabular-nums">{v}</span>
+      <span className="absolute inset-0 flex items-center justify-center font-display text-[13px] font-medium tabular-nums">{v}</span>
     </div>
   );
 }
@@ -67,7 +94,7 @@ export type AreaPoint = { label: string; value: number };
  * The big area chart: gridlines, y labels, day labels, a gradient fill and an emphasised last point.
  * Labels are HTML so they stay readable at phone width; only the shapes scale.
  */
-export function AreaChart({ data, tone = "cyan", ariaLabel, formatY }: { data: AreaPoint[]; tone?: SignalTone; ariaLabel: string; formatY: (n: number) => string }) {
+export function AreaChart({ data, tone = "accent", ariaLabel, formatY }: { data: AreaPoint[]; tone?: SignalTone; ariaLabel: string; formatY: (n: number) => string }) {
   const id = useId();
   const color = TONE_COLOR[tone];
   const max = Math.max(...data.map((d) => d.value), 1);
@@ -80,7 +107,7 @@ export function AreaChart({ data, tone = "cyan", ariaLabel, formatY }: { data: A
   const last = p[p.length - 1];
   return (
     <div role="img" aria-label={ariaLabel} className="flex gap-2">
-      <div className="relative h-40 w-10 shrink-0 font-mono text-[10px] text-faint sm:h-48" aria-hidden="true">
+      <div className="relative h-40 w-10 shrink-0 font-mono text-[11px] text-faint sm:h-48" aria-hidden="true">
         {ticks.map((t, i) => (
           <span key={i} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: `${(i / (ticks.length - 1)) * 92 + 4}%` }}>
             {formatY(t)}
@@ -89,10 +116,10 @@ export function AreaChart({ data, tone = "cyan", ariaLabel, formatY }: { data: A
       </div>
       <div className="min-w-0 flex-1">
         <div className="relative h-40 sm:h-48">
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="sp-wipe absolute inset-0 h-full w-full" aria-hidden="true">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden="true">
             <defs>
               <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" style={{ stopColor: color }} stopOpacity="0.38" />
+                <stop offset="0" style={{ stopColor: color }} stopOpacity="0.34" />
                 <stop offset="1" style={{ stopColor: color }} stopOpacity="0" />
               </linearGradient>
             </defs>
@@ -103,23 +130,17 @@ export function AreaChart({ data, tone = "cyan", ariaLabel, formatY }: { data: A
                 x2="100"
                 y1={(i / (ticks.length - 1)) * 92 + 4}
                 y2={(i / (ticks.length - 1)) * 92 + 4}
-                style={{ stroke: i === ticks.length - 1 ? COLOR.line : COLOR.lineSoft }}
+                style={{ stroke: "var(--grid)" }}
                 strokeWidth="1"
                 vectorEffect="non-scaling-stroke"
               />
             ))}
-            <path d={`${line} L100 100 L0 100 Z`} fill={`url(#${id})`} />
-            <path d={line} fill="none" style={{ stroke: color }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+            <path d={`${line} L100 100 L0 100 Z`} fill={`url(#${id})`} className="sp-area" />
+            <path d={line} fill="none" style={{ stroke: color, ...glow(color) }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="sp-line" />
           </svg>
-          {last ? (
-            <span
-              aria-hidden="true"
-              className="sp-fade absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface"
-              style={{ left: `${last[0]}%`, top: `${last[1]}%`, background: color }}
-            />
-          ) : null}
+          {last ? <LatestDot x={last[0]} y={last[1]} color={color} /> : null}
         </div>
-        <div className="mt-1.5 flex justify-between font-mono text-[10px] text-faint" aria-hidden="true">
+        <div className="mt-1.5 flex justify-between font-mono text-[11px] text-faint" aria-hidden="true">
           {data.map((d, i) => (
             <span key={i} className="min-w-0 flex-1 text-center first:text-left last:text-right">
               {d.label}
@@ -135,6 +156,19 @@ export function AreaChart({ data, tone = "cyan", ariaLabel, formatY }: { data: A
  * The orders graph: a purple-to-red line over a soft purple fill, a dashed line for the average, the busiest day named and
  * the latest day marked. Shapes scale with the card; every label is HTML so it stays sharp and readable on a phone.
  */
+/** The latest point: a 4px dot inside a 10px ring of the series colour at 30%. */
+function LatestDot({ x, y, color }: { x: number; y: number; color: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="sp-area absolute flex h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
+      style={{ left: `${x}%`, top: `${y}%`, background: `color-mix(in srgb, ${color} 30%, transparent)` }}
+    >
+      <span className="h-1 w-1 rounded-full" style={{ background: color }} />
+    </span>
+  );
+}
+
 export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint[]; avg: number | null; avgLabel: string; ariaLabel: string }) {
   const id = useId();
   const values = data.map((d) => d.value);
@@ -149,18 +183,18 @@ export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint
   return (
     <div role="img" aria-label={ariaLabel}>
       <div className="relative h-44 sm:h-52" aria-hidden="true">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="sp-wipe absolute inset-0 h-full w-full">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full overflow-visible">
           <defs>
             <linearGradient id={`${id}f`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" style={{ stopColor: COLOR.indigo }} stopOpacity="0.28" />
+              <stop offset="0" style={{ stopColor: COLOR.indigo }} stopOpacity="0.34" />
               <stop offset="1" style={{ stopColor: COLOR.indigo }} stopOpacity="0" />
             </linearGradient>
 
           </defs>
-          <line x1="0" x2="100" y1="99.5" y2="99.5" style={{ stroke: COLOR.line }} strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          {avgY !== null ? <line x1="0" x2="100" y1={avgY} y2={avgY} style={{ stroke: COLOR.muted }} strokeOpacity="0.55" strokeWidth="1" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
-          <path d={`${line} L100 100 L0 100 Z`} fill={`url(#${id}f)`} />
-          <path d={line} fill="none" style={{ stroke: COLOR.indigo }} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <line x1="0" x2="100" y1="99.5" y2="99.5" style={{ stroke: "var(--grid)" }} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {avgY !== null ? <line x1="0" x2="100" y1={avgY} y2={avgY} style={{ stroke: COLOR.muted }} strokeWidth="1" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
+          <path d={`${line} L100 100 L0 100 Z`} fill={`url(#${id}f)`} className="sp-area" />
+          <path d={line} fill="none" style={{ stroke: COLOR.indigo, ...glow(COLOR.indigo) }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="sp-line" />
         </svg>
         {avgY !== null ? (
           <span className="absolute left-0 -translate-y-full pb-0.5 font-mono text-[11px] text-muted" style={{ top: `${avgY}%` }}>
@@ -169,7 +203,7 @@ export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint
         ) : null}
         {peak && peakIndex !== data.length - 1 ? (
           <span
-            className="sp-fade absolute -translate-x-1/2 -translate-y-full whitespace-nowrap pb-1.5 font-mono text-[11px] font-bold text-ink"
+            className="absolute -translate-x-1/2 -translate-y-full whitespace-nowrap pb-1.5 font-mono text-[11px] text-faint"
             style={{ left: `${Math.min(88, Math.max(12, peak[0]))}%`, top: `${peak[1]}%` }}
           >
             peak {formatNumber(values[peakIndex])}
@@ -177,15 +211,9 @@ export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint
         ) : null}
         {last ? (
           <>
-            <span
-              className="sp-fade absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-surface"
-              style={{ left: `${last[0]}%`, top: `${last[1]}%`, background: COLOR.indigo, boxShadow: `0 0 0 5px color-mix(in srgb, ${COLOR.indigo} 20%, transparent)` }}
-            />
-            <span
-              className="sp-fade absolute right-0 -translate-y-full whitespace-nowrap rounded-full bg-ink px-2 py-0.5 font-mono text-[11px] font-semibold text-canvas"
-              style={{ top: `calc(${last[1]}% - 12px)` }}
-            >
-              {formatNumber(values[values.length - 1])}
+            <LatestDot x={last[0]} y={last[1]} color={COLOR.indigo} />
+            <span className="absolute right-0 -translate-y-full" style={{ top: `calc(${last[1]}% - 8px)` }}>
+              <span className="g-chip tone-accent font-mono">{formatNumber(values[values.length - 1])}</span>
             </span>
           </>
         ) : null}
@@ -200,11 +228,11 @@ export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint
 }
 
 /** A horizontal bar that fills: a share of 0..1 of the track. */
-export function Bar({ share, tone = "cyan", index = 0 }: { share: number; tone?: SignalTone; index?: number }) {
+export function Bar({ share, tone = "accent", index = 0 }: { share: number; tone?: SignalTone; index?: number }) {
   const w = Math.max(0, Math.min(1, share));
   return (
-    <div className="h-1.5 overflow-hidden rounded-full bg-line-soft" aria-hidden="true">
-      <div className="sp-bar h-full rounded-full" style={{ width: `${w * 100}%`, background: TONE_COLOR[tone], ["--i" as string]: index }} />
+    <div className="h-2.5 overflow-hidden rounded-full bg-surface2" aria-hidden="true">
+      <div className="sp-bar h-full rounded-[6px]" style={{ width: `${w * 100}%`, background: barFill(TONE_COLOR[tone]), ["--i" as string]: index }} />
     </div>
   );
 }
@@ -226,7 +254,7 @@ export function Legend({ items }: { items: (SeriesKey & { value?: string })[] })
       {items.map((i) => (
         <li key={i.key} className="flex items-center gap-1.5">
           <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: i.color }} />
-          <span className="font-bold text-ink">{i.label}</span>
+          <span className="font-semibold text-ink">{i.label}</span>
           {i.value ? <span className="tabular-nums text-muted">{i.value}</span> : null}
         </li>
       ))}
@@ -240,15 +268,15 @@ export function ShareBar({ parts, values, unit, ariaLabel }: { parts: SeriesKey[
   const shown = parts.filter((p) => (values[p.key] ?? 0) > 0);
   return (
     <figure className="m-0">
-      <div role="img" aria-label={ariaLabel} className="flex h-3.5 w-full gap-[2px]">
+      <div role="img" aria-label={ariaLabel} className="flex h-2.5 w-full gap-[2px] overflow-hidden rounded-full bg-surface2">
         {total === 0 ? (
-          <div className="h-full w-full rounded bg-line-soft" />
+          <div className="h-full w-full" />
         ) : (
           shown.map((p, i) => (
             <div
               key={p.key}
               title={`${p.label}: ${formatNumber(values[p.key])} ${unit} (${share(values[p.key], total)})`}
-              className="sp-bar h-full min-w-[3px] first:rounded-l last:rounded-r"
+              className="sp-bar h-full min-w-[3px]"
               style={{ flexGrow: values[p.key], flexBasis: 0, background: p.color, ["--i" as string]: i }}
             />
           ))
@@ -261,8 +289,8 @@ export function ShareBar({ parts, values, unit, ariaLabel }: { parts: SeriesKey[
 
 function RowLabel({ row }: { row: BreakdownRow }) {
   return (
-    <span className="flex min-w-0 items-center gap-2 text-sm font-bold">
-      <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: row.color }} />
+    <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+      <span aria-hidden="true" className="wh-dot" style={{ background: row.color, color: row.color }} />
       <span className="truncate">{row.label}</span>
     </span>
   );
@@ -281,25 +309,25 @@ export function StackedRows({ rows, parts, unit, ariaLabel }: { rows: BreakdownR
         {rows.map((r, ri) => (
           <div key={r.key} className="grid grid-cols-[6.5rem_minmax(0,1fr)_3.5rem] items-center gap-3 sm:grid-cols-[8rem_minmax(0,1fr)_4rem]">
             <RowLabel row={r} />
-            <div className="h-3.5 min-w-0">
+            <div className="h-2.5 min-w-0 overflow-hidden rounded-full bg-surface2">
               {totals[ri] === 0 ? (
-                <div className="h-full w-full rounded bg-line-soft" title={`${r.label}: no ${unit}`} />
+                <div className="h-full w-full" title={`${r.label}: no ${unit}`} />
               ) : (
-                <div className="flex h-full gap-[2px]" style={{ width: `${(totals[ri] / max) * 100}%` }}>
+                <div className="flex h-full gap-[2px] overflow-hidden rounded-full" style={{ width: `${(totals[ri] / max) * 100}%` }}>
                   {parts
                     .filter((p) => (r.values[p.key] ?? 0) > 0)
-                    .map((p, pi, shown) => (
+                    .map((p) => (
                       <div
                         key={p.key}
                         title={`${r.label}, ${p.label}: ${formatNumber(r.values[p.key])} ${unit}`}
-                        className={`sp-bar h-full min-w-[3px] ${pi === shown.length - 1 ? "rounded-r" : ""}`}
+                        className="sp-bar h-full min-w-[3px]"
                         style={{ flexGrow: r.values[p.key], flexBasis: 0, background: p.color, ["--i" as string]: ri }}
                       />
                     ))}
                 </div>
               )}
             </div>
-            <span className="text-right font-mono text-sm font-bold tabular-nums">{formatNumber(totals[ri])}</span>
+            <span className="text-right font-mono text-sm font-medium tabular-nums">{formatNumber(totals[ri])}</span>
           </div>
         ))}
       </div>
@@ -322,8 +350,8 @@ export function PairedRows({ rows, measures, ariaLabel }: { rows: BreakdownRow[]
                 const v = r.values[m.key] ?? 0;
                 return (
                   <div key={m.key} className="grid grid-cols-[minmax(0,1fr)_2.75rem] items-center gap-2" title={`${r.label}, ${m.label}: ${formatNumber(v)}`}>
-                    <div className="h-2.5">
-                      {v > 0 ? <div className="sp-bar h-full rounded-r" style={{ width: `${Math.max((v / max) * 100, 1)}%`, background: m.color, ["--i" as string]: ri }} /> : null}
+                    <div className="h-2.5 overflow-hidden rounded-full bg-surface2">
+                      {v > 0 ? <div className="sp-bar h-full rounded-full" style={{ width: `${Math.max((v / max) * 100, 1)}%`, background: m.color, ["--i" as string]: ri }} /> : null}
                     </div>
                     <span className="font-mono text-xs tabular-nums text-muted">{formatNumber(v)}</span>
                   </div>
@@ -375,7 +403,7 @@ export function CapacityChart({
   return (
     <figure className="m-0">
       <div role="img" aria-label={ariaLabel} className="flex gap-2">
-        <div className="relative h-44 w-10 shrink-0 font-mono text-[10px] text-faint sm:h-52" aria-hidden="true">
+        <div className="relative h-44 w-10 shrink-0 font-mono text-[11px] text-faint sm:h-52" aria-hidden="true">
           {ticks.map((t, i) => (
             <span key={i} className="absolute right-0 -translate-y-1/2 tabular-nums" style={{ top: `${y(t)}%` }}>
               {formatY(t)}
@@ -386,24 +414,24 @@ export function CapacityChart({
           <div className="relative h-44 sm:h-52">
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden="true">
               {ticks.map((t, i) => (
-                <line key={i} x1="0" x2="100" y1={y(t)} y2={y(t)} style={{ stroke: i === ticks.length - 1 ? COLOR.line : COLOR.lineSoft }} strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <line key={i} x1="0" x2="100" y1={y(t)} y2={y(t)} style={{ stroke: "var(--grid)" }} strokeWidth="1" vectorEffect="non-scaling-stroke" />
               ))}
-              {past.length > 0 ? <line x1={x(split)} x2={x(split)} y1="4" y2="96" style={{ stroke: COLOR.line }} strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
+              {past.length > 0 ? <line x1={x(split)} x2={x(split)} y1="4" y2="96" style={{ stroke: "var(--grid)" }} strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
               <line x1="0" x2="100" y1={y(comfortable)} y2={y(comfortable)} style={{ stroke: COLOR.ok }} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
               <line x1="0" x2="100" y1={y(limit)} y2={y(limit)} style={{ stroke: COLOR.danger }} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-              {past.length > 1 ? <path d={line(0, split)} fill="none" style={{ stroke: COLOR.indigo }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /> : null}
+              {past.length > 1 ? <path d={line(0, split)} fill="none" style={{ stroke: COLOR.indigo, ...glow(COLOR.indigo) }} className="sp-line" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" /> : null}
               {future.length > 0 ? (
-                <path d={line(Math.max(0, split), n - 1)} fill="none" style={{ stroke: COLOR.indigo }} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="6 5" vectorEffect="non-scaling-stroke" />
+                <path d={line(Math.max(0, split), n - 1)} fill="none" style={{ stroke: COLOR.indigo }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="6 5" vectorEffect="non-scaling-stroke" />
               ) : null}
             </svg>
-            <span aria-hidden="true" className="absolute right-0 -translate-y-full rounded bg-surface/80 px-1 text-[10px] font-bold text-muted" style={{ top: `${y(limit)}%` }}>
+            <span aria-hidden="true" className="absolute right-0 -translate-y-full font-mono text-[11px] text-faint" style={{ top: `${y(limit)}%` }}>
               Most: {formatY(limit)}
             </span>
-            <span aria-hidden="true" className="absolute right-0 -translate-y-full rounded bg-surface/80 px-1 text-[10px] font-bold text-muted" style={{ top: `${y(comfortable)}%` }}>
+            <span aria-hidden="true" className="absolute right-0 -translate-y-full font-mono text-[11px] text-faint" style={{ top: `${y(comfortable)}%` }}>
               Comfortable: {formatY(comfortable)}
             </span>
           </div>
-          <div className="relative mt-1.5 h-4 font-mono text-[10px] text-faint" aria-hidden="true">
+          <div className="relative mt-1.5 h-4 font-mono text-[11px] text-faint" aria-hidden="true">
             {labelAt.map((i, k) => (
               <span key={i} className="absolute whitespace-nowrap" style={{ left: `${x(i)}%`, transform: k === 0 ? "none" : k === 2 ? "translateX(-100%)" : "translateX(-50%)" }}>
                 {all[i]?.label}
@@ -413,12 +441,12 @@ export function CapacityChart({
         </div>
       </div>
       <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
-        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.indigo }} /><span className="font-bold">Orders so far</span></li>
+        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.indigo }} /><span className="font-semibold">Orders so far</span></li>
         {future.length > 0 ? (
-          <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0 w-5 border-t-2 border-dashed" style={{ borderColor: COLOR.indigo }} /><span className="font-bold">Expected</span></li>
+          <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0 w-5 border-t-2 border-dashed" style={{ borderColor: COLOR.indigo }} /><span className="font-semibold">Expected</span></li>
         ) : null}
-        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.ok }} /><span className="font-bold">Packed comfortably</span></li>
-        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.danger }} /><span className="font-bold">The most the team can pack</span></li>
+        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.ok }} /><span className="font-semibold">Packed comfortably</span></li>
+        <li className="flex items-center gap-1.5"><span aria-hidden="true" className="h-0.5 w-5 rounded" style={{ background: COLOR.danger }} /><span className="font-semibold">The most the team can pack</span></li>
       </ul>
     </figure>
   );

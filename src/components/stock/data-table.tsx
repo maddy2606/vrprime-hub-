@@ -35,12 +35,9 @@ type Props<T> = {
 };
 
 /**
- * The one table of the Flipkart page.
- *
- *  - Wide screens: a table with the key columns, the first column (SKU) pinned and the header pinned while the page
- *    scrolls inside it. Minor columns sit behind each row's arrow. Numbers are right-aligned, in mono, tabular figures.
- *  - Phones (480px and under): no sideways scrolling at all. Each row becomes a card: the first column as its heading,
- *    then label and value pairs, then the buttons.
+ * The one table of the Flipkart page, as a glass ledger (glass-spec section 4): a Card with no padding, a sticky header,
+ * rows divided by hairlines, numbers right-aligned in Geist Mono. Minor columns sit behind each row's arrow. On a phone
+ * the same table scrolls sideways with its first column pinned, and a Sort by control sits above it.
  */
 export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }: Props<T>) {
   const shown = columns.filter((c) => !c.csvOnly);
@@ -57,19 +54,18 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
 
   const first = shown[0];
   const rest = shown.slice(1);
-  const buttons = rest.filter((c) => c.label === "");
   const fields = rest.filter((c) => c.label !== "");
   const sortable = fields.filter((c) => c.sort);
 
   return (
     <div>
-      {/* Phone: cards */}
-      <div className="flex flex-col gap-2 min-[481px]:hidden">
+      {/* Phone: a Sort by control above the table. */}
+      <div className="mb-2 flex flex-col gap-2 min-[700px]:hidden">
         {sortable.length > 0 ? (
-          <label className="flex items-center gap-2 text-xs font-semibold text-muted">
+          <label className="toolbar-ctl t-label">
             Sort by
             <select
-              className="focus-ring min-h-11 flex-1 rounded-lg border border-line bg-surface px-2 text-sm font-semibold text-ink"
+              className="focus-ring h-[38px] min-w-0 flex-1 bg-transparent pr-2 text-[13px] font-semibold normal-case tracking-normal text-ink"
               value={sortKey}
               onChange={(e) => onSort(e.target.value)}
             >
@@ -84,33 +80,18 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
               type="button"
               onClick={() => onSort(sortKey)}
               aria-label={sortDir === "asc" ? "Ascending: tap to reverse" : "Descending: tap to reverse"}
-              className="focus-ring flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-line bg-surface text-sm font-bold text-ink"
+              className="g-btn g-btn-secondary focus-ring !h-[34px] !min-h-[34px] !px-3"
             >
               {sortDir === "asc" ? "▲" : "▼"}
             </button>
           </label>
         ) : null}
-        {rows.map((row) => (
-          <article key={rowKey(row)} className="sp-card p-3">
-            <div className="min-w-0">{first.cell(row)}</div>
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
-              {fields.map((c) => (
-                <div key={c.key} className="min-w-0">
-                  <dt className="text-[11px] font-medium text-muted">{c.label}</dt>
-                  <dd className="mt-0.5 min-w-0 break-words font-mono text-sm tabular-nums">{c.cell(row)}</dd>
-                </div>
-              ))}
-            </dl>
-            {buttons.length ? <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">{buttons.map((c) => <span key={c.key}>{c.cell(row)}</span>)}</div> : null}
-          </article>
-        ))}
       </div>
 
-      {/* Wider screens: table */}
-      <div className="hidden max-h-[75vh] overflow-auto sp-card min-[481px]:block">
+      <div className="sp-card ledger-card max-h-[75vh]">
         <table className="ledger">
-          <thead className="sticky top-0 z-20">
-            <tr className="bg-panel2">
+          <thead>
+            <tr>
               {main.map((c, i) => {
                 const active = c.sort && c.key === sortKey;
                 return (
@@ -118,15 +99,15 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                     key={c.key}
                     scope="col"
                     aria-sort={active ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
-                    className={`bg-panel2 !p-0 ${i === 0 ? "sticky left-0 z-10" : ""} ${c.align === "right" ? "text-right" : "text-left"} ${c.width ?? ""}`}
+                    className={`!p-0 ${i === 0 ? "min-[700px]:sticky min-[700px]:left-0 min-[700px]:z-[3]" : ""} ${c.align === "right" ? "text-right" : "text-left"} ${c.width ?? ""}`}
                   >
                     {c.sort ? (
                       <button
                         type="button"
                         onClick={() => onSort(c.key)}
-                        className={`focus-ring flex min-h-10 w-full items-center gap-0.5 px-2.5 text-xs font-semibold leading-tight ${
+                        className={`focus-ring flex h-[43px] w-full items-center gap-0.5 px-3 uppercase tracking-[0.08em] transition-colors duration-160 ${
                           c.align === "right" ? "justify-end text-right" : "justify-start text-left"
-                        } ${active ? "text-ink" : "text-muted hover:text-ink"}`}
+                        } ${active ? "text-ink" : "hover:text-ink"}`}
                       >
                         {c.label}
                         <span aria-hidden="true" className={`w-3 text-[10px] ${active ? "text-accent-text" : ""}`}>
@@ -134,12 +115,12 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                         </span>
                       </button>
                     ) : (
-                      <span className={`flex min-h-10 items-center px-2.5 text-xs font-semibold text-muted ${c.align === "right" ? "justify-end text-right" : ""}`}>{c.label}</span>
+                      <span className={`flex h-[43px] items-center px-3 ${c.align === "right" ? "justify-end text-right" : ""}`}>{c.label}</span>
                     )}
                   </th>
                 );
               })}
-              {minor.length ? <th scope="col" className="w-10 bg-panel2"><span className="sr-only">More</span></th> : null}
+              {minor.length ? <th scope="col" className="w-10"><span className="sr-only">More</span></th> : null}
             </tr>
           </thead>
           <tbody>
@@ -148,11 +129,11 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
               const expanded = open.has(key);
               return (
                 <RowPair key={key}>
-                  <tr className="group hover:bg-surface2/50">
+                  <tr className={expanded ? "is-expanded" : ""}>
                     {main.map((c, i) => (
                       <td
                         key={c.key}
-                        className={`${i === 0 ? "sticky left-0 z-10 max-w-[12.5rem] bg-surface group-hover:bg-surface2" : ""} ${
+                        className={`${i === 0 ? "max-w-[12.5rem]" : ""} ${
                           c.align === "right" ? "num" : "text-left"
                         }`}
                       >
@@ -160,27 +141,27 @@ export function DataTable<T>({ columns, rows, sortKey, sortDir, onSort, rowKey }
                       </td>
                     ))}
                     {minor.length ? (
-                      <td className="px-1 py-1 align-top">
+                      <td className="!px-1 !py-0.5">
                         <button
                           type="button"
                           aria-expanded={expanded}
                           aria-label={expanded ? "Hide details" : "Show details"}
                           onClick={() => toggle(key)}
-                          className="focus-ring flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-surface2 hover:text-ink"
+                          className="focus-ring flex h-10 w-10 items-center justify-center rounded-[var(--radius)] text-muted transition-colors duration-160 hover:bg-surface2 hover:text-ink"
                         >
-                          <ChevronDownIcon className={`h-4 w-4 transition ${expanded ? "rotate-180" : ""}`} />
+                          <ChevronDownIcon className={`h-4 w-4 transition-transform duration-160 ${expanded ? "rotate-180" : ""}`} />
                         </button>
                       </td>
                     ) : null}
                   </tr>
                   {expanded && minor.length ? (
-                    <tr className="bg-canvas/50">
+                    <tr className="is-expanded">
                       <td colSpan={main.length + 1} className="!px-3 !py-3">
                         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
                           {minor.map((c) => (
                             <div key={c.key} className="min-w-0">
-                              <dt className="text-[11px] font-medium text-muted">{c.label}</dt>
-                              <dd className="mt-0.5 break-words font-mono text-sm tabular-nums">{c.cell(row)}</dd>
+                              <dt className="t-label">{c.label}</dt>
+                              <dd className="mt-1 break-words font-mono text-[13px] font-medium tabular-nums">{c.cell(row)}</dd>
                             </div>
                           ))}
                         </dl>

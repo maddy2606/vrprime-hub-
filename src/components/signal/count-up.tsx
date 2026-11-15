@@ -13,7 +13,7 @@ export function CountUp({ value, className = "", format = formatNumber }: { valu
     const el = ref.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches || value === 0) return;
     const started = performance.now();
-    const ms = 900;
+    const ms = 600;
     let frame = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - started) / ms);

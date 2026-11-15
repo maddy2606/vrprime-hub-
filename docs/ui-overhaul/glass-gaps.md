@@ -10,3 +10,8 @@
 - Phone sync status: the shell cannot place a line inside each page's own title block, so it is the first line of the page area, directly above the title (section 7 intent). Sync now goes with it, so owner and admin keep that action on a phone.
 - Rail group gap at ≥1100 px: 16 px (the section 3 gap); 700–1099 px uses the 8 px the spec gives.
 - Push banner text "Turn on" now reads "Turn on notifications", as the spec names it.
+- Dashboard Profit hero: the hero number takes the bad tone when profit after ads is below zero (closest reading of the t-hero is-bad rule).
+- Deck Stock health: the card title sits above its StatStrip card, because StatStrip is itself a card (no card in card).
+- Deck queue: split into "Orders and stock" and "Work and tickets" by queue kind, as section 8.1 allows.
+- Push banner: placed in the Deck headline slot (it only shows on the Deck route), not in the shell.
+- Phone tables: the ledger table shows at every width with a sticky first column; the old phone card view is gone (section 4 Tables).

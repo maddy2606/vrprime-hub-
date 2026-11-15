@@ -24,21 +24,19 @@ export function QueueList({ rows }: { rows: Row[] }) {
   const shown = all ? rows : rows.slice(0, SHOWN);
   return (
     <>
-      <ul className="divide-y divide-line-soft">
+      <ul className="m-0 list-none p-0">
         {shown.map((r) => (
-          <li key={r.key} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="mt-0.5 w-[5.5rem] shrink-0">
-                <Chip tone={TONE[r.kind]}>{r.tag}</Chip>
-              </span>
-              <div className="min-w-0">
-                <p className="break-words font-mono text-[13px] font-bold leading-snug [overflow-wrap:anywhere]">{r.title}</p>
-                <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.detail}</p>
-              </div>
+          <li key={r.key} className={`tone-row ${r.kind === "late" ? "tone-bad tone-late" : `tone-${TONE[r.kind]}`}`}>
+            <Chip tone={TONE[r.kind]} live={r.kind === "late"}>
+              {r.tag}
+            </Chip>
+            <div className="min-w-0 flex-1 basis-48">
+              <p className="tone-row-title break-words font-mono [overflow-wrap:anywhere]">{r.title}</p>
+              <p className="t-caption mt-0.5 line-clamp-2 break-words">{r.detail}</p>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2 pl-[6.25rem] sm:pl-0">
+            <div className="tone-row-actions">
               {r.actions.map((a, i) => (
-                <Link key={a.label} prefetch={false} href={a.href} className={buttonClass(i === 0 ? "secondary" : "ghost", "min-h-11 px-3 text-xs sm:min-h-9")}>
+                <Link key={a.label} prefetch={false} href={a.href} className={buttonClass(i === 0 ? "secondary" : "ghost")}>
                   {a.label}
                 </Link>
               ))}
@@ -48,7 +46,7 @@ export function QueueList({ rows }: { rows: Row[] }) {
       </ul>
       {rows.length > SHOWN ? (
         <div className="border-t border-line-soft p-2">
-          <button type="button" onClick={() => setAll((v) => !v)} className="focus-ring min-h-11 w-full rounded-xl text-sm font-bold text-accent-text hover:bg-accent-soft">
+          <button type="button" onClick={() => setAll((v) => !v)} className={buttonClass("ghost", "w-full")}>
             {all ? "Show fewer" : `Show ${rows.length - SHOWN} more`}
           </button>
         </div>

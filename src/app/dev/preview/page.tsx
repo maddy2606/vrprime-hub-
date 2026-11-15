@@ -23,6 +23,9 @@ import { ReviewTracker } from "@/components/reviews/review-tracker";
 import { fakeAdsTracker, fakeReviews } from "@/lib/dev-fixtures-trackers";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
 import { CommandDeck } from "@/components/deck/sections";
+import { DashboardBoard } from "@/components/dashboard/board";
+import { PnlBoard } from "@/components/pnl/pnl-board";
+import { fakeDashboard, fakePnl } from "@/lib/dev-fixtures-pnl";
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
 import { fakeTeam } from "@/lib/dev-fixtures-team";
 import { TeamBoard } from "@/components/team/board";
@@ -77,6 +80,7 @@ const PREVIEW_SYNCED = new Date(Date.now() - 42_000).toISOString();
 const VIEWS = [
   "deck",
   "deckclear",
+  "dashboard",
   "mywork",
   "listings",
   "empty",
@@ -108,6 +112,7 @@ const VIEWS = [
   "adsdesk",
   "ads",
   "reviews",
+  "pnl",
   "settings",
   "users",
   "password",
@@ -173,6 +178,11 @@ export default async function PreviewPage({
       </nav>
 
       {view === "deck" || view === "deckclear" ? <CommandDeck d={fakeDeck(view === "deckclear")} /> : null}
+      {view === "dashboard" ? <DashboardBoard d={fakeDashboard()} /> : null}
+      {view === "pnl" ? (() => {
+        const p = fakePnl();
+        return <PnlBoard months={p.months} month={p.months[0]?.month ?? null} costing={p.costing} uploads={p.uploads} feePct={p.feePct} reportSkus={p.reportSkus} error={p.error} />;
+      })() : null}
       {view === "mywork" ? <MyWork posts={open} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "empty" ? <MyWork posts={[]} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "all" ? (

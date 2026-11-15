@@ -3,7 +3,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AlertCenter } from "@/components/alerts/alert-center";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { PushPrompt } from "@/components/notifications/push-prompt";
 import { CommandBar, SyncControl } from "@/components/shell/command-bar";
 import { Rail } from "@/components/shell/rail";
 import { ThemeSwitch } from "@/components/shell/theme-switch";
@@ -70,8 +69,6 @@ export async function AppShell({
         <div className="mb-3 min-[700px]:hidden">
           <SyncControl since={syncedAt} scope={scope} canSync={user.role !== "warehouse"} place="phone" />
         </div>
-        {/* The offer to turn on alerts: one line, on the Command Deck only (the component checks the route). */}
-        {user.id ? <PushPrompt userId={user.id} /> : null}
         {children}
       </main>
       <AlertCenter initial={alerts} total={unread} />

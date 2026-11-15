@@ -28,3 +28,13 @@ Reviews, Team, P&L · 7 Admin, sign-in, Money · 8 Accessibility pass and colour
 - Push banner: slim Card, ghost Not now, secondary Turn on notifications. Dev preview bar: one Card, caption links.
 - Main area: max 1480 px, padding 24/16/12 px.
 - Checks: tsc, lint, 298 tests clean. Seen in dark 1440, dark 390 and light 1440.
+
+## 3. Command Deck and Dashboard (spec 8.1, 8.2): done
+- Deck: 12-column grid in spec order. Headline (span 12), Today hero card (span 5, gradient border, t-hero, live late
+  chip, capacity track, numbers strip), lanes (span 7), pulses (span 12), queue as two cards "Orders and stock"
+  (span 7) and "Work and tickets" (span 5, with open tickets chip), orders trend 7 / dispatch 5, stock by warehouse
+  6 / stock health 6 (3+2 strip), movers span 12 in two columns from 1100 px. Queue rows are tone rows.
+- Dashboard: greeting with month chip and headline; Profit hero (span 5), Revenue 3, Ads 2 (gauge), To dispatch 2;
+  pulses; orders a day 7 / money ring 5; month by month 7 / products 5; lanes 7 / needs a look 5.
+- Added fake data: src/lib/dev-fixtures-pnl.ts (fakePnl, fakeDashboard) and preview views ?view=dashboard, ?view=pnl.
+- Checks: tsc, lint, 298 tests clean. Seen in dark 1440 and dark 390 (deck, dashboard).

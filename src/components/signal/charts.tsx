@@ -152,18 +152,15 @@ export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="sp-wipe absolute inset-0 h-full w-full">
           <defs>
             <linearGradient id={`${id}f`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" style={{ stopColor: COLOR.indigo }} stopOpacity="0.42" />
+              <stop offset="0" style={{ stopColor: COLOR.indigo }} stopOpacity="0.28" />
               <stop offset="1" style={{ stopColor: COLOR.indigo }} stopOpacity="0" />
             </linearGradient>
-            <linearGradient id={`${id}l`} x1="0" x2="100" y1="0" y2="0" gradientUnits="userSpaceOnUse">
-              <stop offset="0" style={{ stopColor: COLOR.indigo }} />
-              <stop offset="1" style={{ stopColor: COLOR.madder }} />
-            </linearGradient>
+
           </defs>
           <line x1="0" x2="100" y1="99.5" y2="99.5" style={{ stroke: COLOR.line }} strokeWidth="1" vectorEffect="non-scaling-stroke" />
           {avgY !== null ? <line x1="0" x2="100" y1={avgY} y2={avgY} style={{ stroke: COLOR.muted }} strokeOpacity="0.55" strokeWidth="1" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
           <path d={`${line} L100 100 L0 100 Z`} fill={`url(#${id}f)`} />
-          <path d={line} fill="none" stroke={`url(#${id}l)`} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <path d={line} fill="none" style={{ stroke: COLOR.indigo }} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         </svg>
         {avgY !== null ? (
           <span className="absolute left-0 -translate-y-full pb-0.5 font-mono text-[11px] text-muted" style={{ top: `${avgY}%` }}>
@@ -182,10 +179,10 @@ export function TrendChart({ data, avg, avgLabel, ariaLabel }: { data: AreaPoint
           <>
             <span
               className="sp-fade absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-surface"
-              style={{ left: `${last[0]}%`, top: `${last[1]}%`, background: COLOR.madder, boxShadow: `0 0 0 5px color-mix(in srgb, ${COLOR.madder} 22%, transparent)` }}
+              style={{ left: `${last[0]}%`, top: `${last[1]}%`, background: COLOR.indigo, boxShadow: `0 0 0 5px color-mix(in srgb, ${COLOR.indigo} 20%, transparent)` }}
             />
             <span
-              className="sp-fade absolute right-0 -translate-y-full whitespace-nowrap rounded-full bg-madder px-2 py-0.5 font-mono text-[11px] font-bold text-white"
+              className="sp-fade absolute right-0 -translate-y-full whitespace-nowrap rounded-full bg-ink px-2 py-0.5 font-mono text-[11px] font-semibold text-canvas"
               style={{ top: `calc(${last[1]}% - 12px)` }}
             >
               {formatNumber(values[values.length - 1])}

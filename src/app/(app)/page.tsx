@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DispatchChart, Hero, Movers, OrdersByStage, OrdersTrend, PriorityQueue, Pulses, StockByWarehouse, StockHealth, TodayDispatch, Warehouses } from "@/components/deck/sections";
+import { CommandDeck } from "@/components/deck/sections";
 import { requireUser } from "@/lib/auth";
 import { loadDeck } from "@/server/deck-data";
 
@@ -8,35 +8,5 @@ export const metadata: Metadata = { title: "Command Deck" };
 export default async function CommandDeckPage() {
   const user = await requireUser();
   const d = await loadDeck(user);
-  return (
-    <div className="flex flex-col gap-5">
-      {d.notes.length ? (
-        <p role="status" className="rounded-xl bg-cyan-soft px-3 py-2 text-sm font-semibold text-cyan">
-          {d.notes.join(" ")}
-        </p>
-      ) : null}
-      {/* Today's dispatch and the orders graph, top left: the day's main number first. */}
-      {d.todayCard ? (
-        <div className="grid gap-5 lg:grid-cols-[1fr_1.15fr]">
-          <TodayDispatch d={d} />
-          <OrdersTrend d={d} />
-        </div>
-      ) : null}
-      <div className="grid gap-5 lg:grid-cols-[1.45fr_1fr]">
-        <Hero d={d} />
-        <Pulses d={d} />
-      </div>
-      <div className="grid items-start gap-5 lg:grid-cols-[1.5fr_1fr]">
-        <PriorityQueue d={d} />
-        <Warehouses d={d} />
-      </div>
-      <div className="grid items-start gap-5 lg:grid-cols-2">
-        <StockByWarehouse d={d} />
-        <OrdersByStage d={d} />
-      </div>
-      <DispatchChart d={d} />
-      <StockHealth d={d} />
-      <Movers d={d} />
-    </div>
-  );
+  return <CommandDeck d={d} />;
 }

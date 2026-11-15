@@ -2,18 +2,15 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Gauge, Sparkline, TrendChart } from "@/components/signal/charts";
 import { CountUp } from "@/components/signal/count-up";
+import { Lanes } from "@/components/signal/lanes";
 import { RupeesCountUp } from "@/components/dashboard/money-count";
-import { KpiTile } from "@/components/signal/kpi";
-import { Chip } from "@/components/ui";
+import { Chip, Headline, Num, SectionHead, Stat, StatStrip } from "@/components/ui";
 import { KIND_TONE, timeAgo } from "@/lib/alerts";
 import { formatINR, formatNumber } from "@/lib/format";
 import { NOTIFICATION_ICON_LABEL } from "@/lib/labels";
-import { STAGE_COLOR } from "@/lib/theme";
 import type { DashboardData } from "@/server/dashboard-data";
 
 // The owner's dashboard: every card and row is a link to the page with the detail.
-
-const style = (i: number) => ({ ["--i" as string]: i });
 
 /** ₹ in lakh or crore for the big numbers (₹16.5L, ₹1.02Cr); exact rupees below a lakh. */
 function short(n: number): string {
@@ -25,42 +22,29 @@ function short(n: number): string {
 }
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
 
-/** A big clickable tile with a coloured glow in its corner. */
-function Tile({ href, label, glow, index, children }: { href: string; label: string; glow: string; index: number; children: ReactNode }) {
+/** A big clickable figure. */
+function Tile({ href, label, children }: { href: string; label: string; children: ReactNode }) {
   return (
-    <Link
-     
-      href={href}
-      className="focus-ring sp-card sp-card-lg sp-lift sp-reveal group relative block min-w-0 overflow-hidden p-5"
-      style={style(index)}
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full opacity-80 transition-opacity group-hover:opacity-100"
-        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${glow} 34%, transparent), transparent 68%)` }}
-      />
-      <span className="relative flex items-center justify-between gap-2">
-        <span className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">{label}</span>
-        <span aria-hidden="true" className="text-muted transition-transform group-hover:translate-x-0.5">
-          →
-        </span>
-      </span>
-      <span className="relative mt-2 block">{children}</span>
+    <Link href={href} className="focus-ring sp-card sp-lift block min-w-0 p-5">
+      <span className="block text-xs font-medium text-muted">{label}</span>
+      <span className="mt-2 block">{children}</span>
     </Link>
   );
 }
 
-/** A card whose header links to the page with the detail. */
-function Panel({ title, sub, href, index, children, className = "" }: { title: string; sub?: string; href: string; index: number; children: ReactNode; className?: string }) {
+/** A card whose heading links to the page with the detail. */
+function Panel({ title, sub, href, children, className = "" }: { title: string; sub?: string; href: string; children: ReactNode; className?: string }) {
   return (
-    <section className={`sp-card sp-card-lg sp-reveal min-w-0 p-5 sm:p-6 ${className}`} style={style(index)}>
-      <Link href={href} className="focus-ring group mb-4 flex items-end justify-between gap-2 rounded-lg">
-        <span className="min-w-0">
-          <span className="block font-display text-lg font-semibold group-hover:text-accent-text">{title}</span>
-          {sub ? <span className="block text-xs text-muted">{sub}</span> : null}
-        </span>
-        <span className="shrink-0 text-xs font-bold text-accent-text">Open →</span>
-      </Link>
+    <section className={`sp-card min-w-0 p-5 ${className}`}>
+      <SectionHead
+        title={title}
+        sub={sub}
+        action={
+          <Link href={href} className="focus-ring shrink-0 rounded-md text-xs font-semibold text-accent-text hover:underline">
+            Open
+          </Link>
+        }
+      />
       {children}
     </section>
   );
@@ -73,26 +57,26 @@ function MoneyRing({ parts, centre, sub }: { parts: { label: string; value: numb
   const segs = parts.map((p, i) => ({ ...p, len: (Math.max(0, p.value) / total) * 100, start: parts.slice(0, i).reduce((n, q) => n + (Math.max(0, q.value) / total) * 100, 0) }));
   return (
     <div className="flex flex-col items-center gap-5 sm:flex-row">
-      <div className="relative h-44 w-44 shrink-0" role="img" aria-label={`Where the revenue went: ${parts.map((p) => `${p.label} ${short(p.value)}`).join(", ")}`}>
+      <div className="relative h-40 w-40 shrink-0" role="img" aria-label={`Where the revenue went: ${parts.map((p) => `${p.label} ${short(p.value)}`).join(", ")}`}>
         <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-          <circle cx="50" cy="50" r="40" fill="none" style={{ stroke: "var(--surface2)" }} strokeWidth="14" />
+          <circle cx="50" cy="50" r="40" fill="none" style={{ stroke: "var(--surface2)" }} strokeWidth="12" />
           {segs.map((p) => (
-            <circle key={p.label} cx="50" cy="50" r="40" fill="none" style={{ stroke: p.color }} strokeWidth="14" pathLength={100} strokeDasharray={`${Math.max(0, p.len - 0.8)} ${100 - Math.max(0, p.len - 0.8)}`} strokeDashoffset={-p.start} className="sp-gauge-arc" />
+            <circle key={p.label} cx="50" cy="50" r="40" fill="none" style={{ stroke: p.color }} strokeWidth="12" pathLength={100} strokeDasharray={`${Math.max(0, p.len - 0.8)} ${100 - Math.max(0, p.len - 0.8)}`} strokeDashoffset={-p.start} className="sp-gauge-arc" />
           ))}
         </svg>
         <span className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-mono text-2xl font-bold tabular-nums">{centre}</span>
-          <span className="text-[11px] font-semibold text-muted">{sub}</span>
+          <span className="font-mono text-2xl font-semibold tabular-nums">{centre}</span>
+          <span className="text-[11px] font-medium text-muted">{sub}</span>
         </span>
       </div>
-      <ul className="grid w-full gap-2">
+      <ul className="w-full divide-y divide-line-soft">
         {parts.map((p) => (
-          <li key={p.label} className="flex items-center justify-between gap-3 rounded-xl bg-surface2/50 px-3 py-2 text-sm">
+          <li key={p.label} className="flex items-center justify-between gap-3 py-1.5 text-sm">
             <span className="flex items-center gap-2">
-              <span aria-hidden="true" className="h-3 w-3 rounded" style={{ background: p.color }} />
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm" style={{ background: p.color }} />
               {p.label}
             </span>
-            <span className="font-mono font-bold tabular-nums">
+            <span className="font-mono font-semibold tabular-nums">
               {short(p.value)} <span className="text-xs font-normal text-muted">{pct(p.value, total)}%</span>
             </span>
           </li>
@@ -123,26 +107,54 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
   const maxProduct = Math.max(1, ...best.map((p) => Math.abs(p.net)), ...worst.map((p) => Math.abs(p.net)));
   const months = [...pnl.months].slice(0, 4).reverse();
   const maxMonth = Math.max(1, ...months.map((m) => m.total.sales));
-  const stageMax = Math.max(1, ...deck.whStages.map((w) => w.to_accept + w.to_pack + w.to_dispatch));
   const hour = Number(new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", hourCycle: "h23" }).format(new Date(deck.nowIso)));
   const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
+  const stages = new Map(deck.whStages.map((s) => [s.id, s]));
+  const lanes = deck.warehouses.map((w) => {
+    const s = stages.get(w.id);
+    return {
+      id: w.id,
+      name: w.name,
+      color: w.color,
+      stages: { to_accept: s?.to_accept ?? 0, to_pack: s?.to_pack ?? 0, to_dispatch: s?.to_dispatch ?? 0 },
+      late: w.late,
+      next: w.next,
+      href: w.href,
+    };
+  });
+  const monthWord = now ? now.label.split(" ")[0] : "this month";
   return (
-    <div className="flex min-w-0 flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">
+          <p className="text-xs font-medium text-muted">
             {greet}, {deck.firstName}
-          </h1>
-          <p className="mt-0.5 text-sm text-muted">Money, orders and alerts in one place. Tap anything for the detail.</p>
+            {now ? ` · ${now.label}${now.to ? ` to ${Number(now.to.slice(8, 10))} ${monthWord.slice(0, 3)}` : ""}` : ""}
+          </p>
+          {t ? (
+            <Headline className="mt-2">
+              <Num tone={t.net < 0 ? "bad" : "ok"}>{short(t.net)}</Num> profit after ads {now?.month === thisMonth ? "so far" : `in ${monthWord}`}
+              {margin !== null ? (
+                <>
+                  , a <Num tone={margin < 10 ? "bad" : margin < 25 ? "warn" : "ok"}>{margin}%</Num> margin on <Num>{short(t.sales)}</Num>
+                </>
+              ) : null}
+              {tc ? (
+                <>
+                  ; <Num tone={tc.late > 0 ? "bad" : "ink"}>{formatNumber(tc.due)}</Num> orders still to go out today
+                </>
+              ) : null}
+              .
+            </Headline>
+          ) : (
+            <Headline className="mt-2">Money, orders and alerts in one place. Add costs on the P&amp;L page to see profit here.</Headline>
+          )}
         </div>
-        {now ? <Chip tone="accent">{now.label}{now.to ? ` · to ${Number(now.to.slice(8, 10))} ${now.label.split(" ")[0].slice(0, 3)}` : ""}</Chip> : null}
       </header>
-
       {/* The four numbers that matter today. */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label={`Profit after ads · ${now ? now.label.split(" ")[0] : "month"}`} glow={t && t.net < 0 ? "var(--bad)" : "var(--ok)"} index={0}>
-          <span className={`block font-mono text-4xl font-bold tabular-nums ${t && t.net < 0 ? "text-bad" : "text-ok"}`}>
+        <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label={`Profit after ads · ${now ? monthWord : "month"}`}>
+          <span className={`display-num block text-[2.5rem] ${t && t.net < 0 ? "text-bad" : "text-ok"}`}>
             <RupeesCountUp value={Math.round(t?.net ?? 0)} />
           </span>
           <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted">
@@ -151,15 +163,15 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           </span>
           {pace !== null ? <span className="mt-2 block text-xs text-muted">On pace for {short(pace)} this month</span> : null}
         </Tile>
-        <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label="Revenue (seller price)" glow="var(--accent)" index={1}>
-          <span className="block font-mono text-4xl font-bold tabular-nums">
+        <Tile href={now ? `/pnl?month=${now.month}` : "/pnl"} label="Revenue (seller price)">
+          <span className="display-num block text-[2.5rem]">
             <RupeesCountUp value={Math.round(t?.sales ?? 0)} />
           </span>
           <span className="mt-2 block text-xs text-muted">
             {formatNumber(t?.units ?? 0)} units sold{prev ? ` · ${prev.label.split(" ")[0]} ${short(prev.total.sales)}` : ""}
           </span>
           {t ? (
-            <span className="mt-3 flex h-2 overflow-hidden rounded-full" aria-hidden="true">
+            <span className="mt-3 flex h-2 gap-[2px] overflow-hidden rounded-full" aria-hidden="true">
               <span style={{ width: `${pct(t.cost, t.sales)}%`, background: "var(--stage-2)" }} />
               <span style={{ width: `${pct(t.ads, t.sales)}%`, background: "var(--madder)" }} />
               <span style={{ width: `${pct(t.fees, t.sales)}%`, background: "var(--faint)" }} />
@@ -167,9 +179,9 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             </span>
           ) : null}
         </Tile>
-        <Tile href="/pnl#ads-title" label="Ads incl. 18% GST" glow="var(--madder)" index={2}>
+        <Tile href="/pnl#ads-title" label="Ads incl. 18% GST">
           <span className="flex items-center justify-between gap-3">
-            <span className="block font-mono text-4xl font-bold tabular-nums">
+            <span className="display-num block text-[2.5rem]">
               <RupeesCountUp value={Math.round(t?.ads ?? 0)} />
             </span>
             <Gauge pct={adsShare} tone={adsShare > 15 ? "bad" : adsShare > 10 ? "warn" : "ok"} label={`Ads are ${Math.round(adsShare)}% of revenue`} />
@@ -178,8 +190,8 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             {Math.round(adsShare)}% of revenue{prev && prev.total.sales > 0 ? ` · ${prev.label.split(" ")[0]} ${Math.round((prev.total.ads / prev.total.sales) * 100)}%` : ""}
           </span>
         </Tile>
-        <Tile href="/flipkart?tab=orders" label="To dispatch today" glow="var(--cyan)" index={3}>
-          <span className="block font-mono text-4xl font-bold tabular-nums">
+        <Tile href="/flipkart?tab=orders" label="To dispatch today">
+          <span className="display-num block text-[2.5rem]">
             <CountUp value={tc?.due ?? 0} />
           </span>
           <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
@@ -191,10 +203,9 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           </span>
         </Tile>
       </div>
-
       {/* Orders a day, and where this month's money went. */}
-      <div className="grid gap-5 lg:grid-cols-[1.35fr_1fr]">
-        <Panel title="Orders a day" sub={`Placed on Flipkart, last ${deck.trend.length} days`} href="/flipkart?tab=orders" index={4}>
+      <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+        <Panel title="Orders a day" sub={`Placed on Flipkart, last ${deck.trend.length} days`} href="/flipkart?tab=orders">
           {deck.trend.length >= 2 ? (
             <TrendChart
               data={deck.trend.map((p) => ({ label: p.label, value: p.orders }))}
@@ -206,7 +217,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             <p className="py-10 text-center text-sm text-muted">The graph starts once a few days of orders are saved.</p>
           )}
         </Panel>
-        <Panel title="Where the money went" sub={now ? `${now.label}, out of ${short(t?.sales ?? 0)} revenue` : "No P&L yet"} href={now ? `/pnl?month=${now.month}` : "/pnl"} index={5}>
+        <Panel title="Where the money went" sub={now ? `${now.label}, out of ${short(t?.sales ?? 0)} revenue` : "No P&L yet"} href={now ? `/pnl?month=${now.month}` : "/pnl"}>
           {t ? (
             <MoneyRing
               centre={margin === null ? "—" : `${margin}%`}
@@ -223,33 +234,31 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           )}
         </Panel>
       </div>
-
       {/* Today's signals from the Command Deck, each a link. */}
       {deck.pulses.length ? (
-        <div className={`grid grid-cols-2 gap-4 ${deck.pulses.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
-          {deck.pulses.slice(0, 4).map((p, i) => (
-            <KpiTile key={p.key} label={p.label} value={p.value} sub={p.sub} tone={p.tone} spark={p.spark} sparkTone={p.tone} sparkLabel={p.sparkLabel} href={p.href} index={6 + i} />
+        <StatStrip ariaLabel="Today's signals">
+          {deck.pulses.slice(0, 4).map((p) => (
+            <Stat key={p.key} label={p.label} value={<CountUp value={p.value} />} sub={p.sub} tone={p.tone === "cyan" ? "accent" : p.tone} href={p.href} chart={<Sparkline values={p.spark} tone={p.tone} label={p.sparkLabel} className="h-7 w-full max-w-[10rem]" />} />
           ))}
-        </div>
+        </StatStrip>
       ) : null}
-
       {/* Month by month, and the products making and losing money. */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Panel title="Month by month" sub="Revenue, profit after ads and ads" href="/pnl" index={10}>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Month by month" sub="Revenue, profit after ads and ads" href="/pnl">
           {months.length ? (
             <div className="flex h-56 items-end gap-4">
               {months.map((m) => (
-                <Link key={m.month} href={`/pnl?month=${m.month}`} className="focus-ring group flex h-full min-w-0 flex-1 flex-col justify-end rounded-xl p-1 hover:bg-surface2/50">
+                <Link key={m.month} href={`/pnl?month=${m.month}`} className="focus-ring group flex h-full min-w-0 flex-1 flex-col justify-end rounded-lg p-1 hover:bg-surface2/50">
                   <span className="flex h-full items-end justify-center gap-1.5">
                     {[
-                      { v: m.total.sales, c: "linear-gradient(180deg, var(--accent-text), var(--accent))", l: "Revenue" },
-                      { v: Math.max(0, m.total.net), c: "linear-gradient(180deg, color-mix(in srgb, var(--ok) 70%, white), var(--ok))", l: "Profit" },
-                      { v: m.total.ads, c: "linear-gradient(180deg, color-mix(in srgb, var(--madder) 70%, white), var(--madder))", l: "Ads" },
+                      { v: m.total.sales, c: "var(--accent)", l: "Revenue" },
+                      { v: Math.max(0, m.total.net), c: "var(--ok)", l: "Profit" },
+                      { v: m.total.ads, c: "var(--madder)", l: "Ads" },
                     ].map((b) => (
-                      <span key={b.l} title={`${b.l} ${short(b.v)}`} className="sp-bar w-5 rounded-t-md sm:w-7" style={{ height: `${Math.max(3, (b.v / maxMonth) * 100)}%`, background: b.c, transformOrigin: "bottom" }} />
+                      <span key={b.l} title={`${b.l} ${short(b.v)}`} className="sp-bar w-5 rounded-t sm:w-7" style={{ height: `${Math.max(3, (b.v / maxMonth) * 100)}%`, background: b.c, transformOrigin: "bottom" }} />
                     ))}
                   </span>
-                  <span className="mt-2 block text-center text-xs font-bold">{m.label.split(" ")[0].slice(0, 3)}</span>
+                  <span className="mt-2 block text-center text-xs font-semibold">{m.label.split(" ")[0].slice(0, 3)}</span>
                   <span className="block text-center font-mono text-[11px] text-muted tabular-nums">{short(m.total.net)}</span>
                 </Link>
               ))}
@@ -258,21 +267,21 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
             <p className="py-10 text-center text-sm text-muted">No months yet.</p>
           )}
           <p className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded" style={{ background: "var(--accent)" }} />Revenue</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded" style={{ background: "var(--ok)" }} />Profit after ads</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded" style={{ background: "var(--madder)" }} />Ads</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--accent)" }} />Revenue</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--ok)" }} />Profit after ads</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--madder)" }} />Ads</span>
           </p>
         </Panel>
-        <Panel title="Products by profit" sub={now ? `${now.label}, after ads` : ""} href={now ? `/pnl?month=${now.month}` : "/pnl"} index={11}>
-          <ul className="flex flex-col gap-2.5">
+        <Panel title="Products by profit" sub={now ? `${now.label}, after ads` : ""} href={now ? `/pnl?month=${now.month}` : "/pnl"}>
+          <ul className="flex flex-col divide-y divide-line-soft">
             {[...best, ...worst].map((p) => (
               <li key={p.id}>
-                <Link href={now ? `/pnl?month=${now.month}` : "/pnl"} className="focus-ring grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-1 py-0.5 hover:bg-surface2/50">
+                <Link href={now ? `/pnl?month=${now.month}` : "/pnl"} className="focus-ring grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-md py-2 hover:bg-surface2/50">
                   <span className="truncate text-sm font-semibold">{p.name}</span>
-                  <span className="h-2.5 overflow-hidden rounded-full bg-surface2">
-                    <span className="sp-bar block h-full rounded-full" style={{ width: `${(Math.abs(p.net) / maxProduct) * 100}%`, background: p.net < 0 ? "var(--bad)" : "linear-gradient(90deg, var(--accent), var(--ok))" }} />
+                  <span className="h-2 overflow-hidden rounded-full bg-surface2">
+                    <span className="sp-bar block h-full rounded-full" style={{ width: `${(Math.abs(p.net) / maxProduct) * 100}%`, background: p.net < 0 ? "var(--bad)" : "var(--ok)" }} />
                   </span>
-                  <span className={`font-mono text-sm font-bold tabular-nums ${p.net < 0 ? "text-bad" : "text-ok"}`}>{short(p.net)}</span>
+                  <span className={`font-mono text-sm font-semibold tabular-nums ${p.net < 0 ? "text-bad" : "text-ok"}`}>{short(p.net)}</span>
                 </Link>
               </li>
             ))}
@@ -280,47 +289,21 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
           </ul>
         </Panel>
       </div>
-
-      {/* Work in the warehouses, spending, and what needs a look. */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        <Panel title="Orders waiting, by warehouse" sub="To accept, to pack and to dispatch" href="/flipkart?tab=orders" index={12}>
-          <ul className="flex flex-col gap-3">
-            {deck.whStages.map((w) => {
-              const sum = w.to_accept + w.to_pack + w.to_dispatch;
-              const href = deck.warehouses.find((x) => x.id === w.id)?.href ?? "/flipkart?tab=orders";
-              return (
-                <li key={w.id}>
-                  <Link href={href} className="focus-ring block rounded-lg px-1 py-0.5 hover:bg-surface2/50">
-                    <span className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex items-center gap-2 font-semibold">
-                        <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: w.color }} />
-                        {w.name}
-                      </span>
-                      <span className="font-mono font-bold tabular-nums">{formatNumber(sum)}</span>
-                    </span>
-                    <span className="mt-1.5 flex h-2.5 overflow-hidden rounded-full bg-surface2" style={{ width: `${Math.max(4, (sum / stageMax) * 100)}%` }}>
-                      <span style={{ flex: w.to_accept, background: STAGE_COLOR.to_accept }} />
-                      <span style={{ flex: w.to_pack, background: STAGE_COLOR.to_pack }} />
-                      <span style={{ flex: w.to_dispatch, background: STAGE_COLOR.to_dispatch }} />
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-            {!deck.whStages.length ? <li className="py-6 text-center text-sm text-muted">No open orders.</li> : null}
-          </ul>
-          <p className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded" style={{ background: STAGE_COLOR.to_accept }} />To accept</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded" style={{ background: STAGE_COLOR.to_pack }} />To pack</span>
-            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded" style={{ background: STAGE_COLOR.to_dispatch }} />To dispatch</span>
-          </p>
+      {/* Work in the warehouses, and what needs a look. */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Orders waiting, by warehouse" sub="To accept, to pack and to dispatch; late orders at the gate" href="/flipkart?tab=orders">
+          {lanes.length ? (
+            <Lanes lanes={lanes} ariaLabel={`Active orders by warehouse and stage: ${deck.whStages.map((r) => `${r.name}: ${r.to_accept} to accept, ${r.to_pack} to pack, ${r.to_dispatch} to dispatch`).join("; ")}`} />
+          ) : (
+            <p className="py-6 text-center text-sm text-muted">No open orders.</p>
+          )}
         </Panel>
-        <Panel title="Needs a look" sub={alerts.length ? `${alerts.length} unread alerts` : "Nothing unread"} href="/notifications" index={13}>
+        <Panel title="Needs a look" sub={alerts.length ? `${alerts.length} unread alerts` : "Nothing unread"} href="/notifications">
           {alerts.length ? (
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col divide-y divide-line-soft">
               {alerts.map((a) => (
                 <li key={a.id}>
-                  <Link href={a.href} className="focus-ring flex items-start gap-3 rounded-xl border border-line-soft bg-surface/60 p-3 hover:border-accent/50">
+                  <Link href={a.href} className="focus-ring flex items-start gap-3 rounded-md py-2.5 hover:bg-surface2/50">
                     <Chip tone={KIND_TONE[a.kind] ?? "neutral"}>{NOTIFICATION_ICON_LABEL[a.kind] ?? "Alert"}</Chip>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold">{a.title}</span>
@@ -331,7 +314,7 @@ export function DashboardBoard({ d }: { d: DashboardData }) {
               ))}
             </ul>
           ) : (
-            <p className="rounded-xl bg-ok-soft px-3 py-6 text-center text-sm font-semibold text-ok">All clear: no unread alerts.</p>
+            <p className="rounded-lg bg-ok-soft px-3 py-6 text-center text-sm font-semibold text-ok">All clear: no unread alerts.</p>
           )}
         </Panel>
       </div>

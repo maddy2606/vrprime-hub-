@@ -388,14 +388,14 @@ select optgroup {
   .vr-shell { padding-left: 72px; }
   .vr-rail { width: 72px; }
 }
+.vr-rail-label,
+.vr-rail-group { display: none; }
 @media (min-width: 1100px) {
   .vr-shell { padding-left: 232px; }
   .vr-rail { width: 232px; }
   .vr-rail-label { display: block; }
   .vr-rail-group { display: block; }
 }
-.vr-rail-label,
-.vr-rail-group { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton, .toast, .sp-bar, .sp-gauge-arc, .sp-dot, .vr-scrim, .vr-sheet, .vr-ring { animation: none !important; }

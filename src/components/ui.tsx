@@ -142,7 +142,7 @@ const NUM_TONE: Record<Tone | "ink", string> = {
 
 /** A figure inside a sentence, in the mono face and a status colour. */
 export function Num({ tone = "ink", children }: { tone?: Tone | "ink"; children: ReactNode }) {
-  return <em className={NUM_TONE[tone]}>{children}</em>;
+  return <em className={`font-mono font-semibold not-italic tracking-[-0.02em] tabular-nums ${NUM_TONE[tone]}`}>{children}</em>;
 }
 
 /**

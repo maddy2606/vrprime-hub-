@@ -69,5 +69,16 @@ Not now), and the full card stays on the Notifications page.
 - Baseline at 144ad5f: tsc, lint and 298 tests clean (after `npm ci`; node_modules was broken).
 - `docs/ui-overhaul/inventory.md` written; before screenshots taken.
 
-### 1. Design system and app shell
-- (in progress)
+### 1. Design system and app shell (done)
+- Ledger tokens (light, dark, auto), Archivo and IBM Plex Mono, flat hairline cards, stat strips, ledger tables.
+- Sidebar grouped Operate / Marketplace / Admin with labels from 1100px, icon rail from 561px, bottom bar on phones. Same role rules as before.
+- New `Lanes` component (src/components/signal/lanes.tsx): one lane per warehouse, stages left to right, late block at the gate.
+- Push banner is now one line and shows on the Command Deck only; the full card stays on Notifications.
+- Old entrance animations (sp-reveal, sp-lift, sp-glow, sp-fade, sp-wipe) are kept as class names but do nothing, so no page breaks.
+
+### 2. Command Deck and Dashboard (done)
+- Command Deck: headline sentence, then the dispatch board as the one dominant element (today count, capacity bar, stat strip, warehouse lanes). The old Warehouses and Orders by stage cards are merged into the lanes; every figure is still shown.
+- Then orders trend, pulses strip, priority queue, dispatch chart, stock health, movers, stock by warehouse.
+- Dashboard: headline sentence with profit figures, four tiles, then the same panels in a calmer layout; Orders waiting uses the lanes.
+- Decision: Dashboard has no fake-data preview view (owner P&L data), so it has no file screenshot; it was type-checked and linted only.
+- Checks: tsc clean, lint clean, 298 tests pass.

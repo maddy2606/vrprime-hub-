@@ -1,23 +1,12 @@
 import Link from "next/link";
-import { Bar, AreaChart, Gauge, PairedRows, ShareBar, StackedRows, TrendChart } from "@/components/signal/charts";
+import { AreaChart, Bar, PairedRows, ShareBar, Sparkline, TrendChart } from "@/components/signal/charts";
 import { CountUp } from "@/components/signal/count-up";
-import { KpiTile } from "@/components/signal/kpi";
-import { Sparkline } from "@/components/signal/charts";
+import { Lanes, type Lane } from "@/components/signal/lanes";
 import { QueueList } from "@/components/deck/queue";
-import { buttonClass, Chip } from "@/components/ui";
+import { buttonClass, Chip, Headline, SectionHead, Stat, StatStrip, withNumbers } from "@/components/ui";
 import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
-import { COLOR, STAGE_COLOR, type SignalTone } from "@/lib/theme";
+import { COLOR, type SignalTone } from "@/lib/theme";
 import type { DeckData } from "@/server/deck-data";
-
-const style = (i: number) => ({ ["--i" as string]: i });
-
-function CheckIcon({ className = "h-6 w-6" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  );
-}
 
 /** Up or down against the period before, as a coloured tag; "steady" within 2%. */
 function Delta({ pct, against }: { pct: number | null; against: string }) {
@@ -30,85 +19,138 @@ function Delta({ pct, against }: { pct: number | null; against: string }) {
   );
 }
 
-function TodayStat({ label, value, change, against }: { label: string; value: number | null; change: number | null; against: string }) {
+/**
+ * The first thing on the page: the state of the day as one sentence, its numbers picked out in the day's colour, the
+ * reassurance under it, and the two places to go next.
+ */
+export function DeckHeadline({ d }: { d: DeckData }) {
+  const { hero } = d;
+  const time = formatDateTime(d.nowIso).replace(/^Today /, "");
   return (
-    <div className="min-w-0">
-      <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">{label}</dt>
-      <dd className="mt-1 font-mono text-xl font-bold leading-none tabular-nums sm:text-2xl">{value === null ? "—" : formatNumber(value)}</dd>
-      <dd className="mt-2 min-h-5">
-        <Delta pct={change} against={against} />
-      </dd>
-    </div>
+    <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="min-w-0 max-w-3xl">
+        <p className="text-xs font-medium text-muted">
+          Operations · {formatDate(d.today)} · {time}
+        </p>
+        <Headline text={hero.headline} tone={hero.tone} className={`mt-2 ${hero.tone === "ok" ? "text-ok" : ""}`} />
+        <p className="mt-2 text-sm text-muted sm:text-[15px]">{withNumbers(hero.reassurance, "ink")}</p>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">
+        <a href="#queue" className={buttonClass("primary")}>
+          Open priority queue
+        </a>
+        <Link prefetch={false} href="/flipkart" className={buttonClass("outline")}>
+          Jump to Flipkart
+        </Link>
+      </div>
+    </header>
   );
 }
 
+/** The deck's lanes: each warehouse's orders by stage, its health, the late count and the next dispatch time. */
+function deckLanes(d: DeckData): Lane[] {
+  const stages = new Map(d.whStages.map((s) => [s.id, s]));
+  return d.warehouses.map((w) => {
+    const s = stages.get(w.id);
+    return {
+      id: w.id,
+      name: w.name,
+      color: w.color,
+      stages: { to_accept: s?.to_accept ?? 0, to_pack: s?.to_pack ?? 0, to_dispatch: s?.to_dispatch ?? 0 },
+      late: w.late,
+      next: w.next,
+      chip: w.health.chip,
+      note: `${w.health.pct}% on time`,
+      figure: { value: w.active, label: w.out === null ? "active" : `active · ${formatNumber(w.out)} out` },
+      href: w.href,
+    };
+  });
+}
+
 /**
- * The top card: orders still to go out today, how full that makes the team's day, and yesterday, the 7-day average and the
- * busiest warehouse underneath. The capacity bar is for the owner and admins (they can see the team).
+ * The dispatch board, the page's one big picture: orders still to go out today against what the team packs, with
+ * yesterday and the week beside it; and the warehouse lanes, where every active order is and how late the gate is.
  */
-export function TodayDispatch({ d }: { d: DeckData }) {
+export function DispatchBoard({ d }: { d: DeckData }) {
   const t = d.todayCard;
-  if (!t) return null;
-  const cap = t.capacity;
-  const used = cap && cap.comfortable > 0 ? Math.round((t.due / cap.comfortable) * 100) : null;
+  const cap = t?.capacity ?? null;
+  const used = t && cap && cap.comfortable > 0 ? Math.round((t.due / cap.comfortable) * 100) : null;
   const tone = used === null ? null : used > 100 ? "bad" : used > 85 ? "warn" : "ok";
+  const lanes = deckLanes(d);
+  const active = d.whStages.reduce((n, r) => n + r.to_accept + r.to_pack + r.to_dispatch, 0);
   return (
-    <section className="sp-card sp-card-lg sp-reveal relative overflow-hidden p-5 sm:p-6" style={style(0)} aria-labelledby="today-title">
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full"
-        style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 28%, transparent), transparent 68%)" }}
-      />
-      <div className="relative">
-        <div className="flex items-center justify-between gap-2">
-          <h2 id="today-title" className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
-            Today · to dispatch
+    <section className="sp-card sp-card-lg grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(17rem,2fr)_3fr] lg:gap-10" aria-labelledby="today-title">
+      <div className="min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <h2 id="today-title" className="text-sm font-medium text-muted">
+            To dispatch today
           </h2>
-          {t.late > 0 ? (
+          {t && t.late > 0 ? (
             <Link prefetch={false} href="/flipkart?tab=orders&view=list" className="focus-ring rounded-full">
               <Chip tone="bad">{formatNumber(t.late)} late</Chip>
             </Link>
           ) : null}
         </div>
-        <p className="mt-3 bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(100deg, var(--accent-text), var(--madder))" }}>
-          <CountUp value={t.due} className="text-[3.6rem] font-bold leading-none tracking-tight sm:text-7xl" />
-        </p>
-        <p className="mt-2 text-sm text-muted">
-          orders still to go out today
-          {t.warehouses ? ` across ${t.warehouses} ${t.warehouses === 1 ? "warehouse" : "warehouses"}` : ""}
-        </p>
-        {cap && used !== null ? (
-          <div className="mt-5">
-            <div className="h-2.5 overflow-hidden rounded-full bg-surface2" role="img" aria-label={`${used}% of the ${formatNumber(cap.comfortable)} orders the team packs comfortably in a day`}>
-              <div
-                className="sp-bar h-full rounded-full"
-                style={{ width: `${Math.min(100, used)}%`, background: tone === "ok" ? "linear-gradient(90deg, var(--accent), var(--madder))" : tone === "warn" ? "var(--warn-mark)" : "var(--bad)" }}
-              />
-            </div>
-            <p className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted">
-              <span>
-                <b className={`font-bold ${tone === "ok" ? "text-ink" : tone === "warn" ? "text-warn" : "text-bad"}`}>{used}%</b> of what the team packs in a day
-              </span>
-              <span className="font-mono tabular-nums">
-                {formatNumber(cap.comfortable)} a day · {cap.staff} {cap.staff === 1 ? "person" : "people"}
-              </span>
+        {t ? (
+          <>
+            <p className="mt-2">
+              <CountUp value={t.due} className="display-num block text-[4.25rem] text-ink sm:text-[5.5rem]" />
             </p>
-          </div>
-        ) : null}
-        <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-line pt-4">
-          <TodayStat label="Yesterday" value={t.yesterday} change={t.yesterdayChange} against="the day before" />
-          <TodayStat label="7-day avg" value={t.avg7} change={t.avg7Change} against="the week before" />
-          <div className="min-w-0">
-            <dt className="text-[11px] font-bold uppercase tracking-wider text-muted">Busiest</dt>
-            <dd className="mt-1 font-mono text-xl font-bold leading-none tabular-nums sm:text-2xl">{t.busiest ? formatNumber(t.busiest.orders) : "—"}</dd>
-            {t.busiest ? (
-              <dd className="mt-2 flex min-w-0 items-center gap-1.5 text-xs font-bold">
-                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: t.busiest.color }} />
-                <span className="truncate">{t.busiest.name}</span>
-              </dd>
+            <p className="mt-2 text-sm text-muted">
+              orders still to go out today{t.warehouses ? ` across ${t.warehouses} ${t.warehouses === 1 ? "warehouse" : "warehouses"}` : ""}
+            </p>
+            {cap && used !== null ? (
+              <div className="mt-5">
+                <div className="h-2 overflow-hidden rounded-full bg-surface2" role="img" aria-label={`${used}% of the ${formatNumber(cap.comfortable)} orders the team packs comfortably in a day`}>
+                  <div className="sp-bar h-full rounded-full" style={{ width: `${Math.min(100, used)}%`, background: tone === "ok" ? "var(--accent)" : tone === "warn" ? "var(--warn-mark)" : "var(--bad)" }} />
+                </div>
+                <p className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-muted">
+                  <span>
+                    <b className={`font-mono font-semibold ${tone === "ok" ? "text-ink" : tone === "warn" ? "text-warn" : "text-bad"}`}>{used}%</b> of what the team packs in a day
+                  </span>
+                  <span className="font-mono tabular-nums">
+                    {formatNumber(cap.comfortable)} a day · {cap.staff} {cap.staff === 1 ? "person" : "people"}
+                  </span>
+                </p>
+              </div>
             ) : null}
-          </div>
-        </dl>
+            <StatStrip className="mt-6 !grid-cols-3" ariaLabel="Yesterday, the 7-day average and the busiest warehouse">
+              <Stat label="Yesterday" value={t.yesterday === null ? "—" : formatNumber(t.yesterday)} sub={<Delta pct={t.yesterdayChange} against="the day before" />} />
+              <Stat label="7-day avg" value={t.avg7 === null ? "—" : formatNumber(t.avg7)} sub={<Delta pct={t.avg7Change} against="the week before" />} />
+              <Stat
+                label="Busiest"
+                value={t.busiest ? formatNumber(t.busiest.orders) : "—"}
+                sub={
+                  t.busiest ? (
+                    <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
+                      <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: t.busiest.color }} />
+                      <span className="truncate">{t.busiest.name}</span>
+                    </span>
+                  ) : undefined
+                }
+              />
+            </StatStrip>
+          </>
+        ) : (
+          <p className="mt-3 text-sm text-muted">Orders have not been read from Flipkart yet. The day&apos;s number appears after the first read.</p>
+        )}
+      </div>
+      <div className="min-w-0 lg:border-l lg:border-line lg:pl-10">
+        <SectionHead
+          title="Where the orders are"
+          sub="Every active order by warehouse and stage, as Seller Hub counts them. Tap a lane for its orders."
+          action={
+            <p className="text-right">
+              <span className="font-mono text-2xl font-semibold tabular-nums">{formatNumber(active)}</span>
+              <span className="ml-1.5 text-xs text-muted">active</span>
+            </p>
+          }
+        />
+        {lanes.length === 0 ? (
+          <p className="py-8 text-sm text-muted">No warehouse is set up for you yet.</p>
+        ) : (
+          <Lanes lanes={lanes} ariaLabel={`Active orders by warehouse and stage: ${d.whStages.map((r) => `${r.name}: ${r.to_accept} to accept, ${r.to_pack} to pack, ${r.to_dispatch} to dispatch`).join("; ")}`} />
+        )}
       </div>
     </section>
   );
@@ -121,21 +163,20 @@ export function OrdersTrend({ d }: { d: DeckData }) {
   const last = pts[pts.length - 1];
   const enough = pts.length >= 2 && pts.some((p) => p.orders > 0);
   return (
-    <section className="sp-card sp-card-lg sp-reveal p-5 sm:p-6" style={style(1)} aria-labelledby="trend-title">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id="trend-title" className="font-display text-lg font-semibold">
-            Orders a day
-          </h2>
-          <p className="text-xs text-muted">Placed on Flipkart, last {pts.length} days</p>
-        </div>
-        {last ? (
-          <p className="text-right">
-            <span className="font-mono text-2xl font-bold tabular-nums">{formatNumber(last.orders)}</span>
-            <span className="ml-1.5 text-xs text-muted">yesterday</span>
-          </p>
-        ) : null}
-      </header>
+    <section className="sp-card p-5" aria-labelledby="trend-title">
+      <SectionHead
+        id="trend-title"
+        title="Orders a day"
+        sub={`Placed on Flipkart, last ${pts.length} days`}
+        action={
+          last ? (
+            <p className="text-right">
+              <span className="font-mono text-2xl font-semibold tabular-nums">{formatNumber(last.orders)}</span>
+              <span className="ml-1.5 text-xs text-muted">yesterday</span>
+            </p>
+          ) : undefined
+        }
+      />
       {enough ? (
         <TrendChart
           data={pts.map((p) => ({ label: p.label, value: p.orders }))}
@@ -150,123 +191,60 @@ export function OrdersTrend({ d }: { d: DeckData }) {
   );
 }
 
-/** The hero's printed band: the state of the day, in its status colour, across the top of the card. */
-const HERO_BAND: Record<"bad" | "warn" | "ok", string> = { bad: "var(--bad)", warn: "var(--warn)", ok: "var(--ok)" };
+const PULSE_TONE: Record<"bad" | "warn" | "cyan", "bad" | "warn" | "accent"> = { bad: "bad", warn: "warn", cyan: "accent" };
 
-export function Hero({ d }: { d: DeckData }) {
-  const { hero } = d;
-  const time = formatDateTime(d.nowIso).replace(/^Today /, "");
+/** The three signals of the day as a strip: each a link, with its trend under the number. */
+export function Pulses({ d }: { d: DeckData }) {
+  if (!d.pulses.length) return null;
   return (
-    <section className="sp-card sp-card-lg sp-reveal relative overflow-hidden border-t-[5px] p-5 sm:p-7" style={{ ...style(0), borderTopColor: HERO_BAND[hero.tone] }} aria-labelledby="deck-headline">
-      <p className="font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
-        Operations · {formatDate(d.today)} · {time}
-      </p>
-      <h1 id="deck-headline" className="font-display mt-3 flex items-start gap-3 text-[1.75rem] font-semibold leading-[1.15] tracking-tight sm:text-4xl">
-        {hero.tone === "ok" ? (
-          <span aria-hidden="true" className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ok-soft text-ok sm:h-11 sm:w-11">
-            <CheckIcon />
-          </span>
-        ) : null}
-        <span className={hero.tone === "ok" ? "text-ok" : ""}>{hero.headline}</span>
-      </h1>
-      <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">{hero.reassurance}</p>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <a href="#queue" className={buttonClass("primary", "px-5")}>
-          Open priority queue
-        </a>
-        <Link prefetch={false} href="/flipkart" className={buttonClass("outline", "px-5")}>
-          Jump to Flipkart
-        </Link>
-      </div>
-    </section>
+    <StatStrip ariaLabel="Today's signals">
+      {d.pulses.map((p) => (
+        <Stat
+          key={p.key}
+          label={p.label}
+          value={<CountUp value={p.value} />}
+          sub={p.sub}
+          tone={PULSE_TONE[p.tone]}
+          href={p.href}
+          size="lg"
+          chart={<Sparkline values={p.spark} tone={p.tone} label={p.sparkLabel} className="h-8 w-full max-w-[12rem]" />}
+        />
+      ))}
+    </StatStrip>
   );
 }
 
-const PULSE_TEXT: Record<"bad" | "warn" | "cyan", string> = { bad: "text-bad", warn: "text-warn", cyan: "text-cyan" };
-
-export function Pulses({ d }: { d: DeckData }) {
+function CheckIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-      {d.pulses.map((p, i) => (
-        <Link
-          key={p.key}
-          prefetch={false}
-          href={p.href}
-          className="sp-card sp-lift sp-reveal focus-ring flex min-w-0 items-center justify-between gap-3 p-4"
-          style={style(i + 1)}
-        >
-          <span className="min-w-0">
-            <span className="block text-[11px] font-bold uppercase tracking-wider text-muted">{p.label}</span>
-            <CountUp value={p.value} className={`mt-1 block text-3xl font-bold leading-none ${PULSE_TEXT[p.tone]}`} />
-            <span className="mt-1.5 block truncate text-xs text-muted">{p.sub}</span>
-          </span>
-          <span className="w-24 shrink-0 sm:w-20 lg:w-28">
-            <Sparkline values={p.spark} tone={p.tone} label={p.sparkLabel} className="h-10 w-full" />
-          </span>
-        </Link>
-      ))}
-    </div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
   );
 }
 
 export function PriorityQueue({ d }: { d: DeckData }) {
   const clear = d.queue.length === 0;
   return (
-    <section id="queue" className="sp-card sp-reveal scroll-mt-24 overflow-hidden" style={style(4)} aria-labelledby="queue-title">
-      <header className="flex items-center justify-between gap-3 px-4 pb-3 pt-4">
-        <h2 id="queue-title" className="font-display text-lg font-semibold">
-          Priority queue
-        </h2>
-        {clear ? <Chip tone="ok">All clear</Chip> : <Chip tone={d.urgent > 0 ? "bad" : "neutral"}>{formatNumber(d.queue.length)} to do</Chip>}
-      </header>
+    <section id="queue" className="sp-card scroll-mt-24 overflow-hidden" aria-labelledby="queue-title">
+      <SectionHead
+        id="queue-title"
+        className="!mb-0 px-4 pb-3 pt-4"
+        title="Priority queue"
+        sub="Ranked: late first, then what is about to be"
+        action={clear ? <Chip tone="ok">All clear</Chip> : <Chip tone={d.urgent > 0 ? "bad" : "neutral"}>{formatNumber(d.queue.length)} to do</Chip>}
+      />
       {clear ? (
         <div className="flex flex-col items-center px-5 pb-10 pt-6 text-center">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-ok-soft text-ok">
             <CheckIcon className="h-7 w-7" />
           </span>
-          <p className="mt-3 text-base font-bold">Queue is clear</p>
+          <p className="mt-3 text-base font-semibold">Queue is clear</p>
           <p className="mt-1 max-w-xs text-sm text-muted">No late orders, nothing dry, no follow-ups due and no work waiting for you.</p>
         </div>
       ) : (
-        <QueueList rows={d.queue.map((q) => ({ key: q.key, kind: q.kind, tag: q.tag, title: q.title, detail: q.detail, actions: q.actions }))} />
-      )}
-    </section>
-  );
-}
-
-export function Warehouses({ d }: { d: DeckData }) {
-  return (
-    <section className="sp-card sp-reveal overflow-hidden" style={style(5)} aria-labelledby="wh-title">
-      <header className="flex items-center justify-between px-4 pb-2 pt-4">
-        <h2 id="wh-title" className="font-display text-lg font-semibold">
-          Warehouses
-        </h2>
-        <span className="text-xs text-muted">On-time health</span>
-      </header>
-      {d.warehouses.length === 0 ? (
-        <p className="px-4 pb-6 pt-2 text-sm text-muted">No warehouse is set up for you yet.</p>
-      ) : (
-        <ul className="divide-y divide-line-soft">
-          {d.warehouses.map((w) => (
-            <li key={w.id}>
-              <Link prefetch={false} href={w.href} className="focus-ring flex min-h-[4.5rem] items-center gap-3 px-4 py-3 transition hover:bg-surface2/60">
-                <Gauge pct={w.health.pct} tone={w.health.tone} label={`${w.name} on-time health ${w.health.pct} percent`} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: w.color }} />
-                    <span className="truncate text-sm font-bold">{w.name}</span>
-                    <Chip tone={w.health.chip.tone}>{w.health.chip.label}</Chip>
-                  </span>
-                  <span className="mt-1 block truncate text-xs text-muted">{w.next ? `Next dispatch ${w.next}` : "No orders waiting"}</span>
-                </span>
-                <span className="shrink-0 text-right">
-                  <span className="block font-mono text-lg font-bold tabular-nums">{formatNumber(w.active)}</span>
-                  <span className="block text-[11px] text-muted">{w.out === null ? "active orders" : `active · ${formatNumber(w.out)} out`}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="border-t border-line-soft">
+          <QueueList rows={d.queue.map((q) => ({ key: q.key, kind: q.kind, tag: q.tag, title: q.title, detail: q.detail, actions: q.actions }))} />
+        </div>
       )}
     </section>
   );
@@ -275,22 +253,21 @@ export function Warehouses({ d }: { d: DeckData }) {
 export function DispatchChart({ d }: { d: DeckData }) {
   const x = d.dispatch;
   return (
-    <section className="sp-card sp-reveal p-4 sm:p-5" style={style(6)} aria-labelledby="disp-title">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id="disp-title" className="font-display text-lg font-semibold">
-            Dispatch, last 7 days
-          </h2>
-          <p className="text-xs text-muted">Units dispatched per day</p>
-        </div>
-        {x ? (
-          <p className="text-right">
-            <CountUp value={x.total} className="text-2xl font-bold text-cyan" />
-            <span className="ml-1.5 text-xs text-muted">units</span>
-            <span className="block font-mono text-xs text-muted">{formatNumber(x.avg)} a day on average</span>
-          </p>
-        ) : null}
-      </header>
+    <section className="sp-card p-5" aria-labelledby="disp-title">
+      <SectionHead
+        id="disp-title"
+        title="Dispatch, last 7 days"
+        sub="Units dispatched per day"
+        action={
+          x ? (
+            <p className="text-right">
+              <CountUp value={x.total} className="text-2xl font-semibold" />
+              <span className="ml-1.5 text-xs text-muted">units</span>
+              <span className="block font-mono text-xs text-muted">{formatNumber(x.avg)} a day on average</span>
+            </p>
+          ) : undefined
+        }
+      />
       {x && x.total > 0 ? (
         <AreaChart data={x.points} ariaLabel={`Units dispatched per day, last 7 days: ${x.points.map((p) => `${p.label} ${formatNumber(p.value)}`).join(", ")}`} formatY={(n) => (n >= 1000 ? `${formatNumber(Math.round(n / 100) / 10)}k` : formatNumber(Math.round(n)))} />
       ) : (
@@ -300,67 +277,59 @@ export function DispatchChart({ d }: { d: DeckData }) {
   );
 }
 
+/** Stock at a glance: five figures with their trend, each a link to the list behind it. */
 export function StockHealth({ d }: { d: DeckData }) {
   const k = d.kpis;
   const delta = k.unitsChange;
   return (
     <section aria-labelledby="stock-title">
-      <h2 id="stock-title" className="font-display mb-3 text-lg font-semibold">
-        Stock health
-      </h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <KpiTile
-          index={7}
+      <SectionHead id="stock-title" title="Stock health" sub={k.snapshot ? `From the stock read of ${formatDate(k.snapshot, d.today)}` : undefined} />
+      <StatStrip>
+        <Stat
           label="Units in stock"
-          value={k.units ?? 0}
-          tone="neutral"
-          sparkTone="cyan"
+          value={<CountUp value={k.units ?? 0} />}
           sub={delta === null ? "active listings" : delta === 0 ? "no change since last reading" : `${delta > 0 ? "+" : "−"}${formatNumber(Math.abs(delta))} since last reading`}
-          spark={k.stockSeries.units}
-          sparkLabel="Units in stock at each stock reading"
+          chart={<Sparkline values={k.stockSeries.units} tone="cyan" label="Units in stock at each stock reading" className="h-7 w-full max-w-[10rem]" />}
           href="/flipkart?tab=stock"
         />
-        <KpiTile index={8} label="Low stock" value={k.low ?? 0} tone={(k.low ?? 0) > 0 ? "warn" : "ok"} sub="in stock, but low at a warehouse" spark={k.stockSeries.low} sparkLabel="Low-stock SKUs at each stock reading" href="/flipkart?tab=stock&view=low&hide=1" />
-        <KpiTile index={9} label="Out of stock" value={k.out ?? 0} tone={(k.out ?? 0) > 0 ? "bad" : "ok"} sub="active, no units anywhere" spark={k.stockSeries.out} sparkLabel="Out-of-stock SKUs at each stock reading" href="/flipkart?tab=stock&view=out&hide=1" />
-        <KpiTile index={10} label="Open tickets" value={k.openTickets} tone="accent" sparkTone="accent" sub="open or waiting" spark={k.ticketSeries} sparkLabel="Tickets raised per day, last 14 days" href="/tickets" />
-        <div className="col-span-2 sm:col-span-1">
-          <KpiTile index={11} label="Weight alerts" value={k.weight ?? 0} tone={(k.weight ?? 0) > 0 ? "warn" : "ok"} sub="over the size and weight limit" href="/flipkart?tab=stock&view=weight&hide=1" />
-        </div>
-      </div>
+        <Stat label="Low stock" value={<CountUp value={k.low ?? 0} />} tone={(k.low ?? 0) > 0 ? "warn" : "ok"} sub="in stock, but low at a warehouse" chart={<Sparkline values={k.stockSeries.low} tone="warn" label="Low-stock SKUs at each stock reading" className="h-7 w-full max-w-[10rem]" />} href="/flipkart?tab=stock&view=low&hide=1" />
+        <Stat label="Out of stock" value={<CountUp value={k.out ?? 0} />} tone={(k.out ?? 0) > 0 ? "bad" : "ok"} sub="active, no units anywhere" chart={<Sparkline values={k.stockSeries.out} tone="bad" label="Out-of-stock SKUs at each stock reading" className="h-7 w-full max-w-[10rem]" />} href="/flipkart?tab=stock&view=out&hide=1" />
+        <Stat label="Open tickets" value={<CountUp value={k.openTickets} />} tone="accent" sub="open or waiting" chart={<Sparkline values={k.ticketSeries} tone="accent" label="Tickets raised per day, last 14 days" className="h-7 w-full max-w-[10rem]" />} href="/tickets" />
+        <Stat label="Weight alerts" value={<CountUp value={k.weight ?? 0} />} tone={(k.weight ?? 0) > 0 ? "warn" : "ok"} sub="over the size and weight limit" href="/flipkart?tab=stock&view=weight&hide=1" />
+      </StatStrip>
     </section>
   );
 }
 
 export function Movers({ d }: { d: DeckData }) {
   return (
-    <section className="sp-card sp-reveal p-4 sm:p-5" style={style(12)} aria-labelledby="mov-title">
-      <header className="mb-3 flex items-end justify-between gap-2">
-        <div>
-          <h2 id="mov-title" className="font-display text-lg font-semibold">
-            Forecast, top movers
-          </h2>
-          <p className="text-xs text-muted">Next 30 days, from {formatNumber(d.moversDays)} days of dispatches</p>
-        </div>
-        <Link prefetch={false} href="/flipkart?tab=forecast" className="focus-ring inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-bold text-accent-text hover:bg-accent-soft">
-          Full forecast →
-        </Link>
-      </header>
+    <section className="sp-card p-5" aria-labelledby="mov-title">
+      <SectionHead
+        id="mov-title"
+        title="Forecast, top movers"
+        sub={`Next 30 days, from ${formatNumber(d.moversDays)} days of dispatches`}
+        action={
+          <Link prefetch={false} href="/flipkart?tab=forecast" className="focus-ring inline-flex min-h-9 items-center rounded-md px-2 text-sm font-semibold text-accent-text hover:bg-accent-soft">
+            Full forecast
+          </Link>
+        }
+      />
       {d.movers.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted">There is no dispatch history yet to forecast from.</p>
       ) : (
-        <ol className="flex flex-col gap-4">
+        <ol className="flex flex-col divide-y divide-line-soft">
           {d.movers.map((m, i) => {
             const cover = m.cover;
             const tone: SignalTone = cover === null ? "neutral" : cover < 7 ? "bad" : cover < 14 ? "warn" : "ok";
             return (
-              <li key={m.sku} className="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-3 gap-y-1.5">
+              <li key={m.sku} className="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-3 gap-y-1.5 py-3">
                 <span className="font-mono text-xs text-faint">{i + 1}</span>
                 <span className="min-w-0">
-                  <span className="block truncate font-mono text-[13px] font-bold">{m.sku}</span>
+                  <span className="block truncate font-mono text-[13px] font-semibold">{m.sku}</span>
                   {m.title ? <span className="block truncate text-xs text-muted">{m.title}</span> : null}
                 </span>
                 <span className="text-right">
-                  <span className="block font-mono text-sm font-bold tabular-nums">{formatNumber(Math.round(m.f30))}</span>
+                  <span className="block font-mono text-sm font-semibold tabular-nums">{formatNumber(Math.round(m.f30))}</span>
                   <span className="block text-[11px] text-muted">{formatNumber(Math.round(m.rate))} a day</span>
                 </span>
                 <span />
@@ -385,21 +354,20 @@ export function StockByWarehouse({ d }: { d: DeckData }) {
   const total = rows.reduce((n, r) => n + r.units, 0);
   const parts = rows.map((r) => ({ key: r.id, label: r.name, color: r.color }));
   return (
-    <section className="sp-card sp-reveal p-4 sm:p-5" style={style(6)} aria-labelledby="whs-title">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id="whs-title" className="font-display text-lg font-semibold">
-            Stock by warehouse
-          </h2>
-          <p className="text-xs text-muted">Units in stock on active listings, and where SKUs are empty or low</p>
-        </div>
-        {rows.length ? (
-          <p className="text-right">
-            <span className="text-2xl font-bold">{formatNumber(total)}</span>
-            <span className="ml-1.5 text-xs text-muted">units</span>
-          </p>
-        ) : null}
-      </header>
+    <section className="sp-card p-5" aria-labelledby="whs-title">
+      <SectionHead
+        id="whs-title"
+        title="Stock by warehouse"
+        sub="Units in stock on active listings, and where SKUs are empty or low"
+        action={
+          rows.length ? (
+            <p className="text-right">
+              <span className="font-mono text-2xl font-semibold tabular-nums">{formatNumber(total)}</span>
+              <span className="ml-1.5 text-xs text-muted">units</span>
+            </p>
+          ) : undefined
+        }
+      />
       {rows.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted">Stock has not been read from Flipkart yet.</p>
       ) : (
@@ -426,41 +394,28 @@ export function StockByWarehouse({ d }: { d: DeckData }) {
   );
 }
 
-const STAGES = [
-  { key: "to_accept", label: "To Accept", color: STAGE_COLOR.to_accept },
-  { key: "to_pack", label: "To Pack", color: STAGE_COLOR.to_pack },
-  { key: "to_dispatch", label: "To Dispatch", color: STAGE_COLOR.to_dispatch },
-] as const;
-
-/** Active orders per warehouse, split into Seller Hub's stages, light to dark as orders move along. */
-export function OrdersByStage({ d }: { d: DeckData }) {
-  const rows = d.whStages;
-  const total = rows.reduce((n, r) => n + r.to_accept + r.to_pack + r.to_dispatch, 0);
+/** The whole Command Deck, in reading order: the sentence, the board, the signals, the queue, then the detail. */
+export function CommandDeck({ d }: { d: DeckData }) {
   return (
-    <section className="sp-card sp-reveal p-4 sm:p-5" style={style(7)} aria-labelledby="stage-title">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id="stage-title" className="font-display text-lg font-semibold">
-            Active orders by stage
-          </h2>
-          <p className="text-xs text-muted">Per warehouse, as Seller Hub counts them</p>
-        </div>
-        <p className="text-right">
-          <span className="text-2xl font-bold">{formatNumber(total)}</span>
-          <span className="ml-1.5 text-xs text-muted">active</span>
+    <div className="flex flex-col gap-6">
+      <DeckHeadline d={d} />
+      {d.notes.length ? (
+        <p role="status" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-muted">
+          {d.notes.join(" ")}
         </p>
-      </header>
-      {rows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted">No warehouse is set up for you yet.</p>
-      ) : (
-        <StackedRows
-          rows={rows.map((r) => ({ key: r.id, label: r.name, color: r.color, values: { to_accept: r.to_accept, to_pack: r.to_pack, to_dispatch: r.to_dispatch } }))}
-          parts={[...STAGES]}
-          unit="orders"
-          ariaLabel={`Active orders by warehouse and stage: ${rows.map((r) => `${r.name}: ${r.to_accept} to accept, ${r.to_pack} to pack, ${r.to_dispatch} to dispatch`).join("; ")}`}
-        />
-      )}
-    </section>
+      ) : null}
+      <DispatchBoard d={d} />
+      <Pulses d={d} />
+      <div className="grid items-start gap-6 lg:grid-cols-[3fr_2fr]">
+        <PriorityQueue d={d} />
+        <OrdersTrend d={d} />
+      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <StockByWarehouse d={d} />
+        <DispatchChart d={d} />
+      </div>
+      <StockHealth d={d} />
+      <Movers d={d} />
+    </div>
   );
 }
-

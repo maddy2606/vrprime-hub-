@@ -62,7 +62,7 @@ function Track({ lane, max }: { lane: Lane; max: number }) {
                 className={`relative flex h-full min-w-[4px] items-center justify-center overflow-hidden ${i === 0 ? "rounded-l-md" : ""} ${i === parts.length - 1 ? "rounded-r-md" : ""}`}
                 style={{ flexGrow: lane.stages[s.key], flexBasis: 0, background: s.color }}
               >
-                {share * width > 9 ? <span className="font-mono text-[11px] font-semibold text-white mix-blend-luminosity">{formatNumber(lane.stages[s.key])}</span> : null}
+                {share * width > 9 ? <span className="font-mono text-[11px] font-semibold text-white mix-blend-difference">{formatNumber(lane.stages[s.key])}</span> : null}
               </div>
             );
           })}

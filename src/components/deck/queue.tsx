@@ -38,7 +38,7 @@ export function QueueList({ rows }: { rows: Row[] }) {
             </div>
             <div className="flex shrink-0 flex-wrap gap-2 pl-[6.25rem] sm:pl-0">
               {r.actions.map((a, i) => (
-                <Link key={a.label} prefetch={false} href={a.href} className={buttonClass(i === 0 ? "primary" : "outline", "min-h-11 px-3 text-xs sm:min-h-9")}>
+                <Link key={a.label} prefetch={false} href={a.href} className={buttonClass(i === 0 ? "secondary" : "ghost", "min-h-11 px-3 text-xs sm:min-h-9")}>
                   {a.label}
                 </Link>
               ))}

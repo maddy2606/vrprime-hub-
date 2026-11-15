@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimsTab } from "@/components/flipkart/claims-tab";
 import { fakeClaimRows } from "@/lib/dev-fixtures-claims";
+import { ListingCheckTab } from "@/components/flipkart/listing-check-tab";
+import { fakeCheckRows } from "@/lib/dev-fixtures-listing";
 import { ClosingReport } from "@/components/reports/closing-report";
 import { fakeClosingRows } from "@/lib/dev-fixtures-closing";
 import { BusinessFrame } from "@/components/business/business-board";
@@ -119,6 +121,7 @@ const VIEWS = [
   "frates",
   "fclaim",
   "fprices",
+  "flistcheck",
   "fhealth",
   "fforecast",
   "fmasters",
@@ -381,7 +384,7 @@ function FlipkartPreview({ view, sp, role }: { view: string; sp: Record<string, 
   const today = todayIST();
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
-  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fclaim" ? "claim" : view === "fprices" ? "prices" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : view === "fstockouts" ? "stockouts" : "health";
+  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fclaim" ? "claim" : view === "fprices" ? "prices" : view === "flistcheck" ? "listingcheck" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : view === "fstockouts" ? "stockouts" : "health";
   const ordersView = FAKE_ORDER_VIEW[view]?.view ?? "sku";
   const needs = view === "fneeds" ? fakeNeedsAction() : null;
   const health = view === "fhealth" ? fakeHealthRows() : null;
@@ -411,6 +414,7 @@ function FlipkartPreview({ view, sp, role }: { view: string; sp: Record<string, 
       {view === "freturns" || view === "frates" ? (
         <ReturnsTab initialPage={fakeReturnsPage().page} initialSummary={fakeReturnsPage().summary} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
       ) : null}
+      {view === "flistcheck" ? <ListingCheckTab rows={fakeCheckRows()} checkedOn={sp.empty === "1" ? null : today} ready={sp.ready !== "0"} today={today} /> : null}
       {view === "fclaim" ? <ClaimsTab rows={fakeClaimRows(today)} checkedThisWeek={4} ready={sp.ready !== "0"} warehouses={wh} today={today} /> : null}
       {view === "fprices" ? <PricesTab rows={fakePriceRows()} today={today} dropLimit={15} snapshotDate={today} /> : null}
       {view === "foverfill" ? (

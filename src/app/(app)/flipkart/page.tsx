@@ -6,7 +6,7 @@ import { isTabKey, TabBar, tabsFor, type TabKey } from "@/components/flipkart/ta
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { loadToCheckCount } from "@/server/return-claims";
-import { ClaimsPanel, ForecastPanel, HealthPanel, MastersPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockoutsPanel, StockPanel } from "./panels";
+import { ClaimsPanel, ForecastPanel, HealthPanel, ListingCheckPanel, MastersPanel, NeedsPanel, OrdersPanel, OverfillPanel, PricesPanel, ReturnsPanel, StockoutsPanel, StockPanel } from "./panels";
 
 export const metadata: Metadata = { title: "Flipkart" };
 
@@ -23,6 +23,7 @@ const SUB: Record<TabKey, string> = {
   claim: "Returns to claim",
   prices: "Selling prices, MRP and price changes",
   health: "Listings with problems to fix",
+  listingcheck: "Whether every listing can be bought, read on the PC each morning",
   forecast: "Expected dispatches, by dispatch day",
   overfill: "Orders waiting where the stock is 0",
   masters: "Master SKUs and the Flipkart SKUs that belong to them",
@@ -53,6 +54,7 @@ export default async function FlipkartPage({ searchParams }: { searchParams: Pro
         {tab === "claim" ? <ClaimsPanel user={user} /> : null}
         {tab === "prices" ? <PricesPanel /> : null}
         {tab === "health" ? <HealthPanel /> : null}
+        {tab === "listingcheck" ? <ListingCheckPanel user={user} /> : null}
         {tab === "forecast" ? <ForecastPanel user={user} sp={sp} /> : null}
         {tab === "overfill" ? <OverfillPanel user={user} /> : null}
         {tab === "masters" ? <MastersPanel user={user} /> : null}

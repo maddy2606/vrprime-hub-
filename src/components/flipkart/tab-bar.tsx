@@ -3,7 +3,7 @@ import { SHOW_LISTING_HEALTH } from "@/lib/feature-flags";
 import { formatNumber } from "@/lib/format";
 
 // The order of the tabs. "health" (Listing health) is only shown while SHOW_LISTING_HEALTH is on.
-export const TAB_KEYS = ["needs", "orders", "stock", "stockouts", "returns", "claim", "prices", "health", "forecast", "overfill", "masters"] as const;
+export const TAB_KEYS = ["needs", "orders", "stock", "stockouts", "returns", "claim", "prices", "health", "listingcheck", "forecast", "overfill", "masters"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
 export const TAB_LABEL: Record<TabKey, string> = {
@@ -15,14 +15,15 @@ export const TAB_LABEL: Record<TabKey, string> = {
   claim: "To claim",
   prices: "Prices",
   health: "Listing health",
+  listingcheck: "Listing check",
   forecast: "Forecasting",
   overfill: "Overfill Orders",
   masters: "Master SKUs",
 };
 
-/** Prices, Master SKUs (and Listing health, when it is on) are for owner and admin; warehouse users see the rest, for their own warehouses. */
+/** Prices, Listing check, Master SKUs (and Listing health, when it is on) are for owner and admin; warehouse users see the rest, for their own warehouses. */
 export function tabsFor(role: string): TabKey[] {
-  return TAB_KEYS.filter((k) => (k !== "health" || SHOW_LISTING_HEALTH) && !(role === "warehouse" && (k === "prices" || k === "health" || k === "masters")));
+  return TAB_KEYS.filter((k) => (k !== "health" || SHOW_LISTING_HEALTH) && !(role === "warehouse" && (k === "prices" || k === "health" || k === "listingcheck" || k === "masters")));
 }
 
 export function isTabKey(value: unknown): value is TabKey {
@@ -33,7 +34,7 @@ export function isTabKey(value: unknown): value is TabKey {
 export const TAB_GROUPS: { label: string; keys: TabKey[] }[] = [
   { label: "Today", keys: ["needs", "orders", "overfill"] },
   { label: "Stock", keys: ["stock", "stockouts", "forecast"] },
-  { label: "Listings", keys: ["prices", "health", "masters"] },
+  { label: "Listings", keys: ["prices", "health", "listingcheck", "masters"] },
   { label: "Returns", keys: ["returns", "claim"] },
 ];
 

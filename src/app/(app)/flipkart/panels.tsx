@@ -1,4 +1,5 @@
 import { ClaimsTab } from "@/components/flipkart/claims-tab";
+import { ListingCheckTab } from "@/components/flipkart/listing-check-tab";
 import { ForecastTab } from "@/components/flipkart/forecast-tab";
 import { MastersTab } from "@/components/flipkart/masters-tab";
 import { OverfillTab } from "@/components/flipkart/overfill-tab";
@@ -47,6 +48,7 @@ import {
   warehousesFor,
 } from "@/server/flipkart-data";
 import { loadOrderCounts, loadOrdersView, pickWarehouseOf } from "@/server/orders-view";
+import { loadListingCheck } from "@/server/listing-check";
 import { loadReturnsToClaim } from "@/server/return-claims";
 import { loadReturnsPage, loadReturnsSummary } from "@/server/returns-view";
 import { loadStockPage } from "@/server/stock-data";
@@ -223,6 +225,14 @@ export async function ClaimsPanel({ user }: { user: SessionUser }) {
   const today = todayIST();
   const [data, warehouses] = await Promise.all([loadReturnsToClaim(today), warehousesFor(user)]);
   return <ClaimsTab rows={data.rows} checkedThisWeek={data.checkedThisWeek} ready={data.ready} warehouses={warehouses} today={today} />;
+}
+
+// --- Listing check (graphite-spec 12.3) --------------------------------------------------------------------------
+
+export async function ListingCheckPanel({ user }: { user: SessionUser }) {
+  if (user.role !== "owner" && user.role !== "admin") return <EmptyState title="Not available" body="The Listing check is for the owner and admins." />;
+  const d = await loadListingCheck();
+  return <ListingCheckTab rows={d.rows} checkedOn={d.checkedOn} ready={d.ready} today={todayIST()} />;
 }
 
 // --- Prices and listing health ----------------------------------------------------------------------------------

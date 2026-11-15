@@ -97,3 +97,15 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
   weekly-summary-notifications-dark-1440.png and -390.png.
 - Not testable until applied: the Monday run and the real message.
 - Checks: tsc, lint clean; npm test 324 pass.
+
+## 9. Listing check (Part C 12.3): done, migration not applied, PC task not installed
+- Five Flipkart pages saved to D:\Vrprime hub\flipkart-pages (outside the repo, not committed). All five buyable.
+- src/lib/listing-check.ts (readListing; 4 tests + 2 todo for out of stock and unavailable, unverified);
+  src/lib/listing-view.ts (+ 2 tests); src/server/listing-check.ts.
+- scripts/listing-check.mts (modelled on review-counter.mts; --dry-run, --links) and scripts/install-listing-check.ps1
+  (daily 09:15; NOT run). Dry run against the five links (read only, nothing saved): 5 buyable at 185, 183, 186, 171, 197.
+- Migration `supabase/migrations/20261116092000_listing_check.sql`: listing_checks, listing_check_rows (RLS staff),
+  public.listing_check_save (service_role and staff), listing_alert notification.
+- Flipkart › Listings › Listing check (?tab=listingcheck), owner and admin. Preview: view=flistcheck (&empty=1,
+  &ready=0). Screens: listing-check-dark-1440.png, listing-check-dark-390.png. Seen live: not-set-up state.
+- Checks: tsc, lint clean; npm test 330 pass, 2 todo.

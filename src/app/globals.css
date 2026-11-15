@@ -163,6 +163,15 @@ code,
 kbd {
   font-variant-numeric: tabular-nums;
 }
+/* Geist Mono is loaded at 400 and 500 only (graphite-spec 2): never fake a heavier weight. */
+.font-mono.font-semibold,
+.font-mono.font-bold,
+.font-semibold .font-mono,
+.font-bold .font-mono,
+.item-row-title .font-mono,
+.t-card-title .font-mono {
+  font-weight: 500;
+}
 
 select option,
 select optgroup {

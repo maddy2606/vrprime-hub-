@@ -6,7 +6,7 @@ import { Lanes, type Lane } from "@/components/signal/lanes";
 import { QueueList } from "@/components/deck/queue";
 import { buttonClass, Chip, Headline, SectionHead, Stat, StatStrip, withNumbers } from "@/components/ui";
 import type { QueueKind } from "@/lib/deck";
-import { formatDate, formatDateTime, formatNumber } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
 import { COLOR, type SignalTone } from "@/lib/theme";
 import type { DeckData } from "@/server/deck-data";
 
@@ -22,21 +22,18 @@ function Delta({ pct, against }: { pct: number | null; against: string }) {
 }
 
 /**
- * The first thing on the page: the state of the day as one sentence, its numbers picked out in the day's colour, the
- * reassurance under it, and the two places to go next.
+ * The page header (graphite-spec 9.1): the title, the headline sentence as the subtitle with the reassurance under it,
+ * the two places to go next on the right; the notes line and the push banner under it.
  */
 export function DeckHeadline({ d, push }: { d: DeckData; push?: ReactNode }) {
   const { hero } = d;
-  const time = formatDateTime(d.nowIso).replace(/^Today /, "");
   return (
     <header className="span-12">
-      <div className="flex flex-col gap-4 min-[1100px]:flex-row min-[1100px]:items-end min-[1100px]:justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 max-w-3xl">
-          <p className="t-label">
-            Operations · {formatDate(d.today)} · {time}
-          </p>
-          <Headline text={hero.headline} tone={hero.tone} className={`mt-2 ${hero.tone === "ok" ? "text-ok" : ""}`} />
-          <p className="t-caption mt-2">{withNumbers(hero.reassurance, "ink")}</p>
+          <h1 className="t-h1">Command Centre</h1>
+          <Headline text={hero.headline} tone={hero.tone} className="mt-1" />
+          <p className="t-caption mt-1">{withNumbers(hero.reassurance, "ink")}</p>
           {d.notes.length ? (
             <p role="status" className="t-caption mt-1">
               {d.notes.join(" ")}
@@ -57,7 +54,7 @@ export function DeckHeadline({ d, push }: { d: DeckData; push?: ReactNode }) {
   );
 }
 
-/** The deck's lanes: each warehouse's orders by stage, its health, the late count and the next dispatch time. */
+/** The deck's flow map rows: each warehouse's orders by stage, the late count, the next pickup, units out. */
 function deckLanes(d: DeckData): Lane[] {
   const stages = new Map(d.whStages.map((s) => [s.id, s]));
   return d.warehouses.map((w) => {
@@ -70,99 +67,72 @@ function deckLanes(d: DeckData): Lane[] {
       late: w.late,
       next: w.next,
       chip: w.health.chip,
-      note: `${w.health.pct}% on time`,
-      figure: { value: w.active, label: w.out === null ? "active" : `active · ${formatNumber(w.out)} out` },
+      figure: { value: w.active, label: "active" },
+      out: w.out,
       href: w.href,
     };
   });
 }
 
+const PULSE_TONE: Record<"bad" | "warn" | "cyan", "bad" | "warn" | "accent"> = { bad: "bad", warn: "warn", cyan: "accent" };
+
 /**
- * The dispatch board, the page's one big picture: orders still to go out today against what the team packs, with
- * yesterday and the week beside it; and the warehouse lanes, where every active order is and how late the gate is.
+ * The KPI row of four (graphite-spec 9.1): To dispatch today (the capacity sentence for the owner and admins, else "across
+ * N warehouses"; the late Chip beside the label), then the three pulses with their sparklines and links.
  */
-/** The hero card (spec 8.1, 5 cols): orders still to go out today, the capacity bar, and yesterday, the week, the busiest. */
-export function TodayHero({ d }: { d: DeckData }) {
+export function DeckKpis({ d }: { d: DeckData }) {
   const t = d.todayCard;
   const cap = t?.capacity ?? null;
   const used = t && cap && cap.comfortable > 0 ? Math.round((t.due / cap.comfortable) * 100) : null;
   const tone = used === null ? null : used > 100 ? "bad" : used > 85 ? "warn" : "ok";
+  const context = !t ? (
+    "Orders have not been read from Flipkart yet. The day's number appears after the first read."
+  ) : cap && used !== null ? (
+    <span aria-label={`${used}% of the ${formatNumber(cap.comfortable)} orders the team packs comfortably in a day`}>
+      <b className={`font-semibold ${tone === "ok" ? "text-ink" : tone === "warn" ? "text-warn" : "text-bad"}`}>{used}%</b> of what the team packs in a day · {formatNumber(cap.comfortable)} a day · {cap.staff}{" "}
+      {cap.staff === 1 ? "person" : "people"}
+    </span>
+  ) : t.warehouses ? (
+    `across ${t.warehouses} ${t.warehouses === 1 ? "warehouse" : "warehouses"}`
+  ) : undefined;
   return (
-    <section className="sp-card sp-hero g-pad span-5" aria-labelledby="today-title">
-      <div className="flex items-center justify-between gap-2">
-        <h2 id="today-title" className="t-label">
-          To dispatch today
-        </h2>
-        {t && t.late > 0 ? (
-          <Link prefetch={false} href="/flipkart?tab=orders&view=list" className="focus-ring rounded-full">
-            <Chip tone="bad" live>
-              {formatNumber(t.late)} late
-            </Chip>
-          </Link>
-        ) : null}
-      </div>
-      {t ? (
-        <>
-          <p className="mt-3">
-            <CountUp value={t.due} className={`t-hero inline-block ${t.late > 0 ? "is-bad" : ""}`} />
-          </p>
-          <p className="t-body mt-2 text-muted">
-            orders still to go out today{t.warehouses ? ` across ${t.warehouses} ${t.warehouses === 1 ? "warehouse" : "warehouses"}` : ""}
-          </p>
-          {cap && used !== null ? (
-            <div className="mt-5">
-              <div className="g-track" role="img" aria-label={`${used}% of the ${formatNumber(cap.comfortable)} orders the team packs comfortably in a day`}>
-                <span className="sp-bar" style={{ width: `${Math.min(100, used)}%` }} />
-              </div>
-              <p className="t-caption mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1">
-                <span>
-                  <b className={`font-mono font-semibold ${tone === "ok" ? "text-ink" : tone === "warn" ? "text-warn" : "text-bad"}`}>{used}%</b> of what the team packs in a day
-                </span>
-                <span className="font-mono tabular-nums">
-                  {formatNumber(cap.comfortable)} a day · {cap.staff} {cap.staff === 1 ? "person" : "people"}
-                </span>
-              </p>
-            </div>
-          ) : null}
-          <StatStrip className="mt-5" ariaLabel="Yesterday, the 7-day average and the busiest warehouse">
-            <Stat label="Yesterday" value={t.yesterday === null ? "—" : t.yesterday} sub={<Delta pct={t.yesterdayChange} against="the day before" />} />
-            <Stat label="7-day avg" value={t.avg7 === null ? "—" : t.avg7} sub={<Delta pct={t.avg7Change} against="the week before" />} />
-            <Stat
-              label="Busiest"
-              value={t.busiest ? t.busiest.orders : "—"}
-              sub={
-                t.busiest ? (
-                  <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
-                    <span aria-hidden="true" className="wh-dot" style={{ background: t.busiest.color, color: t.busiest.color }} />
-                    <span className="truncate">{t.busiest.name}</span>
-                  </span>
-                ) : undefined
-              }
-            />
-          </StatStrip>
-        </>
-      ) : (
-        <p className="t-caption mt-3">Orders have not been read from Flipkart yet. The day&apos;s number appears after the first read.</p>
-      )}
-    </section>
+    <StatStrip ariaLabel="To dispatch today and today's signals" className="span-12">
+      <Stat
+        label="To dispatch today"
+        kind="orders"
+        value={t ? t.due : "—"}
+        sub={context}
+        aside={
+          t && t.late > 0 ? (
+            <Link prefetch={false} href="/flipkart?tab=orders&view=list" className="focus-ring rounded-[8px]">
+              <Chip tone="bad" live>
+                {formatNumber(t.late)} late
+              </Chip>
+            </Link>
+          ) : undefined
+        }
+      />
+      {d.pulses.map((p) => (
+        <Stat key={p.key} label={p.label} value={p.value} sub={p.sub} tone={PULSE_TONE[p.tone]} href={p.href} spark={{ values: p.spark, tone: p.tone, label: p.sparkLabel }} />
+      ))}
+    </StatStrip>
   );
 }
 
-/** The warehouse lanes card (spec 8.1, 7 cols). */
-export function LanesCard({ d }: { d: DeckData }) {
+/** The flow map Card (graphite-spec 9.1, 8 cols): "Order flow map" with a Live pill. */
+export function FlowCard({ d }: { d: DeckData }) {
   const lanes = deckLanes(d);
-  const active = d.whStages.reduce((n, r) => n + r.to_accept + r.to_pack + r.to_dispatch, 0);
   return (
-    <section className="sp-card g-pad span-7" aria-labelledby="lanes-title">
+    <section className="sp-card g-pad span-8" aria-labelledby="lanes-title">
       <SectionHead
         id="lanes-title"
-        title="Where the orders are"
-        sub="Every active order by warehouse and stage, as Seller Hub counts them. Tap a lane for its orders."
+        title="Order flow map"
+        sub="Every active order by warehouse and stage, as Seller Hub counts them. Tap a row for its orders."
         action={
-          <p className="text-right">
-            <CountUp value={active} className="t-stat" />
-            <span className="t-caption ml-1.5">active</span>
-          </p>
+          <Chip tone="ok">
+            <span aria-hidden="true" className="vr-blink inline-block h-1.5 w-1.5 rounded-full bg-ok" />
+            Live
+          </Chip>
         }
       />
       {lanes.length === 0 ? (
@@ -174,66 +144,67 @@ export function LanesCard({ d }: { d: DeckData }) {
   );
 }
 
-/** Orders placed per day, the last 14 full days, with the 7-day average and the latest day picked out. */
-export function OrdersTrend({ d }: { d: DeckData }) {
+/**
+ * Orders pulse (graphite-spec 9.1, right column): "N yesterday", orders placed per day for the last 14 full days with the
+ * 7-day average, then Yesterday, 7-day avg and Busiest.
+ */
+export function OrdersPulse({ d }: { d: DeckData }) {
   const pts = d.trend;
-  const avg = d.todayCard?.avg7 ?? null;
+  const t = d.todayCard;
+  const avg = t?.avg7 ?? null;
   const last = pts[pts.length - 1];
   const enough = pts.length >= 2 && pts.some((p) => p.orders > 0);
+  const cell = (label: string, value: ReactNode, sub: ReactNode) => (
+    <div className="min-w-0">
+      <dt className="t-label truncate">{label}</dt>
+      <dd className="m-0 mt-0.5 truncate font-display text-[18px] font-bold leading-6 tabular-nums text-ink">{value}</dd>
+      {sub ? <dd className="m-0 mt-1 min-w-0">{sub}</dd> : null}
+    </div>
+  );
   return (
-    <section className="sp-card g-pad span-7" aria-labelledby="trend-title">
-      <SectionHead
-        id="trend-title"
-        title="Orders a day"
-        sub={`Placed on Flipkart, last ${pts.length} days`}
-        action={
-          last ? (
-            <p className="text-right">
-              <CountUp value={last.orders} className="t-stat" />
-              <span className="t-caption ml-1.5">yesterday</span>
-            </p>
-          ) : undefined
-        }
-      />
+    <section className="sp-card g-pad" aria-labelledby="trend-title">
+      <SectionHead id="trend-title" title="Orders pulse" sub={`Placed on Flipkart, last ${pts.length} days`} />
+      {last ? (
+        <p>
+          <CountUp value={last.orders} className="t-stat" />
+          <span className="t-caption ml-1.5">yesterday</span>
+        </p>
+      ) : null}
       {enough ? (
-        <TrendChart
-          data={pts.map((p) => ({ label: p.label, value: p.orders }))}
-          avg={avg}
-          avgLabel={avg === null ? "" : `7-day avg ${formatNumber(avg)}`}
-          ariaLabel={`Orders placed per day, last ${pts.length} days: ${pts.map((p) => `${p.label} ${formatNumber(p.orders)}`).join(", ")}`}
-        />
+        <div className="mt-3">
+          <TrendChart
+            data={pts.map((p) => ({ label: p.label, value: p.orders }))}
+            avg={avg}
+            avgLabel={avg === null ? "" : `7-day avg ${formatNumber(avg)}`}
+            ariaLabel={`Orders placed per day, last ${pts.length} days: ${pts.map((p) => `${p.label} ${formatNumber(p.orders)}`).join(", ")}`}
+          />
+        </div>
       ) : (
         <p className="t-caption py-10 text-center">The graph starts once a few days of orders are saved.</p>
       )}
+      {t ? (
+        <dl className="m-0 mt-4 grid grid-cols-3 gap-3 border-t border-line pt-4" aria-label="Yesterday, the 7-day average and the busiest warehouse">
+          {cell("Yesterday", t.yesterday === null ? "—" : formatNumber(t.yesterday), <Delta pct={t.yesterdayChange} against="the day before" />)}
+          {cell("7-day avg", t.avg7 === null ? "—" : formatNumber(t.avg7), <Delta pct={t.avg7Change} against="the week before" />)}
+          {cell(
+            "Busiest",
+            t.busiest ? formatNumber(t.busiest.orders) : "—",
+            t.busiest ? (
+              <span className="t-caption flex min-w-0 items-center gap-1.5 font-semibold text-ink">
+                <span aria-hidden="true" className="wh-dot" style={{ background: t.busiest.color, color: t.busiest.color }} />
+                <span className="truncate">{t.busiest.name}</span>
+              </span>
+            ) : null,
+          )}
+        </dl>
+      ) : null}
     </section>
-  );
-}
-
-const PULSE_TONE: Record<"bad" | "warn" | "cyan", "bad" | "warn" | "accent"> = { bad: "bad", warn: "warn", cyan: "accent" };
-
-/** The three signals of the day as a strip: each a link, with its trend under the number. */
-export function Pulses({ d }: { d: DeckData }) {
-  if (!d.pulses.length) return null;
-  return (
-    <StatStrip ariaLabel="Today's signals" className="span-12">
-      {d.pulses.map((p) => (
-        <Stat
-          key={p.key}
-          label={p.label}
-          value={p.value}
-          sub={p.sub}
-          tone={PULSE_TONE[p.tone]}
-          href={p.href}
-          chart={<Sparkline values={p.spark} tone={p.tone} label={p.sparkLabel} className="h-9 w-full" />}
-        />
-      ))}
-    </StatStrip>
   );
 }
 
 function CheckIcon({ className = "h-6 w-6" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
       <path d="M5 12.5l4.5 4.5L19 7.5" />
     </svg>
   );
@@ -250,8 +221,10 @@ function QueueCard({
   rows,
   urgent,
   extra,
-  span,
+  className,
   empty,
+  shown,
+  expand,
 }: {
   id: string;
   title: string;
@@ -259,69 +232,76 @@ function QueueCard({
   rows: DeckData["queue"];
   urgent: boolean;
   extra?: ReactNode;
-  span: string;
+  className: string;
   empty: string;
+  shown: number;
+  expand: "more" | "all";
 }) {
   const clear = rows.length === 0;
   return (
-    <section id={id} className={`sp-card ${span} scroll-mt-24 overflow-hidden`} aria-labelledby={`${id}-title`}>
-      <div className="g-pad pb-0">
-        <SectionHead
-          id={`${id}-title`}
-          title={title}
-          sub={sub}
-          action={
-            <>
-              {extra}
-              {clear ? <Chip tone="ok">All clear</Chip> : <Chip tone={urgent ? "bad" : "neutral"}>{formatNumber(rows.length)} to do</Chip>}
-            </>
-          }
-        />
-      </div>
+    <section id={id} className={`sp-card g-pad scroll-mt-24 ${className}`} aria-labelledby={`${id}-title`}>
+      <SectionHead
+        id={`${id}-title`}
+        title={title}
+        sub={sub}
+        action={
+          <>
+            {extra}
+            {clear ? <Chip tone="ok">All clear</Chip> : <Chip tone={urgent ? "bad" : "neutral"}>{formatNumber(rows.length)} to do</Chip>}
+          </>
+        }
+      />
       {clear ? (
-        <div className="flex flex-col items-center px-5 pb-10 pt-2 text-center">
+        <div className="flex flex-col items-center px-5 pb-8 pt-2 text-center">
           <CheckIcon className="h-8 w-8 text-faint" />
           <p className="t-card-title mt-3">All clear</p>
           <p className="t-caption mt-1 max-w-xs">{empty}</p>
         </div>
       ) : (
-        <div className="border-t border-line-soft">
-          <QueueList rows={rows.map((q) => ({ key: q.key, kind: q.kind, tag: q.tag, title: q.title, detail: q.detail, actions: q.actions }))} />
-        </div>
+        <QueueList shown={shown} expand={expand} rows={rows.map((q) => ({ key: q.key, kind: q.kind, tag: q.tag, title: q.title, detail: q.detail, actions: q.actions }))} />
       )}
     </section>
   );
 }
 
-export function PriorityQueue({ d }: { d: DeckData }) {
+/** "Orders and stock" (graphite-spec 9.1, right column): the first 4 item rows, "View all" opens the rest in place. */
+export function OrdersQueue({ d }: { d: DeckData }) {
   const orders = d.queue.filter((q) => ORDER_KINDS.includes(q.kind));
+  return (
+    <QueueCard
+      id="queue"
+      className=""
+      title="Orders and stock"
+      sub="Ranked: late first, then what is about to be"
+      rows={orders}
+      urgent={orders.some((q) => q.kind === "late" || q.kind === "overfill")}
+      empty="No late orders, no orders without stock and nothing dry."
+      shown={4}
+      expand="all"
+    />
+  );
+}
+
+/** "Work and tickets" (graphite-spec 9.1, 4 cols), with the "N open tickets" pill in its header. */
+export function WorkQueue({ d }: { d: DeckData }) {
   const work = d.queue.filter((q) => WORK_KINDS.includes(q.kind));
   return (
-    <>
-      <QueueCard
-        id="queue"
-        span="span-7"
-        title="Orders and stock"
-        sub="Ranked: late first, then what is about to be"
-        rows={orders}
-        urgent={orders.some((q) => q.kind === "late" || q.kind === "overfill")}
-        empty="No late orders, no orders without stock and nothing dry."
-      />
-      <QueueCard
-        id="queue-work"
-        span="span-5"
-        title="Work and tickets"
-        sub="Work waiting for you and ticket follow-ups due"
-        rows={work}
-        urgent={false}
-        extra={
-          <Link prefetch={false} href="/tickets" className="focus-ring rounded-full">
-            <Chip tone="accent">{formatNumber(d.kpis.openTickets)} open tickets</Chip>
-          </Link>
-        }
-        empty="No follow-ups due and no work waiting for you."
-      />
-    </>
+    <QueueCard
+      id="queue-work"
+      className="span-4"
+      title="Work and tickets"
+      sub="Work waiting for you and ticket follow-ups due"
+      rows={work}
+      urgent={false}
+      extra={
+        <Link prefetch={false} href="/tickets" className="focus-ring rounded-[8px]">
+          <Chip tone="accent">{formatNumber(d.kpis.openTickets)} open tickets</Chip>
+        </Link>
+      }
+      empty="No follow-ups due and no work waiting for you."
+      shown={6}
+      expand="more"
+    />
   );
 }
 
@@ -338,7 +318,7 @@ export function DispatchChart({ d }: { d: DeckData }) {
             <p className="text-right">
               <CountUp value={x.total} className="t-stat" />
               <span className="t-caption ml-1.5">units</span>
-              <span className="t-caption block font-mono">{formatNumber(x.avg)} a day on average</span>
+              <span className="t-caption block tabular-nums">{formatNumber(x.avg)} a day on average</span>
             </p>
           ) : undefined
         }
@@ -352,33 +332,51 @@ export function DispatchChart({ d }: { d: DeckData }) {
   );
 }
 
-/** Stock at a glance: five figures with their trend, each a link to the list behind it. */
+/** One Stock health row: the Label (with its line under it) left, the number right, a 72px sparkline; a link. */
+function HealthRow({ label, value, sub, tone, spark, href }: { label: string; value: number; sub: string; tone: SignalTone; spark?: { values: number[]; label: string }; href: string }) {
+  const color = tone === "bad" ? "text-bad" : tone === "warn" ? "text-warn" : "text-ink";
+  return (
+    <li>
+      <Link prefetch={false} href={href} className="focus-ring flex min-h-[52px] items-center gap-3 rounded-[12px] px-2 py-2 transition-colors duration-160 hover:bg-panel2">
+        <span className="min-w-0 flex-1">
+          <span className="t-label block truncate">{label}</span>
+          <span className="t-caption block truncate">{sub}</span>
+        </span>
+        <span className={`shrink-0 font-display text-[18px] font-bold leading-6 tabular-nums ${color}`}>{formatNumber(value)}</span>
+        <span className="w-[72px] shrink-0">{spark && spark.values.length > 1 ? <Sparkline values={spark.values} tone={tone} label={spark.label} className="kpi-spark" /> : null}</span>
+      </Link>
+    </li>
+  );
+}
+
+/** Stock at a glance (graphite-spec 9.1, 4 cols): five list rows, each a link to the list behind it. */
 export function StockHealth({ d }: { d: DeckData }) {
   const k = d.kpis;
   const delta = k.unitsChange;
   return (
-    <section aria-labelledby="stock-title" className="span-6">
+    <section className="sp-card g-pad span-4" aria-labelledby="stock-title">
       <SectionHead id="stock-title" title="Stock health" sub={k.snapshot ? `From the stock read of ${formatDate(k.snapshot, d.today)}` : undefined} />
-      <StatStrip className="wrap-5">
-        <Stat
+      <ul className="m-0 flex list-none flex-col divide-y divide-line-soft p-0">
+        <HealthRow
           label="Units in stock"
           value={k.units ?? 0}
+          tone="cyan"
           sub={delta === null ? "active listings" : delta === 0 ? "no change since last reading" : `${delta > 0 ? "+" : "−"}${formatNumber(Math.abs(delta))} since last reading`}
-          chart={<Sparkline values={k.stockSeries.units} tone="cyan" label="Units in stock at each stock reading" className="h-9 w-full" />}
+          spark={{ values: k.stockSeries.units, label: "Units in stock at each stock reading" }}
           href="/flipkart?tab=stock"
         />
-        <Stat label="Low stock" value={k.low ?? 0} tone={(k.low ?? 0) > 0 ? "warn" : "ok"} sub="in stock, but low at a warehouse" chart={<Sparkline values={k.stockSeries.low} tone="warn" label="Low-stock SKUs at each stock reading" className="h-9 w-full" />} href="/flipkart?tab=stock&view=low&hide=1" />
-        <Stat label="Out of stock" value={k.out ?? 0} tone={(k.out ?? 0) > 0 ? "bad" : "ok"} sub="active, no units anywhere" chart={<Sparkline values={k.stockSeries.out} tone="bad" label="Out-of-stock SKUs at each stock reading" className="h-9 w-full" />} href="/flipkart?tab=stock&view=out&hide=1" />
-        <Stat label="Open tickets" value={k.openTickets} tone="accent" sub="open or waiting" chart={<Sparkline values={k.ticketSeries} tone="accent" label="Tickets raised per day, last 14 days" className="h-9 w-full" />} href="/tickets" />
-        <Stat label="Weight alerts" value={k.weight ?? 0} tone={(k.weight ?? 0) > 0 ? "warn" : "ok"} sub="over the size and weight limit" href="/flipkart?tab=stock&view=weight&hide=1" />
-      </StatStrip>
+        <HealthRow label="Low stock" value={k.low ?? 0} tone={(k.low ?? 0) > 0 ? "warn" : "ok"} sub="in stock, but low at a warehouse" spark={{ values: k.stockSeries.low, label: "Low-stock SKUs at each stock reading" }} href="/flipkart?tab=stock&view=low&hide=1" />
+        <HealthRow label="Out of stock" value={k.out ?? 0} tone={(k.out ?? 0) > 0 ? "bad" : "ok"} sub="active, no units anywhere" spark={{ values: k.stockSeries.out, label: "Out-of-stock SKUs at each stock reading" }} href="/flipkart?tab=stock&view=out&hide=1" />
+        <HealthRow label="Open tickets" value={k.openTickets} tone="accent" sub="open or waiting" spark={{ values: k.ticketSeries, label: "Tickets raised per day, last 14 days" }} href="/tickets" />
+        <HealthRow label="Weight alerts" value={k.weight ?? 0} tone={(k.weight ?? 0) > 0 ? "warn" : "ok"} sub="over the size and weight limit" href="/flipkart?tab=stock&view=weight&hide=1" />
+      </ul>
     </section>
   );
 }
 
 export function Movers({ d }: { d: DeckData }) {
   return (
-    <section className="sp-card g-pad span-12" aria-labelledby="mov-title">
+    <section className="sp-card g-pad span-7" aria-labelledby="mov-title">
       <SectionHead
         id="mov-title"
         title="Forecast, top movers"
@@ -392,12 +390,12 @@ export function Movers({ d }: { d: DeckData }) {
       {d.movers.length === 0 ? (
         <p className="t-caption py-6 text-center">There is no dispatch history yet to forecast from.</p>
       ) : (
-        <ol className="m-0 grid list-none grid-cols-1 gap-x-8 p-0 min-[1100px]:grid-cols-2">
+        <ol className="m-0 grid list-none grid-cols-1 p-0">
           {d.movers.map((m, i) => {
             const cover = m.cover;
             const tone: SignalTone = cover === null ? "neutral" : cover < 7 ? "bad" : cover < 14 ? "warn" : "ok";
             return (
-              <li key={m.sku} className="border-b border-line-soft">
+              <li key={m.sku} className="border-b border-line-soft last:border-b-0">
                 <ForecastRow
                   rank={i + 1}
                   sku={m.sku}
@@ -422,7 +420,7 @@ export function StockByWarehouse({ d }: { d: DeckData }) {
   const total = rows.reduce((n, r) => n + r.units, 0);
   const parts = rows.map((r) => ({ key: r.id, label: r.name, color: r.color }));
   return (
-    <section className="sp-card g-pad span-6" aria-labelledby="whs-title">
+    <section className="sp-card g-pad span-4" aria-labelledby="whs-title">
       <SectionHead
         id="whs-title"
         title="Stock by warehouse"
@@ -482,17 +480,17 @@ export function ForecastRow({
 }) {
   return (
     <div className="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-3 gap-y-2 py-3">
-      <span className="font-mono text-xs text-faint">{rank}</span>
+      <span className="text-xs tabular-nums text-faint">{rank}</span>
       <span className="min-w-0">
         <span className="block truncate font-mono text-[13px] font-medium">{sku}</span>
         {title ? <span className="t-caption block truncate">{title}</span> : null}
       </span>
       <span className="text-right">
-        <span className="block font-mono text-[13px] font-medium tabular-nums">{figure}</span>
+        <span className="block text-[13px] font-medium tabular-nums">{figure}</span>
         <span className="t-caption block">{rate}</span>
       </span>
       <span />
-      <Bar share={share} tone="cyan" index={rank - 1} />
+      <Bar share={share} tone="accent" index={rank - 1} />
       <span className="text-right">
         <Chip tone={chip.tone}>{chip.label}</Chip>
       </span>
@@ -500,19 +498,21 @@ export function ForecastRow({
   );
 }
 
-/** The whole Command Deck (glass-spec 8.1), in reading order on a 12-column grid. */
+/** The whole Command Centre (graphite-spec 9.1), in reading order on a 12-column grid. */
 export function CommandDeck({ d, push }: { d: DeckData; push?: ReactNode }) {
   return (
     <div className="g-grid vr-stagger items-start">
       <DeckHeadline d={d} push={push} />
-      <TodayHero d={d} />
-      <LanesCard d={d} />
-      <Pulses d={d} />
-      <PriorityQueue d={d} />
-      <OrdersTrend d={d} />
-      <DispatchChart d={d} />
+      <DeckKpis d={d} />
+      <FlowCard d={d} />
+      <div className="span-4 flex min-w-0 flex-col gap-[14px]">
+        <OrdersQueue d={d} />
+        <OrdersPulse d={d} />
+      </div>
+      <WorkQueue d={d} />
       <StockByWarehouse d={d} />
       <StockHealth d={d} />
+      <DispatchChart d={d} />
       <Movers d={d} />
     </div>
   );

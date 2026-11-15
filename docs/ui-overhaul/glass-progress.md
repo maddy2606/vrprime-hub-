@@ -92,3 +92,7 @@ Reviews, Team, P&L · 7 Admin, sign-in, Money · 8 Accessibility pass and colour
 - Contrast: 8 text tokens raised toward --ink (listed in glass-gaps.md). Touch targets: 36 px buttons to 40, transparent tap areas on 32 px seg options, phone VR mark, chip remove.
 - backdrop-filter only on cards ≥700 px, rail/top/bottom bars (vr-bar, vr-bottom), popovers/tooltips and the settings Save bar.
 - Hex/rgba sweep of component files: only literal colours left are meta theme colours (equal --canvas) and the WhatsApp QR white box.
+
+## Final
+- npm run build passes. 86 screenshots in docs/ui-overhaul/screens/glass (dark 1440 and 390 for 39 preview views and /login; light 1440 for deck, dashboard, forders, mywork, team, pnl).
+- glass-inventory.md: 131 of 155 lines ticked; the rest are listed at its end with the reason.

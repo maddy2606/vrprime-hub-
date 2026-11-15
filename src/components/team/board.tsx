@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { AttendancePanel } from "@/components/team/attendance-panel";
 import { PeopleTable } from "@/components/team/people-table";
 import { TeamTools } from "@/components/team/team-tools";
 import { CapacityChart } from "@/components/signal/charts";
 import { UsersIcon } from "@/components/icons";
-import { Chip, ItemRow, Stat, StatStrip, TONE_TINT, withNumbers } from "@/components/ui";
+import { buttonClass, Chip, ItemRow, Stat, StatStrip, TONE_TINT, withNumbers } from "@/components/ui";
 import type { DayStatus } from "@/lib/capacity";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { TeamData, WarehouseView } from "@/server/team-data";
@@ -39,10 +40,17 @@ function Hero({ d }: { d: TeamData }) {
   const busiest = d.allDays.reduce<{ day: string; orders: number } | null>((best, x) => (best === null || x.orders > best.orders ? x : best), null);
   return (
     <section className="span-12" aria-labelledby="team-headline">
-      <h1 id="team-headline" className="t-h1">
-        Team
-      </h1>
-      <p className="t-headline mt-1">{withNumbers(headline, tone)}</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 id="team-headline" className="t-h1">
+            Team
+          </h1>
+          <p className="t-headline mt-1">{withNumbers(headline, tone)}</p>
+        </div>
+        <Link prefetch={false} href="/reports/closing" className={buttonClass("secondary")}>
+          Closing report
+        </Link>
+      </div>
       <p className="t-caption mt-1">Last 14 days. Real orders only, no predictions. The suggestions below say what stands out.</p>
       <StatStrip className="mt-4" ariaLabel="The team in figures">
         <Stat label="People" value={d.total.staff} sub={total.attendanceRate === null ? "attendance not marked yet" : `${Math.round(total.attendanceRate * 100)}% turn up on average`} />

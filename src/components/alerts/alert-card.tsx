@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   AlertIcon,
+  BarsIcon,
   BellIcon,
   BoardIcon,
   BoxIcon,
@@ -31,6 +32,9 @@ const KIND_ICON: Record<string, (p: { className?: string }) => ReactNode> = {
   comment: InboxIcon,
   done: CheckIcon,
   listing_live: CheckIcon,
+  listing_alert: AlertIcon,
+  closing_report: TruckIcon,
+  weekly_summary: BarsIcon,
 };
 
 export function KindIcon({ kind, className = "h-5 w-5" }: { kind: string; className?: string }) {

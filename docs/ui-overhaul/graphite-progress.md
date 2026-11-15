@@ -60,3 +60,16 @@ Gaps: `graphite-gaps.md`. Inventory: `graphite-inventory.md` (all ticks cleared;
   ticket carries them too. Flipkart › Returns › To claim tab with the To check count; Settings "Days to claim a return".
 - Preview: /dev/preview?view=fclaim (and &ready=0 for the not-set-up state). Seen at 1440.
 - Not testable until the migration is applied: the live list, Looks fine, the 'ticket' check, the tab count.
+
+## 6. Closing report (Part C 12.4): done, migration not applied
+- Migration `supabase/migrations/20261116093000_closing_report.sql`: closing_reports (RLS select: staff, warehouse
+  role own warehouses), private.closing_report() (upsert per warehouse, notify owners/admins and warehouse users),
+  cron 'closing-report' at '20 16 * * *'. Needs 20261116091000 first.
+- Kinds closing_report, weekly_summary, listing_alert added to labels, tones, notificationUrl, the notify function's
+  link rule and the alert icons (+ tests). The notify Edge Function needs redeploying by hand.
+- /reports/closing (all roles) with day arrows, the table and a totals row; loading.tsx; "Closing report" secondary
+  button in the Team header. src/lib/closing-report.ts (+ 3 tests), src/server/closing-report.ts.
+- Preview: /dev/preview?view=closing (&empty=1, &ready=0). Screens: closing-dark-1440.png, closing-dark-390.png.
+- Seen live: /reports/closing shows the not-set-up state (table missing); the Team button links there.
+- Not testable until applied: the report rows, the 21:50 run, the notifications.
+- Checks: tsc, lint clean; npm test 313 pass.

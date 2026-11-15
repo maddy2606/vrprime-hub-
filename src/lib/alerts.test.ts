@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { alertLines, groupAlerts, isAlertKind, timeAgo } from "./alerts.ts";
-import { notificationUrl } from "./notifications.ts";
+import { notificationUrl, weeklySummaryStart } from "./notifications.ts";
 import type { NotificationRow } from "./types.ts";
 
 const note = (id: string, kind: string, minutesAgo: number, extra: Partial<NotificationRow> = {}): NotificationRow => ({
@@ -84,4 +84,17 @@ test("each new alert opens the right page", () => {
   assert.equal(notificationUrl({ ...base, kind: "sync_alert", title: "Flipkart stock sync is not working" }), "/flipkart?tab=stock");
   assert.equal(notificationUrl({ ...base, kind: "sync_alert", title: "VR Prime stock sync is not working" }), "/flipkart?tab=forecast");
   assert.equal(notificationUrl({ ...base, kind: "sync_alert", title: "WhatsApp expenses are not being fetched" }), "/notifications");
+});
+
+test("closing report, listing check and weekly summary links", () => {
+  const base = { post_id: null, ticket_id: null };
+  assert.equal(notificationUrl({ ...base, kind: "closing_report" }), "/reports/closing");
+  assert.equal(notificationUrl({ ...base, kind: "listing_alert" }), "/flipkart?tab=listingcheck");
+  // Sent Monday 23 Nov 2026, 9:00 India time (03:30 UTC): the week of Monday 16 Nov.
+  assert.equal(notificationUrl({ ...base, kind: "weekly_summary", created_at: "2026-11-23T03:30:00Z" }), "/business?tab=week&start=2026-11-16");
+  assert.equal(weeklySummaryStart("2026-11-22T20:00:00Z"), "2026-11-16"); // already Monday 23 Nov in India
+  assert.equal(weeklySummaryStart("2026-11-22T10:00:00Z"), "2026-11-09"); // still Sunday 22 Nov in India
+  assert.ok(isAlertKind("listing_alert"));
+  assert.ok(!isAlertKind("closing_report"));
+  assert.ok(!isAlertKind("weekly_summary"));
 });

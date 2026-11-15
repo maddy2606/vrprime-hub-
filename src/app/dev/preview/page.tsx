@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimsTab } from "@/components/flipkart/claims-tab";
 import { fakeClaimRows } from "@/lib/dev-fixtures-claims";
+import { ClosingReport } from "@/components/reports/closing-report";
+import { fakeClosingRows } from "@/lib/dev-fixtures-closing";
 import { UsersAdmin, type AdminUser } from "@/components/admin/users-admin";
 import { AppShell } from "@/components/app-shell";
 import { ChangePasswordForm } from "@/components/auth/auth-forms";
@@ -112,6 +114,7 @@ const VIEWS = [
   "fforecast",
   "fmasters",
   "team",
+  "closing",
   "adsdesk",
   "ads",
   "reviews",
@@ -182,6 +185,9 @@ export default async function PreviewPage({
 
       {view === "deck" || view === "deckclear" ? <CommandDeck d={fakeDeck(view === "deckclear")} /> : null}
       {view === "dashboard" ? <DashboardBoard d={fakeDashboard()} /> : null}
+      {view === "closing" ? (
+        <ClosingReport day={typeof sp.day === "string" ? sp.day : today} today={today} rows={sp.empty === "1" ? [] : fakeClosingRows()} ready={sp.ready !== "0"} base="/dev/preview?view=closing" />
+      ) : null}
       {view === "pnl" ? (() => {
         const p = fakePnl();
         return <PnlBoard months={p.months} month={p.months[0]?.month ?? null} costing={p.costing} uploads={p.uploads} feePct={p.feePct} reportSkus={p.reportSkus} error={p.error} />;

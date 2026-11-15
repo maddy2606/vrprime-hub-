@@ -45,3 +45,11 @@ Each line: what, where, which rule (spec section 14) was applied.
 - 12.2 KPI icons: To check, Missed and Checked this week use the return arrow (returns, amber); Closing today or tomorrow uses the clock (amber when above 0). Section 4 table.
 - 12.2 Raise ticket on To claim is primary at the 40 px row height and 12 px text (row action buttons are 40 px, section 4). `src/components/flipkart/claims-tab.tsx`. Rule 14.1.
 - 12.2 a ticket raised from a return saves `tickets.return_id` only when a return is attached, so ordinary tickets keep working before the migration is applied. `src/server/actions/tickets.ts`.
+- 12.4 / Part C: there is no `NotificationKind` type in `src/lib/types.ts` (kind is a plain string), so new kinds go only in the label, tone, link and icon maps. Rule 14.2.
+- 12.4 closing_report and 12.5 weekly_summary are updates, not alerts (they ask for no action): not in ALERT_KINDS, tone info like money_reminder; icons truck and bars. listing_alert asks for action like listing_not_found: in ALERT_KINDS after it, tone bad, warning icon. `src/lib/alerts.ts`, `alert-card.tsx`. Rule 14.2.
+- 12.4 private.closing_report() writes a row for every warehouse (zeros where nothing happened) and skips orders and dispatch rows with no warehouse; "dispatch date today or earlier" leaves out pending orders with no dispatch_by. Migration 20261116093000. Rule 14.2 (alerts_capacity's tests).
+- 12.4 the owner/admin notification uses private.alert_people() (owners and admins), as alerts_stock does; body lines are joined by a new line. Rule 14.2.
+- 12.4 the totals row is the last row of the ledger, in semibold, shown when there is more than one warehouse; the table is not sortable. `src/components/reports/closing-table.tsx`. Rule 14.1.
+- 12.4 day arrows copy the Team attendance panel's (← and →, the next arrow dimmed on today); the subtitle reads "Today · 16 Nov" on today. Not-set-up state "The closing report is not set up yet". Rule 14.1.
+- 12.4 no rail item for the closing report (the spec names only the Team header button); warehouse users reach it from the notification. Rule 14.3.
+- 12.5 the weekly summary notification has no date in it, so its link takes the Monday a week before the day it was created (India time). `weeklySummaryStart` in `src/lib/notifications.ts` and the notify function. Rule 14.2.

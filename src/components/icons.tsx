@@ -238,3 +238,17 @@ export const StarIcon = (p: IconProps) => (
     <path d="m12 3.5 2.5 5.1 5.6.8-4.05 3.95.95 5.6L12 16.3l-5 2.65.95-5.6L3.9 9.4l5.6-.8z" />
   </Icon>
 );
+
+/** A return arrow: returns and cancellations (graphite-spec section 15). */
+export const ReturnIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3" />
+  </Icon>
+);
+
+/** Bars: the Business page (graphite-spec section 15). */
+export const BarsIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </Icon>
+);

@@ -191,7 +191,7 @@ export function SettingsForm({ initial }: { initial: SettingsValues }) {
       </Field>
       </section>
       </div>
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 -mx-3 mt-4 flex justify-end border-t border-line bg-[var(--pop)] p-3 backdrop-blur-[var(--blur-bar)] min-[700px]:bottom-0 min-[700px]:-mx-4 min-[1100px]:-mx-6">
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 -mx-3 mt-4 flex justify-end border-t border-line bg-[var(--pop)] p-3 min-[700px]:bottom-0 min-[700px]:-mx-4 min-[1100px]:-mx-6">
         <button type="submit" disabled={pending} className={buttonClass("primary", "w-full min-[700px]:w-auto min-[700px]:min-w-40")}>
           {pending ? "Saving…" : "Save settings"}
         </button>

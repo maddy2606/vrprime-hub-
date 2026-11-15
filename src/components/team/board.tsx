@@ -179,7 +179,7 @@ function StatusGrid({ d }: { d: TeamData }) {
         <table className="w-full min-w-[47rem] border-separate border-spacing-[3px] text-center text-xs">
           <thead>
             <tr>
-              <th scope="col" className="t-label sticky left-0 z-10 w-28 bg-[var(--surface-solid)] text-left">
+              <th scope="col" className="t-label sticky left-0 z-10 w-28 bg-surface text-left">
                 <span className="sr-only">Warehouse</span>
               </th>
               {heads.map((h, i) => (
@@ -197,7 +197,7 @@ function StatusGrid({ d }: { d: TeamData }) {
           <tbody>
             {rows.map((r) => (
               <tr key={r.key}>
-                <th scope="row" className="t-body sticky left-0 z-10 bg-[var(--surface-solid)] pr-1 text-left font-semibold">
+                <th scope="row" className="t-body sticky left-0 z-10 bg-surface pr-1 text-left font-semibold">
                   <span className="flex items-center gap-2">
                     <span aria-hidden="true" className="wh-dot" style={{ background: r.color, color: r.color }} />
                     <span className="truncate">{r.name}</span>

@@ -121,7 +121,7 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
       </div>
       {running ? (
         <div className="vr-progress mx-3 mb-3 h-1 overflow-hidden rounded-full bg-surface2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(((latest?.step ?? 0) / parts) * 100)} aria-label="Sync progress">
-          <span className="block h-full rounded-full bg-[image:var(--grad-accent)] transition-all" style={{ width: `${Math.round(((latest?.step ?? 0) / parts) * 100)}%` }} />
+          <span className="block h-full rounded-full bg-accent transition-all" style={{ width: `${Math.round(((latest?.step ?? 0) / parts) * 100)}%` }} />
         </div>
       ) : null}
 

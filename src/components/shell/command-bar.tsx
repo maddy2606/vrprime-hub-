@@ -233,7 +233,7 @@ export function CommandBar({
             href="/"
             aria-label="VR Prime Ops, Command Deck"
             className="focus-ring relative flex h-8 w-8 shrink-0 after:absolute after:-inset-1 after:content-[''] items-center justify-center rounded-[9px] font-display text-[13px] font-semibold text-accent-ink min-[700px]:hidden"
-            style={{ background: "var(--grad-accent)" }}
+            style={{ background: "var(--accent)" }}
           >
             VR
           </Link>

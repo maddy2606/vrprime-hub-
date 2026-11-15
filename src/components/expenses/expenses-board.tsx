@@ -717,7 +717,6 @@ export function ExpensesBoard({
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[1fr_1.15fr]">
         <section className="sp-card sp-card-lg relative overflow-hidden p-5 sm:p-6" aria-labelledby="exp-total">
-          <span aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full" style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--accent) 28%, transparent), transparent 68%)" }} />
           <div className="relative">
             <h2 id="exp-total" className="font-mono text-[11px] font-bold text-muted">
               Spent in {label}

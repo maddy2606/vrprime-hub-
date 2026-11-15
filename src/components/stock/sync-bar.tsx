@@ -101,7 +101,7 @@ export function SyncBar({ latest: initialLatest, lastDone: initialDone, snapshot
       </div>
       {running ? (
         <div className="vr-progress mx-3 mb-3 h-1 overflow-hidden rounded-full bg-surface2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label="Sync progress">
-          <span className="block h-full rounded-full bg-[image:var(--grad-accent)] transition-all" style={{ width: `${progress}%` }} />
+          <span className="block h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
         </div>
       ) : null}
 

@@ -1,143 +1,177 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Chip } from "@/components/ui";
+import type { CSSProperties, ReactNode } from "react";
+import { warehouseHealth } from "@/lib/deck";
 import { formatNumber } from "@/lib/format";
-import { STAGE_COLOR } from "@/lib/theme";
 
 /**
- * The warehouse lanes, the signature visual (glass-spec section 5). One row per warehouse: a glowing dot, the name and
- * a status chip; a 30px track holding To Accept → To Pack → To Dispatch, drawn to one shared scale so lanes compare by
- * length, each segment with its count (hidden under 34px wide); a red late marker at the track's right edge; under the
- * track the note on the left and "next dispatch …" on the right; the active count on the right. Every number is on the
- * page at rest; the segments grow in once.
+ * The flow map (graphite-spec section 5), which replaces the warehouse lanes everywhere and keeps their name and props.
+ * A header with each stage's total; one row per warehouse: its dot, name and captions; the To accept, To pack and To
+ * dispatch counts in chips over one stream line in the warehouse colour, thicker for more active orders, with dots
+ * moving left to right; the next pickup time and the state on the right. A footer line explains the picture.
  */
 export type Lane = {
   id: string;
   name: string;
   color: string;
   stages: { to_accept: number; to_pack: number; to_dispatch: number };
-  /** Orders already past their dispatch time: the late marker. */
+  /** Orders already past their dispatch time. */
   late?: number;
   /** "Today 4:00 pm", or null when nothing is waiting. */
   next?: string | null;
-  /** The status chip after the name. */
+  /** The warehouse's status (late, due soon, on time): picks the state line under the next pickup. */
   chip?: { label: string; tone: "ok" | "warn" | "bad" | "neutral" };
-  /** Shown at the right end: the figure and a line under it. */
+  /** The active count (the stream's thickness) and its old label. */
   figure?: { value: number; label: string };
-  /** The line under the track, on the left (on-time share, or Upcoming · Processing · In transit). */
+  /** A second caption under the name (Flipkart Orders: Upcoming · Processing · In transit · on hold). */
   note?: ReactNode;
+  /** Units out (Command Centre); left out where the page has no such figure. */
+  out?: number | null;
   href?: string;
-  /** Pressed state when the lane is a filter button. */
+  /** Pressed state when the row is a filter button. */
   selected?: boolean;
   onSelect?: () => void;
 };
 
-/** Segment text: the light first stage takes ink, the two stronger stages take --accent-ink, in both modes. */
 const STAGES = [
-  { key: "to_accept", label: "To Accept", color: STAGE_COLOR.to_accept, ink: "text-ink" },
-  { key: "to_pack", label: "To Pack", color: STAGE_COLOR.to_pack, ink: "text-accent-ink" },
-  { key: "to_dispatch", label: "To Dispatch", color: STAGE_COLOR.to_dispatch, ink: "text-accent-ink" },
+  { key: "to_accept", label: "To accept" },
+  { key: "to_pack", label: "To pack" },
+  { key: "to_dispatch", label: "To dispatch" },
 ] as const;
 
 const total = (l: Lane) => l.stages.to_accept + l.stages.to_pack + l.stages.to_dispatch;
+const activeOf = (l: Lane) => l.figure?.value ?? total(l);
 
 export function laneAria(l: Lane): string {
-  return `${l.name}: ${formatNumber(l.stages.to_accept)} to accept, ${formatNumber(l.stages.to_pack)} to pack, ${formatNumber(l.stages.to_dispatch)} to dispatch${l.late ? `, ${formatNumber(l.late)} late` : ""}${l.next ? `, next dispatch ${l.next}` : ""}`;
+  return `${l.name}: ${formatNumber(l.stages.to_accept)} to accept, ${formatNumber(l.stages.to_pack)} to pack, ${formatNumber(l.stages.to_dispatch)} to dispatch${l.late ? `, ${formatNumber(l.late)} late` : ""}${l.next ? `, next pickup ${l.next}` : ""}`;
 }
 
-function Track({ lane, max, index }: { lane: Lane; max: number; index: number }) {
-  const n = total(lane);
-  const width = n > 0 ? Math.max(2, (n / max) * 100) : 0;
-  const parts = STAGES.filter((s) => lane.stages[s.key] > 0);
+/** The state under the next pickup: "N late" (amber, 600), "Due soon" (amber), "All on time" (green) or "Nothing waiting". */
+function State({ lane }: { lane: Lane }) {
+  const late = lane.late ?? 0;
+  if (late > 0) return <span className="font-semibold text-warn">{formatNumber(late)} late</span>;
+  if (activeOf(lane) === 0) return <span className="text-muted">Nothing waiting</span>;
+  if (lane.chip && (lane.chip.tone === "warn" || lane.chip.tone === "bad")) return <span className="text-warn">Due soon</span>;
+  return <span className="text-ok">All on time</span>;
+}
+
+function Captions({ lane }: { lane: Lane }) {
+  const active = activeOf(lane);
+  const pct = warehouseHealth({ active, late: lane.late ?? 0, nextDue: null }, new Date(0)).pct;
   return (
-    <div className="relative h-[30px] w-full overflow-hidden rounded-[10px] bg-surface2" aria-hidden="true">
-      {n > 0 ? (
-        <div className="absolute inset-y-0 left-0 flex gap-[2px]" style={{ width: `${width}%` }}>
-          {parts.map((s, i) => (
-            <div
-              key={s.key}
-              title={`${s.label}: ${formatNumber(lane.stages[s.key])}`}
-              className="lane-seg sp-bar flex h-full min-w-[3px] items-center justify-center overflow-hidden"
-              style={{ flexGrow: lane.stages[s.key], flexBasis: 0, background: s.color, ["--i" as string]: index * 3 + i }}
-            >
-              <span className={`lane-count font-mono text-[12px] font-semibold tabular-nums ${s.ink}`}>{formatNumber(lane.stages[s.key])}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {lane.late ? <div className="vr-blink absolute inset-y-0 right-0 w-[3px] bg-bad text-bad" style={{ boxShadow: "var(--glow)" }} /> : null}
-    </div>
+    <>
+      <span className="t-caption block">
+        {pct}% on time · {formatNumber(active)} active{lane.out === null || lane.out === undefined ? "" : ` · ${formatNumber(lane.out)} out`}
+      </span>
+      {lane.note ? <span className="t-caption block">{lane.note}</span> : null}
+    </>
   );
 }
 
-export function Lanes({ lanes, ariaLabel, legend = true, className = "" }: { lanes: Lane[]; ariaLabel: string; legend?: boolean; className?: string }) {
-  const max = Math.max(1, ...lanes.map(total));
+function Row({ lane, maxActive }: { lane: Lane; maxActive: number }) {
+  const active = activeOf(lane);
+  const idle = active === 0;
+  const height = idle ? 2 : Math.max(2, Math.round((18 * active) / maxActive));
+  const style = { ["--wh" as string]: lane.color } as CSSProperties;
+  const next = (
+    <>
+      <span className="flow-next block">{lane.next ?? "—"}</span>
+      <span className="block text-[12px] leading-4">
+        <State lane={lane} />
+      </span>
+    </>
+  );
+  const body = (
+    <div className="flow-row flow-grid" style={style}>
+      <div className="min-w-0">
+        <span className="flex min-w-0 items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2">
+            <span aria-hidden="true" className="flow-dot" style={{ background: lane.color }} />
+            <span className="flow-name truncate">{lane.name}</span>
+          </span>
+          <span className="shrink-0 text-[12px] leading-4 min-[700px]:hidden">
+            <State lane={lane} />
+          </span>
+        </span>
+        <span className="mt-0.5 block max-[699.98px]:hidden">
+          <Captions lane={lane} />
+        </span>
+      </div>
+      <div className="flow-stages" aria-hidden="true">
+        <span className={`flow-stream ${idle ? "is-idle" : ""}`} style={{ height }}>
+          {idle ? null : <span className="flow-stream-dots" />}
+        </span>
+        {STAGES.map((s) => (
+          <span key={s.key} className="flow-stage">
+            <span className="flow-stage-label t-label">{s.label}</span>
+            <span className={`flow-chip ${idle ? "is-idle" : ""}`}>{formatNumber(lane.stages[s.key])}</span>
+          </span>
+        ))}
+      </div>
+      <div className="min-w-0 text-right max-[699.98px]:hidden">{next}</div>
+      <div className="flex items-end justify-between gap-3 min-[700px]:hidden">
+        <span className="min-w-0">
+          <Captions lane={lane} />
+        </span>
+        <span className="shrink-0 text-right">
+          <span className="flow-next block">{lane.next ?? "—"}</span>
+        </span>
+      </div>
+    </div>
+  );
+  const cls = "focus-ring block w-full text-left transition-colors duration-160 hover:bg-panel2";
+  if (lane.onSelect) {
+    return (
+      <button type="button" aria-pressed={lane.selected} onClick={lane.onSelect} className={`${cls} ${lane.selected ? "bg-accent-soft" : ""}`}>
+        {body}
+      </button>
+    );
+  }
+  if (lane.href) {
+    return (
+      <Link prefetch={false} href={lane.href} className={cls}>
+        {body}
+      </Link>
+    );
+  }
+  return body;
+}
+
+export function Lanes({ lanes, ariaLabel, className = "" }: { lanes: Lane[]; ariaLabel: string; legend?: boolean; className?: string }) {
+  const maxActive = Math.max(1, ...lanes.map(activeOf));
+  const totals = STAGES.map((s) => lanes.reduce((n, l) => n + l.stages[s.key], 0));
+  const active = lanes.reduce((n, l) => n + activeOf(l), 0);
+  const late = lanes.reduce((n, l) => n + (l.late ?? 0), 0);
   return (
     <figure className={`m-0 ${className}`}>
-      <ul role="img" aria-label={ariaLabel} className="m-0 flex list-none flex-col p-0">
-        {lanes.map((l, index) => {
-          const n = total(l);
-          const head = (
-            <span className="flex min-w-0 items-center gap-2">
-              <span aria-hidden="true" className="wh-dot" style={{ background: l.color, color: l.color }} />
-              <span className="truncate text-sm font-semibold">{l.name}</span>
-              {l.chip ? <Chip tone={l.chip.tone}>{l.chip.label}</Chip> : null}
-            </span>
-          );
-          const tail = (
-            <span className="flex shrink-0 items-baseline gap-1.5 text-right sm:flex-col sm:items-end sm:gap-0.5">
-              <span className="font-display text-[20px] font-medium leading-none tabular-nums">{formatNumber(l.figure?.value ?? n)}</span>
-              <span className="t-caption">{l.figure?.label ?? "active"}</span>
-            </span>
-          );
-          const body = (
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(9rem,13rem)_minmax(0,1fr)_auto] sm:gap-x-4">
-              {head}
-              <div className="order-last col-span-2 sm:order-none sm:col-span-1">
-                <Track lane={l} max={max} index={index} />
-                <p className="t-caption mt-1.5 flex flex-wrap justify-between gap-x-3 gap-y-0.5">
-                  <span>{l.note}</span>
-                  <span className={l.late ? "font-semibold text-bad" : ""}>
-                    {l.late ? `${formatNumber(l.late)} late · ` : ""}
-                    {l.next ? `next dispatch ${l.next}` : n > 0 ? "" : "no orders waiting"}
-                  </span>
-                </p>
-              </div>
-              {tail}
-            </div>
-          );
-          const cls = "focus-ring block w-full rounded-[var(--radius)] px-2 text-left transition-colors duration-160 hover:bg-surface2";
-          return (
-            <li key={l.id} aria-label={laneAria(l)} className="border-b border-line-soft last:border-b-0">
-              {l.onSelect ? (
-                <button type="button" aria-pressed={l.selected} onClick={l.onSelect} className={`${cls} ${l.selected ? "bg-accent-soft" : ""}`}>
-                  {body}
-                </button>
-              ) : l.href ? (
-                <Link prefetch={false} href={l.href} className={cls}>
-                  {body}
-                </Link>
-              ) : (
-                <div className="px-2">{body}</div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {legend ? (
-        <figcaption className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          {STAGES.map((s) => (
-            <span key={s.key} className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-              <span className="font-semibold text-ink">{s.label}</span>
-            </span>
-          ))}
-          <span className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="h-2.5 w-[3px] rounded-full bg-bad" />
-            <span className="font-semibold text-ink">Late at the gate</span>
+      <div className="flow-head flow-grid" aria-hidden="true">
+        <span className="t-label">Warehouse</span>
+        {STAGES.map((s, i) => (
+          <span key={s.key} className="text-center">
+            <span className="t-label block">{s.label}</span>
+            <span className="flow-stage-total block">{formatNumber(totals[i])}</span>
           </span>
-        </figcaption>
-      ) : null}
+        ))}
+        <span className="t-label text-right">Next pickup</span>
+      </div>
+      <ul role="img" aria-label={ariaLabel} className="m-0 list-none p-0">
+        {lanes.map((l) => (
+          <li key={l.id} aria-label={laneAria(l)}>
+            <Row lane={l} maxActive={maxActive} />
+          </li>
+        ))}
+      </ul>
+      <figcaption className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <span className="t-caption">Orders move left to right. A thicker line means more orders.</span>
+        <span className="t-caption">
+          <b className="font-semibold text-ink tabular-nums">{formatNumber(active)}</b> active
+          {late > 0 ? (
+            <>
+              {" · "}
+              <b className="font-semibold text-warn tabular-nums">{formatNumber(late)}</b> late
+            </>
+          ) : null}
+        </span>
+      </figcaption>
     </figure>
   );
 }

@@ -72,7 +72,7 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
       {/* Side rail (glass-spec section 7): 72px icons only from 700px, 236px with labels from 1100px. */}
       <aside className="vr-rail vr-bar fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line min-[700px]:flex">
         <Link href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring mx-3 mt-4 flex h-10 items-center gap-3 rounded-[10px] px-1">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] font-display text-[13px] font-semibold text-accent-ink" style={{ background: "var(--grad-accent)" }}>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] font-display text-[13px] font-semibold text-accent-ink" style={{ background: "var(--accent)" }}>
             VR
           </span>
           <span className="vr-rail-label text-[15px] font-bold">VR Prime Ops</span>
@@ -94,7 +94,7 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
                           on ? "bg-accent-soft text-ink" : "text-muted hover:bg-surface2"
                         }`}
                       >
-                        {on ? <span aria-hidden="true" className="absolute -left-3 h-[18px] w-[3px] rounded-r-full" style={{ background: "var(--grad-accent)" }} /> : null}
+                        {on ? <span aria-hidden="true" className="absolute -left-3 h-[18px] w-[3px] rounded-r-full" style={{ background: "var(--accent)" }} /> : null}
                         <item.icon className={`h-[18px] w-[18px] shrink-0 ${on ? "text-accent-text" : ""}`} />
                         <span className="vr-rail-label truncate">{item.label}</span>
                         <span
@@ -136,7 +136,7 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
   const slotClass = (on: boolean) =>
     `focus-ring relative flex h-16 w-full flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors duration-160 ${on ? "text-accent-text" : "text-muted active:text-ink"}`;
   const pill = "relative flex h-6 w-10 items-center justify-center";
-  const dot = (on: boolean) => (on ? <span aria-hidden="true" className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full" style={{ background: "var(--grad-accent)" }} /> : null);
+  const dot = (on: boolean) => (on ? <span aria-hidden="true" className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full" style={{ background: "var(--accent)" }} /> : null);
   return (
     <>
       {/* Bottom bar, under 700px */}

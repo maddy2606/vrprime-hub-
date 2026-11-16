@@ -43,8 +43,10 @@ import {
   masterKits,
   loadOrderSyncState,
   loadPriceRows,
+  loadReturnRateRows,
   loadReturnRates,
   masterRows,
+  returnRatesFrom,
   warehousesFor,
 } from "@/server/flipkart-data";
 import { loadOrderCounts, loadOrdersView, pickWarehouseOf } from "@/server/orders-view";
@@ -70,22 +72,24 @@ export async function NeedsPanel({ user }: { user: SessionUser }) {
   const now = new Date();
   const today = todayIST(now);
 
-  // Everything here is a small answer from the database (counts, a short list, a few SKUs), asked together:
-  // the page no longer reads the whole stock snapshot or every pending order to work this out.
-  const [settings, snapshotDate, warehouses, counts, cover] = await Promise.all([
-    loadFlipkartSettings(supabase),
-    latestSnapshotDate(supabase),
+  // Everything here is a small answer from the database (counts, a short list, a few SKUs), all asked at once: each
+  // part starts as soon as what it needs is in (prices wait for the settings and snapshot day, nothing waits for the
+  // order counts), and the return rates are read alongside the cover, which only labels them.
+  const settingsP = loadFlipkartSettings(supabase);
+  const snapshotP = latestSnapshotDate(supabase);
+  const coverP = loadCover(supabase);
+  const [settings, snapshotDate, warehouses, counts, cover, priceRows, newInactive, listingsNotFound, returns, moneyFlags] = await Promise.all([
+    settingsP,
+    snapshotP,
     warehousesFor(user),
     loadOrderCounts(supabase),
-    loadCover(supabase),
-  ]);
-  const [priceRows, newInactive, listingsNotFound, returns, moneyFlags] = await Promise.all([
-    staff && snapshotDate ? loadPriceRows(supabase, snapshotDate, settings, false) : Promise.resolve([]),
-    staff ? loadNewInactive(supabase, today, settings.newInactiveDays) : Promise.resolve([]),
+    coverP,
+    staff ? Promise.all([snapshotP, settingsP]).then(([day, s]) => (day ? loadPriceRows(supabase, day, s, false) : [])) : Promise.resolve([]),
+    staff ? settingsP.then((s) => loadNewInactive(supabase, today, s.newInactiveDays)) : Promise.resolve([]),
     staff ? loadListingsNotFound(supabase, now) : Promise.resolve([]),
-    loadReturnRates(supabase, settings, today, cover.coverageFrom),
+    Promise.all([loadReturnRateRows(supabase), settingsP, coverP]).then(([rows, s, c]) => returnRatesFrom(rows, s, today, c.coverageFrom)),
     // Owner only: the database refuses everyone else, and nothing is asked for them.
-    user.role === "owner" && (await isMoneyEnabled()) ? loadFlags(supabase as never) : Promise.resolve(null),
+    user.role === "owner" ? isMoneyEnabled().then((on) => (on ? loadFlags(supabase as never) : null)) : Promise.resolve(null),
   ]);
 
   const cards = readCards(counts, warehouses);

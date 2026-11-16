@@ -25,20 +25,38 @@ function Delta({ pct, against }: { pct: number | null; against: string }) {
  * The page header (graphite-spec 9.1): the title, the headline sentence as the subtitle with the reassurance under it,
  * the two places to go next on the right; the notes line and the push banner under it.
  */
-export function DeckHeadline({ d, push }: { d: DeckData; push?: ReactNode }) {
+export function DeckHeadline({ d, push }: { d: Pick<DeckData, "hero" | "notes">; push?: ReactNode }) {
+  return (
+    <DeckHeader push={push}>
+      <HeadlineLines d={d} />
+    </DeckHeader>
+  );
+}
+
+/** The headline sentence, the reassurance line and any notes, under the title. */
+export function HeadlineLines({ d }: { d: Pick<DeckData, "hero" | "notes"> }) {
   const { hero } = d;
+  return (
+    <>
+      <Headline text={hero.headline} tone={hero.tone} className="mt-1" />
+      <p className="t-caption mt-1">{withNumbers(hero.reassurance, "ink")}</p>
+      {d.notes.length ? (
+        <p role="status" className="t-caption mt-1">
+          {d.notes.join(" ")}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/** The header: the title and the two buttons, with the headline lines (`children`) under the title. */
+export function DeckHeader({ children, push }: { children: ReactNode; push?: ReactNode }) {
   return (
     <header className="span-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0 max-w-3xl">
           <h1 className="t-h1">Command Centre</h1>
-          <Headline text={hero.headline} tone={hero.tone} className="mt-1" />
-          <p className="t-caption mt-1">{withNumbers(hero.reassurance, "ink")}</p>
-          {d.notes.length ? (
-            <p role="status" className="t-caption mt-1">
-              {d.notes.join(" ")}
-            </p>
-          ) : null}
+          {children}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           <a href="#queue" className={buttonClass("primary")}>
@@ -55,7 +73,7 @@ export function DeckHeadline({ d, push }: { d: DeckData; push?: ReactNode }) {
 }
 
 /** The deck's flow map rows: each warehouse's orders by stage, the late count, the next pickup, units out. */
-function deckLanes(d: DeckData): Lane[] {
+function deckLanes(d: Pick<DeckData, "warehouses" | "whStages">): Lane[] {
   const stages = new Map(d.whStages.map((s) => [s.id, s]));
   return d.warehouses.map((w) => {
     const s = stages.get(w.id);
@@ -80,7 +98,17 @@ const PULSE_TONE: Record<"bad" | "warn" | "cyan", "bad" | "warn" | "accent"> = {
  * The KPI row of four (graphite-spec 9.1): To dispatch today (the capacity sentence for the owner and admins, else "across
  * N warehouses"; the late Chip beside the label), then the three pulses with their sparklines and links.
  */
-export function DeckKpis({ d }: { d: DeckData }) {
+export function DeckKpis({ d }: { d: Pick<DeckData, "todayCard" | "pulses"> }) {
+  return (
+    <StatStrip ariaLabel="To dispatch today and today's signals" className="span-12">
+      <TodayStat d={d} />
+      <PulseStats d={d} />
+    </StatStrip>
+  );
+}
+
+/** The first KPI: To dispatch today. */
+export function TodayStat({ d }: { d: Pick<DeckData, "todayCard"> }) {
   const t = d.todayCard;
   const cap = t?.capacity ?? null;
   const used = t && cap && cap.comfortable > 0 ? Math.round((t.due / cap.comfortable) * 100) : null;
@@ -96,8 +124,7 @@ export function DeckKpis({ d }: { d: DeckData }) {
     `across ${t.warehouses} ${t.warehouses === 1 ? "warehouse" : "warehouses"}`
   ) : undefined;
   return (
-    <StatStrip ariaLabel="To dispatch today and today's signals" className="span-12">
-      <Stat
+    <Stat
         label="To dispatch today"
         kind="orders"
         value={t ? t.due : "—"}
@@ -112,15 +139,22 @@ export function DeckKpis({ d }: { d: DeckData }) {
           ) : undefined
         }
       />
+  );
+}
+
+/** The other three KPIs: Late dispatch, Out of stock, Due tomorrow, with their sparklines. */
+export function PulseStats({ d }: { d: Pick<DeckData, "pulses"> }) {
+  return (
+    <>
       {d.pulses.map((p) => (
         <Stat key={p.key} label={p.label} value={p.value} sub={p.sub} tone={PULSE_TONE[p.tone]} href={p.href} spark={{ values: p.spark, tone: p.tone, label: p.sparkLabel }} />
       ))}
-    </StatStrip>
+    </>
   );
 }
 
 /** The flow map Card (graphite-spec 9.1, 8 cols): "Order flow map" with a Live pill. */
-export function FlowCard({ d }: { d: DeckData }) {
+export function FlowCard({ d }: { d: Pick<DeckData, "warehouses" | "whStages"> }) {
   const lanes = deckLanes(d);
   return (
     <section className="sp-card g-pad span-8" aria-labelledby="lanes-title">
@@ -148,7 +182,7 @@ export function FlowCard({ d }: { d: DeckData }) {
  * Orders pulse (graphite-spec 9.1, right column): "N yesterday", orders placed per day for the last 14 full days with the
  * 7-day average, then Yesterday, 7-day avg and Busiest.
  */
-export function OrdersPulse({ d }: { d: DeckData }) {
+export function OrdersPulse({ d }: { d: Pick<DeckData, "trend" | "todayCard"> }) {
   const pts = d.trend;
   const t = d.todayCard;
   const avg = t?.avg7 ?? null;
@@ -265,7 +299,7 @@ function QueueCard({
 }
 
 /** "Orders and stock" (graphite-spec 9.1, right column): the first 4 item rows, "View all" opens the rest in place. */
-export function OrdersQueue({ d }: { d: DeckData }) {
+export function OrdersQueue({ d }: { d: Pick<DeckData, "queue"> }) {
   const orders = d.queue.filter((q) => ORDER_KINDS.includes(q.kind));
   return (
     <QueueCard
@@ -283,7 +317,7 @@ export function OrdersQueue({ d }: { d: DeckData }) {
 }
 
 /** "Work and tickets" (graphite-spec 9.1, 4 cols), with the "N open tickets" pill in its header. */
-export function WorkQueue({ d }: { d: DeckData }) {
+export function WorkQueue({ d }: { d: Pick<DeckData, "queue"> & { kpis: Pick<DeckData["kpis"], "openTickets"> } }) {
   const work = d.queue.filter((q) => WORK_KINDS.includes(q.kind));
   return (
     <QueueCard
@@ -305,7 +339,7 @@ export function WorkQueue({ d }: { d: DeckData }) {
   );
 }
 
-export function DispatchChart({ d }: { d: DeckData }) {
+export function DispatchChart({ d }: { d: Pick<DeckData, "dispatch"> }) {
   const x = d.dispatch;
   return (
     <section className="sp-card g-pad span-5" aria-labelledby="disp-title">
@@ -350,7 +384,7 @@ function HealthRow({ label, value, sub, tone, spark, href }: { label: string; va
 }
 
 /** Stock at a glance (graphite-spec 9.1, 4 cols): five list rows, each a link to the list behind it. */
-export function StockHealth({ d }: { d: DeckData }) {
+export function StockHealth({ d }: { d: Pick<DeckData, "kpis" | "today"> }) {
   const k = d.kpis;
   const delta = k.unitsChange;
   return (
@@ -374,7 +408,7 @@ export function StockHealth({ d }: { d: DeckData }) {
   );
 }
 
-export function Movers({ d }: { d: DeckData }) {
+export function Movers({ d }: { d: Pick<DeckData, "movers" | "moversDays"> }) {
   return (
     <section className="sp-card g-pad span-7" aria-labelledby="mov-title">
       <SectionHead
@@ -415,7 +449,7 @@ export function Movers({ d }: { d: DeckData }) {
 }
 
 /** Where the stock sits (one bar, a part per warehouse), then each warehouse's empty and low SKUs side by side. */
-export function StockByWarehouse({ d }: { d: DeckData }) {
+export function StockByWarehouse({ d }: { d: Pick<DeckData, "whStock"> }) {
   const rows = d.whStock;
   const total = rows.reduce((n, r) => n + r.units, 0);
   const parts = rows.map((r) => ({ key: r.id, label: r.name, color: r.color }));

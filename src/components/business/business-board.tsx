@@ -15,7 +15,7 @@ export function readBusinessTab(v: unknown): BusinessTab {
 }
 
 /** The Business page's header and tabs (graphite-spec 12.1); the tab's content goes under it. */
-export function BusinessFrame({ tab, sub, base = "/business", children }: { tab: BusinessTab; sub: string; base?: string; children: ReactNode }) {
+export function BusinessFrame({ tab, sub, base = "/business", children }: { tab: BusinessTab; sub: ReactNode; base?: string; children: ReactNode }) {
   const sep = base.includes("?") ? "&" : "?";
   return (
     <div>

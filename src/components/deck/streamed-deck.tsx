@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { Part } from "@/components/part";
 import {
   DeckHeader,
   DispatchChart,
@@ -37,11 +38,6 @@ function CardWaiting({ label, className = "", height = "h-64" }: { label: string
       <CardLoader label={label} className={height} />
     </div>
   );
-}
-
-/** Waits for one part, then draws it. */
-async function Part<T>({ data, children }: { data: Promise<T>; children: (value: T) => ReactNode }) {
-  return children(await data);
 }
 
 export function StreamedDeck({ parts, push }: { parts: DeckParts; push?: ReactNode }) {

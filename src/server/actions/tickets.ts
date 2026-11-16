@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getActiveUser } from "@/lib/auth";
 import { ticketNumber } from "@/lib/format";
+import { isFlagReason } from "@/lib/return-claims";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult, Platform } from "@/lib/types";
 import { ticketSchema } from "@/lib/validation";
@@ -132,6 +133,22 @@ export async function markReturnChecked(returnId: unknown, orderItemId: unknown)
   if (error) return dbError(error, "mark the return as checked");
   revalidatePath("/flipkart");
   return { ok: true, message: "Marked as checked" };
+}
+
+/** "Needs claim" on All returns: the warehouse opened a completed return and found a problem. The return joins Returns
+ *  to claim under that reason (and comes back if it was marked "Looks fine"). */
+export async function flagReturnForClaim(returnId: unknown, orderItemId: unknown, reason: unknown): Promise<ActionResult> {
+  const user = await getActiveUser();
+  if (!user) return NOT_SIGNED_IN;
+  const r = returnKey.safeParse(returnId);
+  const i = returnKey.safeParse(orderItemId);
+  if (!r.success || !i.success) return { ok: false, message: "That return was not found." };
+  if (!isFlagReason(reason)) return { ok: false, message: "Pick what was wrong with the return." };
+  const supabase = (await createClient()) as unknown as LooseRpc;
+  const { error } = await supabase.rpc("return_flag_claim", { p_return_id: r.data, p_order_item_id: i.data, p_reason: reason });
+  if (error) return dbError(error, "mark the return as needing a claim");
+  revalidatePath("/flipkart");
+  return { ok: true, message: "Added to Returns to claim" };
 }
 
 type LooseRpc = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ error: { message: string; code?: string } | null }> };

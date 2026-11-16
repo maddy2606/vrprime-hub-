@@ -173,3 +173,25 @@ Then open http://localhost:3000 signed in. Two things to know:
   page; add `&role=admin` or `&role=warehouse`).
 - The local site reads the live database, and the new features show "not set up yet" until the migrations are
   applied.
+
+## Change after the build: Returns to claim narrowed and grouped by reason (16 Nov 2026, VRPRIME)
+
+The live data had about 400 completed returns a day (2,826 in 7 days, 2,180 of them courier returns), far too many to
+check one by one. VRPRIME decided:
+
+- A return is listed only when Flipkart's reason points at a claim: customer returns for MISSHIPMENT (wrong item),
+  DAMAGED_PRODUCT, MISSING_ITEM, QUALITY_ISSUE (used product, and quality not as expected); courier returns (RTO) for
+  Damaged_shipment. About 77 a day on the last 30 days' figures. Routine RTOs and customer remorse are left out.
+- "Needs claim" on the All returns table (completed returns only): the warehouse picks what was wrong (wrong item,
+  damaged, missing, used, empty box, other) and the return, RTO or customer, joins the list under that reason. A
+  return already marked "Looks fine" comes back. Table `return_claim_flags`, function `return_flag_claim`.
+- The tab opens on one card per reason; a reason lists every SKU with it, most returns first; a SKU opens to its
+  returns with "Looks fine" and "Raise ticket". The Type filter is gone. Listing titles come from `stock_listings`.
+- The list starts from setting `return_claim_start` = the day the migration is applied minus 7 days, so returns that can
+  still be claimed show and nothing from before shows as missed.
+- All in the same migration file `20261116091000_return_checks.sql` (still not applied). The closing report's
+  "Returns to check" counts the same narrowed list.
+
+Checked: all 87 migrations apply on Postgres 17; 61 SQL checks on fake data pass (grouping, every reason, marks,
+warehouse limits, go-live start, closing report counts); 335 unit tests (333 pass, 2 todo); tsc and lint clean.
+Screenshots `fclaim-dark-*` and `fclaim-reason-dark-*` were retaken without Google Fonts (fallback font).

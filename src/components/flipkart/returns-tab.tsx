@@ -1,18 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Caption, CsvButton, Dropdown, InfoTip, SearchField, Segmented, Toolbar } from "@/components/flipkart/kit";
 import { ListView } from "@/components/flipkart/list-view";
 import { OrdersSyncBar } from "@/components/flipkart/orders-sync-bar";
 import { DataTable, type Column } from "@/components/stock/data-table";
+import { useToast } from "@/components/toast";
 import { Chip, EmptyState, Stat, StatStrip, buttonClass } from "@/components/ui";
 import { formatDate, formatNumber } from "@/lib/format";
 import { ticketHref, type ReturnRate } from "@/lib/flipkart-analysis";
-import { claimTicketHref } from "@/lib/return-claims";
+import { claimTicketHref, FLAG_REASONS, groupLabel, isFlagReason, type FlagReason } from "@/lib/return-claims";
 import type { OrderSyncState } from "@/lib/orders-sync";
 import { RETURNS_PAGE_SIZE, type ReturnLine, type ReturnsPage, type ReturnsQuery, type ReturnsSummary, defaultReturnsQuery } from "@/lib/returns-view";
 import { loadReturnsAction } from "@/server/actions/returns-view";
+import { flagReturnForClaim } from "@/server/actions/tickets";
 
 type View = "list" | "rates";
 type Source = ReturnsQuery["source"];
@@ -40,6 +42,38 @@ function TicketLink({ sku, ret }: { sku: string | null; ret?: { returnId: string
     <Link prefetch={false} href={ret ? claimTicketHref(sku, ret.returnId, ret.orderItemId) : ticketHref(sku, "wrong_return")} className={buttonClass("secondary")}>
       Raise ticket
     </Link>
+  );
+}
+
+/** "Needs claim": the warehouse opened a completed return and found a problem. Picking what was wrong saves it at once,
+ *  and the return joins Returns to claim under that reason, RTO or customer return alike. */
+function NeedsClaim({ returnId, orderItemId }: { returnId: string; orderItemId: string }) {
+  const toast = useToast();
+  const [marked, setMarked] = useState<FlagReason | null>(null);
+  const [pending, startTransition] = useTransition();
+  if (marked) return <Chip tone="warn">Claim: {groupLabel(marked)}</Chip>;
+  return (
+    <select
+      aria-label="Needs claim: what was wrong?"
+      value=""
+      disabled={pending}
+      onChange={(e) => {
+        const reason = e.target.value;
+        if (!isFlagReason(reason)) return;
+        startTransition(async () => {
+          const result = await flagReturnForClaim(returnId, orderItemId, reason);
+          if (toast.result(result)) setMarked(reason);
+        });
+      }}
+      className={buttonClass("row", "cursor-pointer !pr-2")}
+    >
+      <option value="">Needs claim…</option>
+      {FLAG_REASONS.map((r) => (
+        <option key={r.value} value={r.value}>
+          {r.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -106,7 +140,18 @@ export function ReturnsTab({ initialPage, initialSummary, rates, historyReady, r
     { key: "wh", label: "Warehouse", cell: (r) => nameOf(r.warehouse_id), csv: () => null, minor: true },
     { key: "status", label: "Status", sort: sortable, cell: (r) => <span className="text-xs capitalize">{(r.return_status ?? "—").replaceAll("_", " ")}</span>, csv: () => null },
     { key: "order", label: "Order ID", sort: sortable, cell: (r) => <span className="break-all font-mono text-xs">{r.order_id ?? "—"}</span>, csv: () => null, minor: true },
-    { key: "ticket", label: "", screenOnly: true, cell: (r) => <TicketLink sku={r.sku} ret={{ returnId: r.return_id, orderItemId: r.order_item_id }} />, csv: () => null },
+    {
+      key: "ticket",
+      label: "",
+      screenOnly: true,
+      cell: (r) => (
+        <span className="flex items-center justify-end gap-2 whitespace-nowrap">
+          {r.return_status === "completed" ? <NeedsClaim returnId={r.return_id} orderItemId={r.order_item_id} /> : null}
+          <TicketLink sku={r.sku} ret={{ returnId: r.return_id, orderItemId: r.order_item_id }} />
+        </span>
+      ),
+      csv: () => null,
+    },
   ];
 
   const rateColumns: Column<ReturnRate>[] = [

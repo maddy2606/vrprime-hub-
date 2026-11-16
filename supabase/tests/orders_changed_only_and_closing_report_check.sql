@@ -1,21 +1,31 @@
--- Write-only-changed-lines check (supabase/proposals/20261116110000_orders_write_changed_only.sql).
+-- Check for supabase/proposals/20261116130000_orders_changed_only_and_closing_report.sql.
 --
--- Runs the same order-sync input through the OLD logic (the live functions before the change, copied below into
--- pg_temp) and the NEW logic (public.orders_apply_page / orders_run_finish with the proposal applied), each in a
--- sub-block that is rolled back, and checks:
---   1. fk_order_items: every column identical, except last_seen_at and last_run_id on lines that did not change;
+-- A. Order syncs write only changed lines. Runs the same order-sync input through the OLD logic (the live functions
+--    before the change, copied below into pg_temp) and the NEW logic (public.orders_apply_page / orders_run_finish with
+--    the proposal applied), each in a sub-block that is rolled back, and checks:
+--   1. fk_order_items: every column identical, except last_seen_at and last_run_id on lines that did not change, and
+--      left_pending_at (which only the new logic sets);
 --   2. fk_returns: every column identical, except last_run_id on returns that did not change;
 --   3. the run rows the Sync page reads (status, step, parts, pages, items_seen, items_saved, returns_saved,
 --      coverage_from, error, finished_at, notes.left_pending, notes.alerted) identical;
 --   4. flipkart_in_transit() and dispatch_daily identical;
 --   5. the new logic wrote only the inserted or changed lines (notes.changed), and the seen table is emptied;
---   6. if the seen table is emptied by a restart mid-run, nothing is moved off the pending list.
+--   6. if the seen table is emptied by a restart mid-run, nothing is moved off the pending list;
+--   7. a line moved off the pending list gets left_pending_at; no other line does.
+-- B. Closing report (private.closing_report), on its own test warehouse:
+--   8. units out and orders out count the lines whose left_pending_at is after the last report's out_to and up to now,
+--      still left_pending or already dispatched; Approved and Form Failed leavers, cancelled lines, and lines that left
+--      before the window or after now are left out; the row stores the window;
+--   9. the first report under the rule (no earlier out_to) starts at today's midnight (IST);
+--  10. Under Processing orders are left out of Pending for today and Late now, not out of Pending total; lines on hold
+--      are left out of all three;
+--  11. the notification to owners and admins carries the same figures (checked when the database has one).
 --
--- Needs a database with the proposal applied: a TEST project, never the live one. Everything is in one transaction
--- that is rolled back.
+-- Needs a database with the proposal applied: a TEST database, never the live one. Everything is in one transaction
+-- that is rolled back. Do not run it in the first 3 minutes after midnight IST (check 9 needs lines after midnight).
 --
---   psql "$TEST_DATABASE_URL" -f supabase/proposals/20261116110000_orders_write_changed_only.sql
---   psql "$TEST_DATABASE_URL" -f supabase/tests/orders_write_changed_only_check.sql
+--   psql "$TEST_DATABASE_URL" -f supabase/proposals/20261116130000_orders_changed_only_and_closing_report.sql
+--   psql "$TEST_DATABASE_URL" -f supabase/tests/orders_changed_only_and_closing_report_check.sql
 
 begin;
 
@@ -415,7 +425,7 @@ begin
   for key_ in select jsonb_object_keys(old -> 'items') loop
     a := old -> 'items' -> key_;
     b := new -> 'items' -> key_;
-    if (a - 'last_seen_at' - 'last_run_id') is distinct from (b - 'last_seen_at' - 'last_run_id') then
+    if (a - 'last_seen_at' - 'last_run_id' - 'left_pending_at') is distinct from (b - 'last_seen_at' - 'last_run_id' - 'left_pending_at') then
       raise exception 'FAIL 1: line % differs: old % new %', key_, a, b;
     end if;
     if key_ = any (unchanged) then
@@ -423,7 +433,7 @@ begin
       if b is distinct from seed -> 'items' -> key_ then
         raise exception 'FAIL 1: unchanged line % was written: seed % new %', key_, seed -> 'items' -> key_, b;
       end if;
-    elsif a is distinct from b then
+    elsif (a - 'left_pending_at') is distinct from (b - 'left_pending_at') then
       raise exception 'FAIL 1: changed or new line % differs in last_seen_at/last_run_id: old % new %', key_, a, b;
     end if;
   end loop;
@@ -484,7 +494,136 @@ begin
     raise exception 'FAIL 6: after losing the seen lines: % %', lost -> 'items' -> 'OWC-P3', lost -> 'runs' -> run_p -> 'notes';
   end if;
 
-  raise notice 'orders_write_changed_only_check: all checks passed (pending run wrote 3 of 6 lines read, daily run 5 of 7)';
+  -- 7. left_pending_at: set on the line the pending run moved off the list, at the time of that run; nowhere else
+  if (new -> 'items' -> 'OWC-P3' ->> 'left_pending_at') is null
+     or (new -> 'items' -> 'OWC-P3' ->> 'left_pending_at')::timestamptz <> now() then
+    raise exception 'FAIL 7: the line that left the pending list has no left_pending_at: %', new -> 'items' -> 'OWC-P3';
+  end if;
+  for key_ in select jsonb_object_keys(new -> 'items') loop
+    if key_ <> 'OWC-P3' and (new -> 'items' -> key_ ->> 'left_pending_at') is not null then
+      raise exception 'FAIL 7: line % got left_pending_at without leaving the pending list: %', key_, new -> 'items' -> key_;
+    end if;
+  end loop;
+  if (lost -> 'items' -> 'OWC-P3' ->> 'left_pending_at') is not null then
+    raise exception 'FAIL 7: left_pending_at set although the line stayed pending: %', lost -> 'items' -> 'OWC-P3';
+  end if;
+
+  raise notice 'order sync checks passed (pending run wrote 3 of 6 lines read, daily run 5 of 7)';
+end $$;
+
+-- ---------------------------------------------------------------------------------------------------------------
+-- B. Closing report, on its own warehouse "OCR test". Times are relative to today's midnight in IST (m) and to now().
+-- ---------------------------------------------------------------------------------------------------------------
+
+-- The lines, the earlier report (when p_prev), then the report itself. Returns the test warehouse's report row.
+create function pg_temp.ocr_scenario(p_prev boolean) returns jsonb language plpgsql as $f$
+declare
+  m timestamptz := (now() at time zone 'Asia/Kolkata')::date::timestamp at time zone 'Asia/Kolkata';
+  w uuid;
+begin
+  insert into public.warehouses (name, flipkart_location_id, sort_order) values ('OCR test', 'OCR-LOC', 98) returning id into w;
+  insert into owc_ids values ('ocr_w', w) on conflict (k) do update set id = excluded.id;
+
+  -- Lines that left the pending list (or not), with when they left.
+  insert into public.fk_order_items (platform, order_item_id, order_id, sku, quantity, order_date, order_day, location_id,
+    warehouse_id, stage, item_status, hold, dispatch_by, left_pending_at, first_seen_at, last_seen_at)
+  select 'flipkart', v.id, v.ord, 'OCR-SKU', v.qty, m - interval '1 day', (m - interval '1 day')::date, 'OCR-LOC',
+         w, v.stage, v.status, v.hold, v.by, v.lp, now(), now()
+  from (values
+    -- left in the window: counted
+    ('OCR-L1', 'OCR-O1',  2, 'left_pending', 'READY_TO_DISPATCH',   false, m - interval '1 hour', m + interval '2 minutes'),
+    ('OCR-L2', 'OCR-O1',  1, 'left_pending', 'PACKED',              false, m - interval '1 hour', now()),
+    ('OCR-L3', 'OCR-O2',  3, 'dispatched',   'SHIPPED',             false, m - interval '1 hour', m + interval '2 minutes'),
+    -- left in the window but not handovers: not counted
+    ('OCR-L4', 'OCR-O3',  5, 'left_pending', 'APPROVED',            false, m - interval '1 hour', m + interval '2 minutes'),
+    ('OCR-L5', 'OCR-O4',  7, 'left_pending', 'FORM_FAILED',         false, m - interval '1 hour', m + interval '2 minutes'),
+    ('OCR-L8', 'OCR-O7', 17, 'cancelled',    'CANCELLED',           false, m - interval '1 hour', m + interval '2 minutes'),
+    -- after midnight but before the earlier report's end: counted only when there is no earlier report
+    ('OCR-L6', 'OCR-O5', 11, 'left_pending', 'READY_TO_DISPATCH',   false, m - interval '1 hour', m + interval '30 seconds'),
+    -- before midnight, and after now: never counted
+    ('OCR-L7', 'OCR-O6', 13, 'left_pending', 'READY_TO_DISPATCH',   false, m - interval '2 hours', m - interval '1 hour'),
+    ('OCR-L9', 'OCR-O8', 19, 'left_pending', 'READY_TO_DISPATCH',   false, m - interval '1 hour', now() + interval '1 hour'),
+    -- still pending
+    ('OCR-P1', 'OCR-Q1',  1, 'pending',      'APPROVED',            false, now() - interval '1 hour', null),  -- late
+    ('OCR-P2', 'OCR-Q2',  1, 'pending',      'APPROVED',            false, now() + interval '1 second', null), -- due today
+    ('OCR-P3', 'OCR-Q3',  1, 'pending',      'PACKING_IN_PROGRESS', false, now() - interval '1 hour', null),  -- Under Processing
+    ('OCR-P4', 'OCR-Q4',  1, 'pending',      'APPROVED',            false, m + interval '2 days', null),      -- due later
+    ('OCR-P5', 'OCR-Q5',  1, 'pending',      'APPROVED',            true,  now() - interval '1 hour', null)   -- on hold
+  ) v(id, ord, qty, stage, status, hold, by, lp);
+
+  -- No earlier report under the new rule, unless p_prev: then yesterday's report ended one minute after midnight.
+  update public.closing_reports set out_to = null where out_to is not null;
+  if p_prev then
+    insert into public.closing_reports (day, warehouse_id, dispatched_units, dispatched_orders, pending_today, late_now,
+      pending_total, present, half_day, absent, on_leave, not_marked, returns_to_check, out_from, out_to)
+    values ((now() at time zone 'Asia/Kolkata')::date - 1, w, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            m - interval '1 day', m + interval '1 minute');
+  end if;
+
+  perform private.closing_report();
+  return (select to_jsonb(c) from public.closing_reports c where c.warehouse_id = w and c.day = (now() at time zone 'Asia/Kolkata')::date)
+         || jsonb_build_object('notified', (
+              select n.body from public.notifications n
+              where n.kind = 'closing_report' and n.user_id in (select private.alert_people()) and n.body like '%OCR test:%'
+              order by n.created_at desc limit 1),
+            'alert_people', (select count(*) from private.alert_people()));
+end $f$;
+
+do $$
+declare
+  m timestamptz := (now() at time zone 'Asia/Kolkata')::date::timestamp at time zone 'Asia/Kolkata';
+  withprev jsonb;
+  first jsonb;
+begin
+  if now() < m + interval '3 minutes' then
+    raise exception 'Run this check after 00:03 IST: check 9 needs lines that left after midnight';
+  end if;
+  begin
+    withprev := pg_temp.ocr_scenario(true);
+    raise exception 'owc-rollback';
+  exception when raise_exception then
+    if sqlerrm <> 'owc-rollback' then raise; end if;
+  end;
+  begin
+    first := pg_temp.ocr_scenario(false);
+    raise exception 'owc-rollback';
+  exception when raise_exception then
+    if sqlerrm <> 'owc-rollback' then raise; end if;
+  end;
+
+  -- 8. since the earlier report: L1 (2) + L2 (1) + L3 (3) = 6 units, orders O1 and O2
+  if (withprev ->> 'dispatched_units')::int <> 6 or (withprev ->> 'dispatched_orders')::int <> 2 then
+    raise exception 'FAIL 8: units/orders out % / % (expected 6 / 2): %', withprev ->> 'dispatched_units', withprev ->> 'dispatched_orders', withprev;
+  end if;
+  if (withprev ->> 'out_from')::timestamptz <> m + interval '1 minute' or (withprev ->> 'out_to')::timestamptz <> now() then
+    raise exception 'FAIL 8: window % to % (expected % to %)', withprev ->> 'out_from', withprev ->> 'out_to', m + interval '1 minute', now();
+  end if;
+
+  -- 9. first report: from midnight, so L6 (11) counts too: 17 units, orders O1, O2 and O5
+  if (first ->> 'dispatched_units')::int <> 17 or (first ->> 'dispatched_orders')::int <> 3 then
+    raise exception 'FAIL 9: units/orders out % / % (expected 17 / 3): %', first ->> 'dispatched_units', first ->> 'dispatched_orders', first;
+  end if;
+  if (first ->> 'out_from')::timestamptz <> m then
+    raise exception 'FAIL 9: first window starts at % (expected midnight %)', first ->> 'out_from', m;
+  end if;
+
+  -- 10. pending for today: P1, P2 (not P3 Under Processing, not P4 due later, not P5 on hold); late: P1;
+  --     pending total: P1-P4
+  if (withprev ->> 'pending_today')::int <> 2 or (withprev ->> 'late_now')::int <> 1 or (withprev ->> 'pending_total')::int <> 4 then
+    raise exception 'FAIL 10: pending today % late % total % (expected 2, 1, 4): %',
+      withprev ->> 'pending_today', withprev ->> 'late_now', withprev ->> 'pending_total', withprev;
+  end if;
+
+  -- 11. the notification text
+  if (withprev ->> 'alert_people')::int > 0 then
+    if withprev ->> 'notified' is null or position('OCR test: 6 units out, 2 pending, 1 late, ' in withprev ->> 'notified') = 0 then
+      raise exception 'FAIL 11: notification text: %', withprev ->> 'notified';
+    end if;
+  else
+    raise notice 'check 11 skipped: no active owner or admin in this database to notify';
+  end if;
+
+  raise notice 'closing report checks passed (6 units / 2 orders since the last report, 17 / 3 from midnight; 2 pending, 1 late)';
 end $$;
 
 rollback;

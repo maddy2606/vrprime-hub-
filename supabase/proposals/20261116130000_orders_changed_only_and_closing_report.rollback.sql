@@ -1,29 +1,9 @@
--- Order syncs write only the lines whose values changed.
--- PROPOSAL: kept out of supabase/migrations so `supabase db push` does not apply it. Approved to build and test on
--- 16 Nov 2026; to be deployed only after the backup step.
---
--- Until now every run rewrote every line it read (3,700-4,800 per pending run), changed or not, because the upsert
--- always set last_seen_at and last_run_id. last_run_id is indexed, so none of those updates could be HOT: each wrote a
--- new copy of the row and an entry in all 10 indexes of fk_order_items (4.12 million updates against 172,000 inserts,
--- 1.5% HOT, when measured). Now a line is written only when one of its values changes, and:
---   * "which pending lines did this run see" (the finish step moves the unseen ones off the pending list) comes from
---     private.order_run_seen instead of last_run_id. The table is UNLOGGED and is emptied with TRUNCATE. A restart
---     empties an unlogged table, so the finish step first checks the table still holds every line the run saw (a count
---     kept in order_runs.notes, which is logged) and skips that step for the run if not.
---   * shipped orders ('post' parts) are still always written, because flipkart_in_transit() reads their last_seen_at.
---   * a line that is inserted or changes is written exactly as before, last_seen_at and last_run_id included.
--- items_saved and returns_saved still count lines read, so the Sync page's numbers do not change; notes.changed counts
--- the lines actually written.
---
--- Undo: supabase/proposals/20261116110000_orders_write_changed_only.rollback.sql
--- Test: supabase/tests/orders_write_changed_only_check.sql (old and new logic on the same input).
-
-create unlogged table if not exists private.order_run_seen (
-  run_id uuid not null,
-  order_item_id text not null,
-  primary key (run_id, order_item_id)
-);
-revoke all on table private.order_run_seen from public, anon, authenticated;
+-- ROLLBACK for supabase/proposals/20261116130000_orders_changed_only_and_closing_report.sql.
+-- The live definitions of orders_apply_page, orders_run_finish and private.closing_report as read from the database
+-- on 16 Nov 2026, before the change, plus removing the unlogged table the change adds. Running this puts the order sync
+-- and the closing report back exactly as they were.
+-- The new columns (fk_order_items.left_pending_at, closing_reports.out_from and out_to) are left in place: dropping them
+-- would throw their values away, and nothing reads them once the old functions are back.
 
 CREATE OR REPLACE FUNCTION public.orders_apply_page(p_run uuid, p_step integer, p_items jsonb, p_returns jsonb, p_next text, p_seen integer)
  RETURNS jsonb
@@ -45,9 +25,6 @@ declare
   v_returns integer := 0;
   v_created timestamptz;
   v_day date;
-  v_rc integer;
-  v_seen integer := 0;     -- pending-list lines newly marked as seen by this run
-  v_changed integer := 0;  -- lines inserted or actually changed (an unchanged line is not written)
 begin
   select * into r from public.order_runs where id = p_run for update;
   if not found or r.status <> 'running' then
@@ -73,14 +50,6 @@ begin
         select id into v_wid from public.warehouses where flipkart_location_id = v_loc;
       end if;
       v_date := nullif(it ->> 'order_date', '')::timestamptz;
-
-      -- The finish step needs to know which pending lines this run saw (it used to read last_run_id for that).
-      if v_t = 'pre' then
-        insert into private.order_run_seen (run_id, order_item_id) values (p_run, it ->> 'order_item_id')
-        on conflict do nothing;
-        get diagnostics v_rc = row_count;
-        v_seen := v_seen + v_rc;
-      end if;
 
       insert into public.fk_order_items as t (
         platform, order_item_id, order_id, shipment_id, sku, quantity, order_date, order_day, location_id, warehouse_id,
@@ -117,23 +86,7 @@ begin
         cancel_sub_reason = coalesce(excluded.cancel_sub_reason, t.cancel_sub_reason),
         selling_price = coalesce(excluded.selling_price, t.selling_price),
         last_seen_at = now(),
-        last_run_id = p_run
-      -- Only when something changed. Shipped orders are always written: flipkart_in_transit() reads their last_seen_at.
-      where v_t = 'post'
-         or (t.order_id, t.shipment_id, t.sku, t.quantity, t.order_date, t.order_day, t.location_id, t.warehouse_id,
-             t.stage, t.item_status, t.hold, t.dispatch_by, t.dispatch_after, t.cancel_type, t.cancelled_at,
-             t.cancel_reason, t.cancel_sub_reason, t.selling_price)
-            is distinct from
-            (excluded.order_id, coalesce(excluded.shipment_id, t.shipment_id), coalesce(excluded.sku, t.sku),
-             excluded.quantity, coalesce(excluded.order_date, t.order_date), coalesce(excluded.order_day, t.order_day),
-             coalesce(excluded.location_id, t.location_id), coalesce(excluded.warehouse_id, t.warehouse_id),
-             excluded.stage, excluded.item_status, excluded.hold,
-             coalesce(excluded.dispatch_by, t.dispatch_by), coalesce(excluded.dispatch_after, t.dispatch_after),
-             coalesce(excluded.cancel_type, t.cancel_type), coalesce(excluded.cancelled_at, t.cancelled_at),
-             coalesce(excluded.cancel_reason, t.cancel_reason), coalesce(excluded.cancel_sub_reason, t.cancel_sub_reason),
-             coalesce(excluded.selling_price, t.selling_price));
-      get diagnostics v_rc = row_count;
-      v_changed := v_changed + v_rc;
+        last_run_id = p_run;
       v_saved := v_saved + 1;
     end loop;
   elsif v_t = 'returns' then
@@ -173,15 +126,7 @@ begin
         sub_reason = excluded.sub_reason,
         shipment_status = excluded.shipment_status,
         updated_date = excluded.updated_date,
-        last_run_id = p_run
-      where (t.order_id, t.source, t.sku, t.quantity, t.location_id, t.warehouse_id, t.return_status, t.reason,
-             t.sub_reason, t.shipment_status, t.updated_date)
-            is distinct from
-            (coalesce(excluded.order_id, t.order_id), excluded.source, coalesce(t.sku, excluded.sku), excluded.quantity,
-             coalesce(excluded.location_id, t.location_id), coalesce(excluded.warehouse_id, t.warehouse_id),
-             excluded.return_status, excluded.reason, excluded.sub_reason, excluded.shipment_status, excluded.updated_date);
-      get diagnostics v_rc = row_count;
-      v_changed := v_changed + v_rc;
+        last_run_id = p_run;
       v_returns := v_returns + 1;
     end loop;
   end if;
@@ -199,13 +144,10 @@ begin
                            else coverage_from end,
       attempts = 0,
       error = null,
-      -- seen: checked by the finish step against order_run_seen; changed: lines actually written.
-      notes = notes || jsonb_build_object('seen', coalesce((notes ->> 'seen')::integer, 0) + v_seen,
-                                          'changed', coalesce((notes ->> 'changed')::integer, 0) + v_changed),
       updated_at = now()
   where id = p_run;
 
-  return jsonb_build_object('saved', v_saved, 'returns', v_returns, 'changed', v_changed);
+  return jsonb_build_object('saved', v_saved, 'returns', v_returns);
 end $function$;
 
 CREATE OR REPLACE FUNCTION public.orders_run_finish(p_run uuid)
@@ -219,8 +161,6 @@ declare
   v_error text;
   v_left integer := 0;
   v_alerts integer := 0;
-  v_seen_rows integer;
-  v_seen_lost boolean := false;
 begin
   select * into r from public.order_runs where id = p_run for update;
   if not found or r.status <> 'running' then
@@ -237,16 +177,9 @@ begin
   end if;
 
   if r.kind in ('pending', 'upcoming') then
-    -- order_run_seen is UNLOGGED (cheap to write), so a database restart empties it. If it no longer holds every line
-    -- this run saw, nothing is moved off the pending list this time; the next run does it.
-    select count(*) into v_seen_rows from private.order_run_seen where run_id = p_run;
-    v_seen_lost := v_seen_rows <> coalesce((r.notes ->> 'seen')::integer, 0);
-  end if;
-  if r.kind in ('pending', 'upcoming') and not v_seen_lost then
     update public.fk_order_items o
     set stage = 'left_pending'
-    where o.platform = 'flipkart' and o.stage = 'pending'
-      and not exists (select 1 from private.order_run_seen s where s.run_id = p_run and s.order_item_id = o.order_item_id)
+    where o.platform = 'flipkart' and o.stage = 'pending' and o.last_run_id is distinct from p_run
       and o.location_id is not null and o.dispatch_by is not null
       and not exists (
         select 1 from unnest(array['APPROVED', 'PACKING_IN_PROGRESS', 'PACKED', 'READY_TO_DISPATCH', 'FORM_FAILED']) s(state)
@@ -256,8 +189,6 @@ begin
             and (p ->> 'from') is not null and (p ->> 'to') is not null
             and (p ->> 'from')::timestamptz <= o.dispatch_by and o.dispatch_by <= (p ->> 'to')::timestamptz));
     get diagnostics v_left = row_count;
-  end if;
-  if r.kind in ('pending', 'upcoming') then
     v_alerts := private.orders_raise_alerts();
   end if;
 
@@ -279,13 +210,109 @@ begin
   update public.order_runs
   set status = 'done', error = null, finished_at = now(), lease_until = null, updated_at = now(),
       notes = jsonb_build_object('left_pending', v_left, 'alerted', v_alerts)
-              || jsonb_strip_nulls(jsonb_build_object('changed', (r.notes ->> 'changed')::integer,
-                                                      'seen_lost', case when v_seen_lost then true end))
   where id = p_run;
-  -- Empty the seen table, unless another run may still be using it. Its lines carry their run id, so leftovers never
-  -- affect another run, and the next run that finishes alone empties them.
-  if not exists (select 1 from public.order_runs where id <> p_run and status in ('queued', 'running', 'paused')) then
-    truncate private.order_run_seen;
-  end if;
   return jsonb_build_object('ok', true, 'left_pending', v_left, 'alerted', v_alerts);
 end $function$;
+
+CREATE OR REPLACE FUNCTION private.closing_report()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+declare
+  v_today date := (now() at time zone 'Asia/Kolkata')::date;
+  v_title text := 'Closing report · ' || to_char(now() at time zone 'Asia/Kolkata', 'FMDD Mon');
+  v_body text;
+  u record;
+begin
+  with wh as (
+    select w.id from public.warehouses w
+  ), out_units as (
+    select d.warehouse_id, sum(d.units)::integer as n
+    from public.dispatch_daily d
+    where d.platform = 'flipkart' and d.dispatch_day = v_today and d.warehouse_id is not null
+    group by 1
+  ), out_orders as (
+    select i.warehouse_id, count(distinct i.order_id)::integer as n
+    from public.fk_order_items i
+    where i.platform = 'flipkart' and i.stage = 'dispatched' and i.dispatch_by is not null
+      and (i.dispatch_by at time zone 'Asia/Kolkata')::date = v_today
+    group by 1
+  ), pend as (
+    select i.warehouse_id,
+           count(distinct i.order_id) filter (where i.dispatch_by is not null
+                                                and (i.dispatch_by at time zone 'Asia/Kolkata')::date <= v_today)::integer as today_n,
+           count(distinct i.order_id) filter (where i.dispatch_by is not null
+                                                and (i.dispatch_by at time zone 'Asia/Kolkata')::date <= v_today
+                                                and i.dispatch_by < now())::integer as late_n,
+           count(distinct i.order_id)::integer as total_n
+    from public.fk_order_items i
+    where i.platform = 'flipkart' and i.stage = 'pending' and not i.hold
+    group by 1
+  ), att as (
+    select s.warehouse_id,
+           count(*) filter (where a.status = 'present')::integer as present,
+           count(*) filter (where a.status = 'half')::integer as half_day,
+           count(*) filter (where a.status = 'absent')::integer as absent,
+           count(*) filter (where a.status = 'leave')::integer as on_leave,
+           count(*) filter (where a.status is null)::integer as not_marked
+    from public.staff s
+    left join public.attendance a on a.staff_id = s.id and a.day = v_today
+    where s.active
+    group by 1
+  ), ret as (
+    select (x ->> 'warehouse_id')::uuid as warehouse_id, count(*)::integer as n
+    from jsonb_array_elements(public.returns_to_claim()) x
+    where (x ->> 'days_left')::integer >= 0 and x ->> 'warehouse_id' is not null
+    group by 1
+  )
+  insert into public.closing_reports as c (day, warehouse_id, dispatched_units, dispatched_orders, pending_today, late_now,
+                                           pending_total, present, half_day, absent, on_leave, not_marked, returns_to_check)
+  select v_today, wh.id,
+         coalesce(ou.n, 0), coalesce(oo.n, 0), coalesce(p.today_n, 0), coalesce(p.late_n, 0), coalesce(p.total_n, 0),
+         coalesce(a.present, 0), coalesce(a.half_day, 0), coalesce(a.absent, 0), coalesce(a.on_leave, 0),
+         coalesce(a.not_marked, 0), coalesce(r.n, 0)
+  from wh
+  left join out_units ou on ou.warehouse_id = wh.id
+  left join out_orders oo on oo.warehouse_id = wh.id
+  left join pend p on p.warehouse_id = wh.id
+  left join att a on a.warehouse_id = wh.id
+  left join ret r on r.warehouse_id = wh.id
+  on conflict (day, warehouse_id) do update set
+    dispatched_units = excluded.dispatched_units, dispatched_orders = excluded.dispatched_orders,
+    pending_today = excluded.pending_today, late_now = excluded.late_now, pending_total = excluded.pending_total,
+    present = excluded.present, half_day = excluded.half_day, absent = excluded.absent, on_leave = excluded.on_leave,
+    not_marked = excluded.not_marked, returns_to_check = excluded.returns_to_check, created_at = now();
+
+  -- Owners and admins: every warehouse, one line each.
+  select string_agg(w.name || ': ' || c.dispatched_units || ' units out, ' || c.pending_today || ' pending, '
+                    || c.late_now || ' late, ' || c.absent || ' absent', E'\n' order by w.sort_order, w.name)
+  into v_body
+  from public.closing_reports c join public.warehouses w on w.id = c.warehouse_id
+  where c.day = v_today;
+  if v_body is null then
+    return;
+  end if;
+  for u in select private.alert_people() as id loop
+    perform private.notify_user(u.id, 'closing_report', v_title, v_body, null, null);
+  end loop;
+
+  -- Warehouse users: only their warehouses' lines.
+  for u in
+    select p.id,
+           string_agg(w.name || ': ' || c.dispatched_units || ' units out, ' || c.pending_today || ' pending, '
+                      || c.late_now || ' late, ' || c.absent || ' absent', E'\n' order by w.sort_order, w.name) as body
+    from public.profiles p
+    join public.user_warehouses uw on uw.user_id = p.id
+    join public.warehouses w on w.id = uw.warehouse_id
+    join public.closing_reports c on c.warehouse_id = uw.warehouse_id and c.day = v_today
+    where p.active and p.role = 'warehouse'
+    group by p.id
+  loop
+    perform private.notify_user(u.id, 'closing_report', v_title, u.body, null, null);
+  end loop;
+end $function$
+;
+
+drop table if exists private.order_run_seen;

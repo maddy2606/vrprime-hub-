@@ -191,7 +191,7 @@ export function MasterTable({ groups, unmapped, unmappedTotal, sort, onSort, aut
   );
 }
 
-/** "Sort by" and the direction button, for the phone cards and the ranked list. */
+/** "Sort by" and the direction button, for the phone cards (the table's headers sort on wide screens). */
 function SortControls({ sort, onSort }: { sort: MasterSort; onSort: (sort: MasterSort) => void }) {
   return (
     <div className="flex items-center gap-2">
@@ -285,12 +285,15 @@ function RankedRow({
   );
 }
 
+/** The ranked list's only order. */
+const BY_F30: MasterSort = { key: "f30", dir: "desc" };
+
 /**
  * Every product as a ranked list, the way the Command Deck shows its top movers: the 30-day forecast as a bar against the
- * biggest one, and days of stock left as a red, amber or green tag. Tap a product to see its Flipkart SKUs. It follows the
- * same sort as the table.
+ * biggest one, and days of stock left as a red, amber or green tag. Tap a product to see its Flipkart SKUs. Always ranked
+ * by the 30-day forecast, largest first.
  */
-export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, autoOpen, searching }: Props) {
+export function RankedList({ groups, unmapped, unmappedTotal, autoOpen, searching }: Omit<Props, "sort" | "onSort">) {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [unmappedOpen, setUnmappedOpen] = useState(false);
   const isOpen = (key: string) => open.has(key) || autoOpen.has(key);
@@ -312,13 +315,12 @@ export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, auto
   }
 
   const max = Math.max(1, ...groups.map((g) => g.total.f30), ...unmapped.map((r) => r.f30));
-  const sorted = sortRows(groups, sort, (g) => g.total, (g) => g.name);
-  const sortedUnmapped = sortRows(unmapped, sort, (r) => r, (r) => r.sku);
+  const sorted = sortRows(groups, BY_F30, (g) => g.total, (g) => g.name);
+  const sortedUnmapped = sortRows(unmapped, BY_F30, (r) => r, (r) => r.sku);
   const skuCount = (n: number) => `${n} ${n === 1 ? "SKU" : "SKUs"}`;
 
   return (
     <div className="flex flex-col gap-3">
-      <SortControls sort={sort} onSort={onSort} />
       {sorted.length ? (
         <ol className="sp-card divide-y divide-line-soft overflow-hidden">
           {sorted.map((g, i) => (
@@ -337,7 +339,7 @@ export function RankedList({ groups, unmapped, unmappedTotal, sort, onSort, auto
                 {g.kit ? <KitNote kit={g.kit} className="mb-2 pl-10" /> : null}
                 {g.children.length ? (
                   <ul className="flex flex-col">
-                    {sortRows(g.children, sort, (r) => r, (r) => r.sku).map((c) => (
+                    {sortRows(g.children, BY_F30, (r) => r, (r) => r.sku).map((c) => (
                       <li key={c.key} className="flex items-center justify-between gap-3 py-1.5 pl-10 text-xs">
                         <span className="min-w-0 truncate">
                           <span className="font-mono font-bold">{c.sku}</span>

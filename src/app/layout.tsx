@@ -3,6 +3,7 @@ import { Geist_Mono, Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { cookies } from "next/headers";
 import { ServiceWorker } from "@/components/service-worker";
 import { ToastProvider } from "@/components/toast";
+import { INSTALL_EARLY_SCRIPT } from "@/lib/install-app";
 import { readThemeMode, THEME_COOKIE } from "@/lib/theme-mode";
 import "./globals.css";
 
@@ -38,6 +39,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // data-theme is left off for Auto, which the CSS draws dark; the switch in the account menu sets it.
     <html lang="en-IN" data-theme={mode === "auto" ? undefined : mode} className={`${jakarta.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}>
+      <head>
+        {/* Keeps Chrome's one-time install event for the "Get the app" card, which hydrates later (see lib/install-app). */}
+        <script id="vr-install-early" dangerouslySetInnerHTML={{ __html: INSTALL_EARLY_SCRIPT }} />
+      </head>
       <body className="min-h-full">
         <ToastProvider>{children}</ToastProvider>
         <ServiceWorker />

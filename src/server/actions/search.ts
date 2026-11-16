@@ -86,18 +86,23 @@ export async function searchAll(raw: string): Promise<SearchHit[]> {
   return hits.sort((a, b) => SEARCH_KINDS.indexOf(a.kind) - SEARCH_KINDS.indexOf(b.kind));
 }
 
-/** The latest finished sync of any kind (Flipkart orders, Flipkart stock, VR Prime stock): what the "Synced Xs ago" label counts from. */
-export async function lastSyncedAt(): Promise<string | null> {
+/** What the rail's sync card counts from: when Flipkart orders were last read, and the order read running now, if any. */
+export type SyncPulse = { at: string | null; run: { step: number; parts: number } | null };
+
+/**
+ * The card says "Orders read N ago", so this is the last finished ORDER read only. It used to return the newest of the
+ * orders, Flipkart stock and VR Prime stock syncs: the stock sync ends in seconds, so pressing Sync now made the card say
+ * "Orders read 15s ago" while the order read (about 10 minutes) had barely started.
+ */
+export async function syncPulse(): Promise<SyncPulse | null> {
   const user = await getActiveUser();
   if (!user) return null;
   const supabase = await createClient();
-  const [orders, stock, vrprime] = await Promise.all([
+  const [done, active] = await Promise.all([
     supabase.from("order_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
-    supabase.from("stock_runs").select("finished_at").eq("status", "done").order("finished_at", { ascending: false }).limit(1),
-    (supabase as unknown as { from: (t: string) => any }).from("inventory_sync_state").select("last_ok_at").maybeSingle() as Promise<{ data: { last_ok_at?: string | null } | null }>, // eslint-disable-line @typescript-eslint/no-explicit-any
+    supabase.from("order_runs").select("step, parts").neq("kind", "backfill").in("status", ["queued", "running"]).order("created_at", { ascending: false }).limit(1),
   ]);
-  const times = [orders.data?.[0]?.finished_at, stock.data?.[0]?.finished_at, vrprime.data?.last_ok_at]
-    .filter((t): t is string => typeof t === "string")
-    .sort((a, b) => Date.parse(b) - Date.parse(a));
-  return times[0] ?? null;
+  if (done.error) return null;
+  const run = active.data?.[0];
+  return { at: done.data?.[0]?.finished_at ?? null, run: run ? { step: run.step ?? 0, parts: Math.max(1, run.parts ?? 1) } : null };
 }

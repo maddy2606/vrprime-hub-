@@ -143,3 +143,11 @@ export function sortForAttention(lines: ReviewLine[]): ReviewLine[] {
       a.rowNo - b.rowNo,
   );
 }
+
+/**
+ * A check that read under half of its links is not a count (the site's server gets blocked by Flipkart and Shopsy and
+ * reads one or two): it is not saved as a new check, and one already saved is left out of the page.
+ */
+export function thinCheck(read: number, links: number): boolean {
+  return links > 0 && read * 2 < links;
+}

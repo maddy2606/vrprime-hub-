@@ -10,7 +10,7 @@ import { UnreadBadge } from "@/components/ui";
 import { formatDate, formatDateTime, todayIST } from "@/lib/format";
 import { syncInventoryNow } from "@/server/actions/inventory";
 import { startOrdersSync } from "@/server/actions/orders";
-import { lastSyncedAt } from "@/server/actions/search";
+import { syncPulse, type SyncPulse } from "@/server/actions/search";
 import { startStockSync } from "@/server/actions/stock";
 
 type Role = "owner" | "admin" | "warehouse";
@@ -24,36 +24,64 @@ function ago(ms: number): string {
   return h < 48 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
-/** When the orders were last read, and how long ago: ticks every second, looks for a newer read every minute. */
-function useSyncAge(since: string | null): { at: string | null; age: number | null } {
+/**
+ * When the orders were last read, how long ago, and the order read running now. Ticks every second; looks for news every
+ * minute, and every 10 seconds while a read is running or one was just asked for.
+ */
+function useSyncAge(since: string | null): { at: string | null; age: number | null; run: SyncPulse["run"] } {
   const [at, setAt] = useState<string | null>(since);
+  const [run, setRun] = useState<SyncPulse["run"]>(null);
   const [now, setNow] = useState<number | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
+    let last = 0;
+    let active = false;
+    let watchUntil = 0;
+    let known = since;
     const first = window.setTimeout(() => setNow(Date.now()), 0);
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
     const poll = async () => {
       if (document.visibilityState === "hidden") return;
+      last = Date.now();
       try {
-        const latest = await lastSyncedAt();
-        if (latest) setAt(latest);
+        const pulse = await syncPulse();
+        if (!pulse) return;
+        active = Boolean(pulse.run);
+        setRun(pulse.run);
+        if (pulse.at && pulse.at !== known) {
+          known = pulse.at;
+          setAt(pulse.at);
+          // A read just finished: show its numbers on the page that is open.
+          router.refresh();
+        }
       } catch {
         /* keep counting from the last known time */
       }
     };
-    const every = window.setInterval(poll, 60_000);
+    const asked = () => {
+      watchUntil = Date.now() + 3 * 60_000;
+      void poll();
+    };
+    const every = window.setInterval(() => {
+      const gap = active || Date.now() < watchUntil ? 10_000 : 60_000;
+      if (Date.now() - last >= gap) void poll();
+    }, 5000);
+    const start = window.setTimeout(poll, 1500);
     document.addEventListener("visibilitychange", poll);
-    window.addEventListener("vr-sync-check", poll);
+    window.addEventListener("vr-sync-check", asked);
     return () => {
       window.clearTimeout(first);
+      window.clearTimeout(start);
       window.clearInterval(tick);
       window.clearInterval(every);
       document.removeEventListener("visibilitychange", poll);
-      window.removeEventListener("vr-sync-check", poll);
+      window.removeEventListener("vr-sync-check", asked);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { at, age: at && now !== null ? now - Date.parse(at) : null };
+  return { at, age: at && now !== null ? now - Date.parse(at) : null, run };
 }
 
 /**
@@ -62,9 +90,9 @@ function useSyncAge(since: string | null): { at: string | null; age: number | nu
  * · scope"; and Sync now for the owner and admins. On the 72px rail it is just the dot, with a tooltip.
  */
 export function SyncCard({ since, scope, canSync }: { since: string | null; scope: string; canSync: boolean }) {
-  const { at, age } = useSyncAge(since);
+  const { at, age, run } = useSyncAge(since);
   const healthy = Boolean(at) && (age === null || age <= 3 * 60 * 60_000);
-  const status = healthy ? "All syncs healthy" : "Orders sync needs a look";
+  const status = run ? `Reading orders: part ${Math.min(run.parts, run.step + 1)} of ${run.parts}` : healthy ? "All syncs healthy" : "Orders sync needs a look";
   const read = !at ? "Orders not read yet" : age === null ? "Orders read" : `Orders read ${ago(age)}`;
   const dot = `g-dot ${healthy ? "bg-ok" : "bg-warn-mark"}`;
   return (
@@ -98,10 +126,10 @@ export function SyncCard({ since, scope, canSync }: { since: string | null; scop
  * the owner and admins, the Sync now button, leading the page.
  */
 export function SyncControl({ since, scope, canSync }: { since: string | null; scope: string; canSync: boolean }) {
-  const { at, age } = useSyncAge(since);
+  const { at, age, run } = useSyncAge(since);
   // Orders are read every 30 minutes in working hours; an hour with no read is worth a second look.
   const stale = age !== null && age > 60 * 60_000;
-  const label = !at ? "Not synced yet" : age === null ? "Synced" : `Synced ${ago(age)}`;
+  const label = run ? `Reading orders ${Math.min(run.parts, run.step + 1)}/${run.parts}` : !at ? "Not synced yet" : age === null ? "Synced" : `Synced ${ago(age)}`;
   const dot = `g-dot ${stale || !at ? "bg-warn-mark" : "bg-ok"}`;
   return (
     <div className="flex min-w-0 items-center justify-between gap-3 min-[700px]:hidden">
@@ -129,20 +157,17 @@ function SyncNowButton({ label: synced, className = "" }: { label: string; class
       const results = await Promise.allSettled([syncInventoryNow(), startStockSync(), startOrdersSync("pending")]);
       const started = results.filter((r) => r.status === "fulfilled" && r.value.ok).length;
       setState(started > 0 ? "done" : "failed");
-      // The answers arrive a few seconds later; look again then.
-      for (const wait of [8000, 40000, 100000]) {
-        globalThis.setTimeout(() => {
-          router.refresh();
-          window.dispatchEvent(new Event("vr-sync-check"));
-        }, wait);
-      }
+      // Stock answers in seconds; the order read takes about 10 minutes. The card follows it part by part and refreshes
+      // the page when it ends (see useSyncAge).
+      window.dispatchEvent(new Event("vr-sync-check"));
+      globalThis.setTimeout(() => router.refresh(), 8000);
     } catch {
       setState("failed");
     }
     globalThis.setTimeout(() => setState("idle"), 9000);
   }
 
-  const label = state === "busy" ? "Syncing…" : state === "done" ? "Started" : state === "failed" ? "Failed" : "Sync now";
+  const label = state === "busy" ? "Syncing…" : state === "done" ? "Started · about 10 min" : state === "failed" ? "Failed" : "Sync now";
   return (
     <button
       type="button"

@@ -45,6 +45,8 @@ export function isRunActive(status: RunSummary["status"] | undefined | null): bo
 /** The latest pending sweep, daily or upcoming run, and the last ones that finished. */
 export type OrderSyncState = {
   latest: RunSummary | null;
+  /** The newest run of each kind, whatever its status: a failed morning read stays visible after later order reads. */
+  latestOf?: Partial<Record<"pending" | "daily" | "upcoming", RunSummary | null>>;
   lastPending: RunSummary | null;
   lastDaily: RunSummary | null;
   /** The last full read of every pending order, however far ahead (nightly). */
@@ -53,3 +55,11 @@ export type OrderSyncState = {
   backfill: RunSummary | null;
 };
 
+
+/** What one bar (Orders, All upcoming, Returns) should show: its own kind's run, and any other read Flipkart is busy with. */
+export function barRuns(state: OrderSyncState, kind: "pending" | "daily" | "upcoming"): { mine: RunSummary | null; other: RunSummary | null } {
+  const latest = state.latest;
+  const mine = state.latestOf?.[kind] ?? (latest?.kind === kind ? latest : null);
+  const other = latest && latest.kind !== kind && isRunActive(latest.status) ? latest : null;
+  return { mine, other };
+}

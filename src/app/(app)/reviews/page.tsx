@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ReviewTracker, type ReviewsView } from "@/components/reviews/review-tracker";
 import { canManage, requireUser } from "@/lib/auth";
-import { reviewLines, type ReviewLink, type ReviewPlatform } from "@/lib/reviews";
+import { reviewLines, thinCheck, type ReviewLink, type ReviewPlatform } from "@/lib/reviews";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Review tracker" };
@@ -41,7 +41,17 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     priority: r.priority,
     target: r.target,
   }));
-  const checks = (checkRes.data ?? []) as CheckRow[];
+  const allChecks = (checkRes.data ?? []) as CheckRow[];
+  // The newest checks' counts: for the trend, and to leave out a check that read under half of its links.
+  const trendRes = await db.from("review_counts").select("check_id, row_no, reviews").in("check_id", allChecks.slice(0, 16).map((c) => c.id)).limit(20000);
+  const recent = (trendRes.data ?? []) as CountRow[];
+  const thin = new Set(
+    allChecks.slice(0, 16).filter((c) => {
+      const mine = recent.filter((r) => r.check_id === c.id);
+      return mine.length > 0 && thinCheck(mine.filter((r) => r.reviews != null).length, mine.length);
+    }).map((c) => c.id),
+  );
+  const checks = allChecks.filter((c) => !thin.has(c.id));
   const asked = typeof sp.check === "string" ? sp.check : null;
   const at = Math.max(0, checks.findIndex((c) => c.checked_on === asked));
   const check = checks[at] ?? null;
@@ -53,12 +63,11 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const mapFor = (id: string | undefined) => new Map(counts.filter((c) => c.check_id === id).map((c) => [c.row_no, c.reviews] as const));
 
   // The trend: total written reviews per check, shared listings counted once.
-  const trendRes = await db.from("review_counts").select("check_id, row_no, reviews").in("check_id", checks.slice(0, 12).map((c) => c.id)).limit(20000);
   const shared = new Set(links.filter((l) => l.sharesWith != null).map((l) => l.rowNo));
   const trend = checks
     .slice(0, 12)
     .map((c) => {
-      const mine = ((trendRes.data ?? []) as CountRow[]).filter((r) => r.check_id === c.id && !shared.has(r.row_no));
+      const mine = recent.filter((r) => r.check_id === c.id && !shared.has(r.row_no));
       return { day: c.checked_on, reviews: mine.reduce((n, r) => n + (r.reviews ?? 0), 0), missing: mine.filter((r) => r.reviews == null).length };
     })
     .reverse();

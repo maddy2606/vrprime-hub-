@@ -7,7 +7,7 @@ import { useToast } from "@/components/toast";
 import { buttonClass } from "@/components/ui";
 import { daysBetween } from "@/lib/stock-analysis";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { isRunActive, type OrderSyncState, type RunSummary } from "@/lib/orders-sync";
+import { barRuns, isRunActive, type OrderSyncState, type RunSummary } from "@/lib/orders-sync";
 import { redactSecrets } from "@/lib/redact";
 import { getOrdersSyncStatus, startOrdersSync } from "@/server/actions/orders";
 
@@ -42,30 +42,33 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
   const toast = useToast();
   const [state, setState] = useState(initial);
   const [pending, startTransition] = useTransition();
-  const wasRunning = useRef(isRunActive(initial.latest?.status));
-
-  const latest = state.latest;
+  // This bar's own kind of read. A read of another kind (orders, while this is Returns) is shown as "busy", never as this one.
+  const { mine: latest, other } = barRuns(state, kind);
+  const wasRunning = useRef(isRunActive(barRuns(initial, kind).mine?.status));
   const running = isRunActive(latest?.status);
+  const busy = Boolean(other);
   const parts = Math.max(1, latest?.parts ?? 1);
 
   useEffect(() => {
-    if (!running) return;
+    if (!running && !busy) return;
     const timer = window.setInterval(async () => {
       const next = await getOrdersSyncStatus();
       if (!next) return;
       setState(next);
-      if (!isRunActive(next.latest?.status)) {
+      const now = barRuns(next, kind);
+      if (isRunActive(now.mine?.status)) wasRunning.current = true;
+      if (!isRunActive(now.mine?.status) && !now.other) {
         window.clearInterval(timer);
         if (wasRunning.current) {
           wasRunning.current = false;
-          if (next.latest?.status === "done") toast.show("Orders are up to date");
+          if (now.mine?.status === "done") toast.show(`${TITLE[kind]}: up to date`);
           else toast.show("The sync did not finish", "bad");
-          router.refresh();
         }
+        router.refresh();
       }
     }, POLL_MS);
     return () => window.clearInterval(timer);
-  }, [running, router, toast]);
+  }, [running, busy, kind, router, toast]);
 
   const start = () =>
     startTransition(async () => {
@@ -73,7 +76,8 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
       toast.result(result);
       if (result.ok && result.data) {
         wasRunning.current = true;
-        setState((s) => ({ ...s, latest: result.data?.run ?? s.latest }));
+        const run = result.data.run;
+        setState((s) => ({ ...s, latest: run, latestOf: run.kind === kind ? { ...s.latestOf, [kind]: run } : s.latestOf }));
       }
     });
 
@@ -102,6 +106,11 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
                   {waiting ? " A new read is waiting for another sync to finish." : ""}
                 </InfoTip>
               </div>
+              {other ? (
+                <p className="t-caption mt-0.5">
+                  Flipkart is busy with another read ({TITLE[other.kind as Props["kind"]]?.toLowerCase() ?? "orders"}, part {Math.min(Math.max(1, other.parts), other.step + 1)} of {Math.max(1, other.parts)}). {waiting ? "This one starts when it ends." : "These numbers are from the time above."}
+                </p>
+              ) : null}
             </>
           ) : (
             <>

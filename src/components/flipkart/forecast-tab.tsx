@@ -349,7 +349,7 @@ export function ForecastTab({ meta, raw: allRaw, warehouses, window, masters, re
             {scope ? ` · ${scope}` : ""}
           </Caption>
           {layout === "ranked" ? (
-            <RankedList groups={shownGroups} unmapped={shownUnmapped} unmappedTotal={grouped.unmapped.length} sort={sort} onSort={setSort} autoOpen={childHit} searching={needle !== ""} />
+            <RankedList groups={shownGroups} unmapped={shownUnmapped} unmappedTotal={grouped.unmapped.length} autoOpen={childHit} searching={needle !== ""} />
           ) : (
             <MasterTable groups={shownGroups} unmapped={shownUnmapped} unmappedTotal={grouped.unmapped.length} sort={sort} onSort={setSort} autoOpen={childHit} searching={needle !== ""} />
           )}

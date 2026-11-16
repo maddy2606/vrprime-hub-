@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 import { BarsIcon, BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 import { SyncCard } from "@/components/shell/command-bar";
+import { InstallAppCard, InstallAppRow } from "@/components/shell/install-app";
 import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
@@ -114,6 +115,7 @@ function RailInner({ isOwner, isStaff, sync }: { isOwner: boolean; isStaff: bool
             </ul>
           ))}
         </nav>
+        <InstallAppCard />
         <SyncCard since={sync.syncedAt} scope={sync.scope} canSync={sync.canSync} />
       </aside>
       <BottomBar list={flat} active={active} />
@@ -194,6 +196,7 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
             );
           })}
         </ul>
+        <InstallAppRow onDone={() => setMoreOpen(false)} />
       </Sheet>
     </>
   );

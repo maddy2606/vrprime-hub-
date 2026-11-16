@@ -256,6 +256,24 @@ async function loadReturnRatesFresh(
   return { rates: buildReturnRates(rates.data, settings, historyReady), historyReady, coverageFrom: from };
 }
 
+/**
+ * The return-rate rows alone, through the 30-second short cache. The database call needs nothing from the cover, so
+ * Needs action asks for it at the same time as the cover and finishes it with returnRatesFrom.
+ */
+export async function loadReturnRateRows(supabase: Supabase): Promise<unknown> {
+  return forUser("loadReturnRateRows", [], async () => {
+    const { data, error } = await supabase.rpc("flipkart_return_rates", { p_days: 30 });
+    if (error) fail("return rates", error);
+    return data;
+  });
+}
+
+/** Return rates from those rows and the history start the cover reports: what loadReturnRates gives for that coverageFrom. */
+export function returnRatesFrom(data: unknown, settings: FlipkartSettings, today: string, coverageFrom: string | null): { rates: ReturnRate[]; historyReady: boolean; coverageFrom: string | null } {
+  const historyReady = returnHistoryReady(coverageFrom, today);
+  return { rates: buildReturnRates(data, settings, historyReady), historyReady, coverageFrom };
+}
+
 // --- Days of cover ---------------------------------------------------------------------------------------------------------------
 
 export type CoverData = {

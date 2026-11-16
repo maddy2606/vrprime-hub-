@@ -109,44 +109,62 @@ function readLoad(data: unknown): LoadRow[] {
     }));
 }
 
-export async function loadDeck(user: SessionUser): Promise<DeckData> {
-  const supabase = await createClient();
-  const now = new Date();
-  const today = todayIST(now);
+/** Logs a failed query the way the deck always has, and passes the answer on unchanged. */
+function logged<T extends { error: unknown }>(answer: PromiseLike<T>): Promise<T> {
+  return Promise.resolve(answer).then((r) => {
+    if (r.error) logError("deck", r.error);
+    return r;
+  });
+}
 
-  const [warehouses, counts, desk, empties, lineRes, series, dispatchRes, followUps, openTickets, mine, load, capacity] = await Promise.all([
-    warehousesFor(user),
-    soft("order counts", null as unknown, () => loadOrderCounts(supabase)),
-    soft("stock", null, () => loadStockDesk(user, defaultStockQuery("out", { hide: true }), 1)),
-    soft("overfill", [], () => loadEmpties(supabase)),
-    supabase.rpc("flipkart_order_lines", { p_wh: null, p_status: "active", p_q: null, p_sort: "due", p_dir: "asc", p_limit: 16, p_offset: 0 }),
-    soft("series", null as Series | null, async () => {
+/** Every loader the deck reads, all started at once; each section then waits only for the answers it uses. */
+function startLoaders(user: SessionUser, supabase: Awaited<ReturnType<typeof createClient>>, today: string) {
+  return {
+    warehouses: warehousesFor(user),
+    counts: soft("order counts", null as unknown, () => loadOrderCounts(supabase)),
+    desk: soft("stock", null, () => loadStockDesk(user, defaultStockQuery("out", { hide: true }), 1)),
+    empties: soft("overfill", [], () => loadEmpties(supabase)),
+    lineRes: logged(supabase.rpc("flipkart_order_lines", { p_wh: null, p_status: "active", p_q: null, p_sort: "due", p_dir: "asc", p_limit: 16, p_offset: 0 })),
+    series: soft("series", null as Series | null, async () => {
       const { data, error } = await forUser("deck_series", [{ p_low: 100 }], async () => await supabase.rpc("deck_series", { p_low: 100 }));
       if (error) throw error;
       return data as Series;
     }),
-    forUser("dispatch_series", [{ p_days: 7 }], async () => await supabase.rpc("dispatch_series", { p_days: 7 })),
-    supabase.from("tickets").select("id, number, ticket_id, sku, next_follow_up, status").in("status", ["open", "waiting_marketplace"]).lte("next_follow_up", today).order("next_follow_up").limit(12),
-    supabase.from("tickets").select("id", { count: "exact", head: true }).in("status", ["open", "waiting_marketplace"]),
-    supabase.from("posts").select("id, number, title, priority, priority_rank, status, due_date").eq("assignee_id", user.id).in("status", ACTIVE_STATUSES).order("due_date", { ascending: true, nullsFirst: false }).limit(12),
+    dispatchRes: logged(forUser("dispatch_series", [{ p_days: 7 }], async () => await supabase.rpc("dispatch_series", { p_days: 7 }))),
+    followUps: logged(supabase.from("tickets").select("id, number, ticket_id, sku, next_follow_up, status").in("status", ["open", "waiting_marketplace"]).lte("next_follow_up", today).order("next_follow_up").limit(12)),
+    openTickets: logged(supabase.from("tickets").select("id", { count: "exact", head: true }).in("status", ["open", "waiting_marketplace"])),
+    mine: logged(supabase.from("posts").select("id, number, title, priority, priority_rank, status, due_date").eq("assignee_id", user.id).in("status", ACTIVE_STATUSES).order("due_date", { ascending: true, nullsFirst: false }).limit(12)),
     // Orders placed per day (the last 15 days) and still waiting by dispatch day: the top card and the orders graph.
-    soft("order load", [] as LoadRow[], async () => {
+    load: soft("order load", [] as LoadRow[], async () => {
       const { data, error } = await forUser("team_order_load", [{ p_days: 15 }], async () => await (supabase as unknown as Loose).rpc("team_order_load", { p_days: 15 }));
       if (error) throw error;
       return readLoad(data);
     }),
     // Staff and attendance are owner and admin only; a warehouse user gets the card without the capacity bar.
-    user.role === "warehouse" ? Promise.resolve(null) : soft("team capacity", null, () => loadTeamCapacity(supabase as unknown as Loose, today)),
-  ]);
-  for (const r of [lineRes, dispatchRes, followUps, openTickets, mine]) if (r.error) logError("deck", r.error);
+    capacity: user.role === "warehouse" ? Promise.resolve(null) : soft("team capacity", null, () => loadTeamCapacity(supabase as unknown as Loose, today)),
+  };
+}
+type Loaders = ReturnType<typeof startLoaders>;
 
+/** The order counts per warehouse (fast): the cards and their totals, with each warehouse's name and colour. */
+async function ordersBase(L: Loaders) {
+  const [warehouses, counts] = await Promise.all([L.warehouses, L.counts]);
   const nameOf = (id: string | null) => warehouses.find((w) => w.id === id)?.name ?? "a warehouse";
   const colorOf = (id: string, name: string) => warehouseColor(name, warehouses.findIndex((w) => w.id === id));
   const cards = readCards(counts, warehouses).filter((c) => c.warehouseId);
-  const lateTotal = cards.reduce((n, c) => n + c.late, 0);
-  const activeTotal = cards.reduce((n, c) => n + c.active, 0);
-  const tomorrowTotal = cards.reduce((n, c) => n + c.tomorrow, 0);
+  return {
+    cards,
+    nameOf,
+    colorOf,
+    lateTotal: cards.reduce((n, c) => n + c.late, 0),
+    activeTotal: cards.reduce((n, c) => n + c.active, 0),
+    tomorrowTotal: cards.reduce((n, c) => n + c.tomorrow, 0),
+  };
+}
 
+/** The stock desk (slow): days of cover, the forecast, selling SKUs with no stock, and orders waiting where stock is 0. */
+async function stockBase(L: Loaders) {
+  const [desk, empties] = await Promise.all([L.desk, L.empties]);
   const cover = desk && desk.kind === "ready" ? desk.cover : null;
   const forecast = cover?.forecast ?? [];
   // Matched against the Stock tab's own out-of-stock list, so "selling" never counts SKUs the tile cannot see.
@@ -155,10 +173,45 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
   const overfill = [...empties].sort((a, b) => b.units - a.units || a.sku.localeCompare(b.sku));
   const overfillSkus = new Set(overfill.map((e) => e.sku));
   const dryOnly = dry.filter((d) => !overfillSkus.has(d.sku));
+  return { desk, cover, forecast, dry, overfill, dryOnly };
+}
 
-  // ---- The queue -------------------------------------------------------------------------------------------------
+type FollowUp = { id: string; number: number; ticket_id: string; sku: string | null; next_follow_up: string };
+type MyPost = { id: string; number: number; title: string; due_date: string | null };
+
+/** Ticket follow-ups due and work assigned to me: the queue rows that need no order or stock data. */
+function workItems(followUps: FollowUp[], mine: MyPost[], today: string): QueueItem[] {
   const items: QueueItem[] = [];
-  const lines = readOrderLines(lineRes.data).rows.filter((l) => !l.hold && l.dispatch_by);
+  for (const t of followUps) {
+    items.push({
+      key: `ticket-${t.id}`,
+      kind: "ticket",
+      severity: SEVERITY.ticket,
+      deadline: Date.parse(`${t.next_follow_up}T00:00:00+05:30`),
+      title: `${ticketNumber(t.number)} · ${t.ticket_id}`,
+      detail: `Follow-up: ${dueLabel(t.next_follow_up, today)}${t.sku ? ` · ${t.sku}` : ""}`,
+      actions: [{ label: "Open", href: `/tickets/${t.id}` }],
+    });
+  }
+  for (const p of mine) {
+    const overdue = p.due_date !== null && p.due_date < today;
+    items.push({
+      key: `work-${p.id}`,
+      kind: "work",
+      severity: overdue ? SEVERITY.ticket : SEVERITY.work,
+      deadline: p.due_date ? Date.parse(`${p.due_date}T00:00:00+05:30`) : null,
+      title: `${postNumber(p.number)} · ${p.title}`,
+      detail: `Assigned to you · ${dueLabel(p.due_date, today)}`,
+      actions: [{ label: "Open", href: `/posts/${p.id}` }],
+    });
+  }
+  return items;
+}
+
+/** Late and at-risk orders, orders with no stock, and selling SKUs that are dry: the queue rows from orders and stock. */
+function orderItems(o: Awaited<ReturnType<typeof ordersBase>>, s: Awaited<ReturnType<typeof stockBase>>, lineData: unknown, now: Date): QueueItem[] {
+  const items: QueueItem[] = [];
+  const lines = readOrderLines(lineData).rows.filter((l) => !l.hold && l.dispatch_by);
   let lateShown = 0;
   let riskShown = 0;
   for (const l of lines) {
@@ -178,6 +231,8 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
       actions: [{ label: "View order", href: `/flipkart?tab=orders&view=list&q=${encodeURIComponent(l.order_id)}` }],
     });
   }
+  const { lateTotal, nameOf } = o;
+  const { overfill, dryOnly, cover } = s;
   if (lateTotal > lateShown) {
     items.push({
       key: "late-more",
@@ -222,125 +277,149 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
     const href = dryOnly.some((d) => d.inactive) ? "/flipkart?tab=stock&view=out" : "/flipkart?tab=stock&view=out&hide=1";
     items.push({ key: "dry-more", kind: "dry", severity: SEVERITY.dry, deadline: Number.MAX_SAFE_INTEGER - 1, title: `${formatNumber(dryOnly.length - 5)} more selling SKUs out of stock`, detail: "Busiest first on the Stock tab", actions: [{ label: "Open", href }] });
   }
-  for (const t of followUps.data ?? []) {
-    items.push({
-      key: `ticket-${t.id}`,
-      kind: "ticket",
-      severity: SEVERITY.ticket,
-      deadline: Date.parse(`${t.next_follow_up}T00:00:00+05:30`),
-      title: `${ticketNumber(t.number)} · ${t.ticket_id}`,
-      detail: `Follow-up: ${dueLabel(t.next_follow_up, today)}${t.sku ? ` · ${t.sku}` : ""}`,
-      actions: [{ label: "Open", href: `/tickets/${t.id}` }],
-    });
-  }
-  for (const p of mine.data ?? []) {
-    const overdue = p.due_date !== null && p.due_date < today;
-    items.push({
-      key: `work-${p.id}`,
-      kind: "work",
-      severity: overdue ? SEVERITY.ticket : SEVERITY.work,
-      deadline: p.due_date ? Date.parse(`${p.due_date}T00:00:00+05:30`) : null,
-      title: `${postNumber(p.number)} · ${p.title}`,
-      detail: `Assigned to you · ${dueLabel(p.due_date, today)}`,
-      actions: [{ label: "Open", href: `/posts/${p.id}` }],
-    });
-  }
-  const queue = rankQueue(items).map((i) => ({ ...i, tag: KIND_TAG[i.kind] }));
+  return items;
+}
 
-  // ---- The hero ---------------------------------------------------------------------------------------------------
-  const followUpsDue = (followUps.data ?? []).length;
-  const hero = heroFor({ lateOrders: lateTotal, dry, overfillSkus: overfill.length, followUpsDue, onTime: Math.max(0, activeTotal - lateTotal), active: activeTotal });
+const tagged = (items: QueueItem[]): DeckData["queue"] => rankQueue(items).map((i) => ({ ...i, tag: KIND_TAG[i.kind] }));
 
-  // ---- Pulses -----------------------------------------------------------------------------------------------------
-  const due = series?.due ?? [];
-  const dueByDay = (from: number, to: number) => due.slice(from, to).map((d) => d.n);
-  const tiles = desk && desk.kind === "ready" ? desk.view.tiles : null;
-  const stockSeries = series?.stock ?? [];
-  const outNow = tiles ? tiles.out : null;
-  const pulses: DeckData["pulses"] = [
-    { key: "late", label: "Late dispatch", value: lateTotal, tone: lateTotal > 0 ? "bad" : "cyan", sub: lateTotal > 0 ? "past their dispatch-by time" : "nothing past its deadline", spark: dueByDay(0, 4), sparkLabel: "Orders still waiting, by the day they were due, last 3 days and today", href: "/flipkart?tab=orders&view=list" },
-    { key: "out", label: "Out of stock", value: outNow ?? 0, tone: (outNow ?? 0) > 0 ? "warn" : "cyan", sub: outOfStockSub(dry), spark: stockSeries.map((s) => s.out), sparkLabel: "SKUs out of stock at each stock reading", href: "/flipkart?tab=stock&view=out&hide=1" },
-    { key: "tomorrow", label: "Due tomorrow", value: tomorrowTotal, tone: "cyan", sub: "orders with a deadline tomorrow", spark: dueByDay(3, 10), sparkLabel: "Orders due per day, today and the next 6 days", href: "/flipkart?tab=orders&view=list" },
-  ];
+/**
+ * The Command Centre, one promise per part of the page, so each part shows as soon as its own answers are in (the
+ * header and the work queue at once; the stock, the orders graph and the charts as their loaders finish). Every loader
+ * starts at once, exactly as before, and every number is worked out by the same code.
+ */
+export type DeckParts = {
+  meta: Pick<DeckData, "firstName" | "nowIso" | "today">;
+  head: Promise<Pick<DeckData, "hero" | "notes">>;
+  todayCard: Promise<Pick<DeckData, "todayCard" | "trend">>;
+  pulses: Promise<Pick<DeckData, "pulses">>;
+  flow: Promise<Pick<DeckData, "warehouses" | "whStages">>;
+  orderQueue: Promise<Pick<DeckData, "queue">>;
+  workQueue: Promise<{ queue: DeckData["queue"]; openTickets: number }>;
+  dispatch: Promise<Pick<DeckData, "dispatch">>;
+  stockHealth: Promise<Pick<DeckData, "kpis">>;
+  whStock: Promise<Pick<DeckData, "whStock">>;
+  movers: Promise<Pick<DeckData, "movers" | "moversDays">>;
+};
 
-  // ---- Warehouses -------------------------------------------------------------------------------------------------
-  const stockCards = desk && desk.kind === "ready" ? desk.view.cards : [];
-  const whRows: DeckWarehouse[] = cards.map((c) => ({
-    id: c.warehouseId as string,
-    name: c.name,
-    color: colorOf(c.warehouseId as string, c.name),
-    health: warehouseHealth(c, now),
-    active: c.active,
-    late: c.late,
-    out: stockCards.find((s) => s.id === c.warehouseId)?.empty ?? null,
-    next: c.nextDue ? formatDateTime(c.nextDue, now) : null,
-    href: `/flipkart?tab=stock&wh=${c.warehouseId}`,
-  }));
-  const whStock: WarehouseStock[] = stockCards.map((s) => ({ id: s.id, name: s.name, color: colorOf(s.id, s.name), units: s.units, out: s.empty, low: s.low }));
-  const whStages: WarehouseStages[] = cards.map((c) => ({
-    id: c.warehouseId as string,
-    name: c.name,
-    color: colorOf(c.warehouseId as string, c.name),
-    to_accept: c.to_accept,
-    to_pack: c.to_pack,
-    to_dispatch: c.to_dispatch,
-  }));
+export async function startDeck(user: SessionUser): Promise<DeckParts> {
+  const supabase = await createClient();
+  const now = new Date();
+  const today = todayIST(now);
+  const L = startLoaders(user, supabase, today);
+  const ob = ordersBase(L);
+  const sb = stockBase(L);
+  const work = Promise.all([L.followUps, L.mine]).then(([f, m]) => workItems((f.data ?? []) as FollowUp[], (m.data ?? []) as MyPost[], today));
 
-  // ---- Dispatch chart -----------------------------------------------------------------------------------------------
-  const disp = rows(dispatchRes.data).map((r) => ({ label: weekday.format(new Date(`${String(r.day).slice(0, 10)}T12:00:00+05:30`)), value: Number(r.units) || 0 }));
-  const dispatchTotal = disp.reduce((n, d) => n + d.value, 0);
+  const head = Promise.all([ob, sb, L.followUps]).then(([o, s, followUps]) => {
+    const notes: string[] = [];
+    if (s.desk && s.desk.kind === "empty") notes.push("Stock has not been read from Flipkart yet, so stock numbers are not shown.");
+    const followUpsDue = (followUps.data ?? []).length;
+    return { hero: heroFor({ lateOrders: o.lateTotal, dry: s.dry, overfillSkus: s.overfill.length, followUpsDue, onTime: Math.max(0, o.activeTotal - o.lateTotal), active: o.activeTotal }), notes };
+  });
 
   // ---- Today's dispatch and the orders graph -------------------------------------------------------------------------
-  const t = dispatchToday(load, today);
-  const todayCard: TodayCard | null = load.length
-    ? {
-        due: t.due,
-        late: lateTotal,
-        warehouses: t.warehouses,
-        busiest: t.busiest ? { name: nameOf(t.busiest.id), color: colorOf(t.busiest.id, nameOf(t.busiest.id)), orders: t.busiest.orders } : null,
-        capacity,
-        yesterday: t.yesterday,
-        yesterdayChange: t.yesterdayChange,
-        avg7: t.avg7,
-        avg7Change: t.avg7Change,
-      }
-    : null;
-  const trend = ordersTrend(load, today).map((p) => ({ ...p, label: dayMonth.format(new Date(`${p.day}T00:00:00Z`)) }));
+  const todayCard = Promise.all([ob, L.load, L.capacity]).then(([o, load, capacity]) => {
+    const t = dispatchToday(load, today);
+    const card: TodayCard | null = load.length
+      ? {
+          due: t.due,
+          late: o.lateTotal,
+          warehouses: t.warehouses,
+          busiest: t.busiest ? { name: o.nameOf(t.busiest.id), color: o.colorOf(t.busiest.id, o.nameOf(t.busiest.id)), orders: t.busiest.orders } : null,
+          capacity,
+          yesterday: t.yesterday,
+          yesterdayChange: t.yesterdayChange,
+          avg7: t.avg7,
+          avg7Change: t.avg7Change,
+        }
+      : null;
+    const trend = ordersTrend(load, today).map((p) => ({ ...p, label: dayMonth.format(new Date(`${p.day}T00:00:00Z`)) }));
+    return { todayCard: card, trend };
+  });
+
+  // ---- Pulses -----------------------------------------------------------------------------------------------------
+  const pulses = Promise.all([ob, sb, L.series]).then(([o, s, series]) => {
+    const due = series?.due ?? [];
+    const dueByDay = (from: number, to: number) => due.slice(from, to).map((d) => d.n);
+    const tiles = s.desk && s.desk.kind === "ready" ? s.desk.view.tiles : null;
+    const stockSeries = series?.stock ?? [];
+    const outNow = tiles ? tiles.out : null;
+    const list: DeckData["pulses"] = [
+      { key: "late", label: "Late dispatch", value: o.lateTotal, tone: o.lateTotal > 0 ? "bad" : "cyan", sub: o.lateTotal > 0 ? "past their dispatch-by time" : "nothing past its deadline", spark: dueByDay(0, 4), sparkLabel: "Orders still waiting, by the day they were due, last 3 days and today", href: "/flipkart?tab=orders&view=list" },
+      { key: "out", label: "Out of stock", value: outNow ?? 0, tone: (outNow ?? 0) > 0 ? "warn" : "cyan", sub: outOfStockSub(s.dry), spark: stockSeries.map((x) => x.out), sparkLabel: "SKUs out of stock at each stock reading", href: "/flipkart?tab=stock&view=out&hide=1" },
+      { key: "tomorrow", label: "Due tomorrow", value: o.tomorrowTotal, tone: "cyan", sub: "orders with a deadline tomorrow", spark: dueByDay(3, 10), sparkLabel: "Orders due per day, today and the next 6 days", href: "/flipkart?tab=orders&view=list" },
+    ];
+    return { pulses: list };
+  });
+
+  // ---- Warehouses -------------------------------------------------------------------------------------------------
+  const flow = Promise.all([ob, L.desk]).then(([o, desk]) => {
+    const stockCards = desk && desk.kind === "ready" ? desk.view.cards : [];
+    const warehouses: DeckWarehouse[] = o.cards.map((c) => ({
+      id: c.warehouseId as string,
+      name: c.name,
+      color: o.colorOf(c.warehouseId as string, c.name),
+      health: warehouseHealth(c, now),
+      active: c.active,
+      late: c.late,
+      out: stockCards.find((x) => x.id === c.warehouseId)?.empty ?? null,
+      next: c.nextDue ? formatDateTime(c.nextDue, now) : null,
+      href: `/flipkart?tab=stock&wh=${c.warehouseId}`,
+    }));
+    const whStages: WarehouseStages[] = o.cards.map((c) => ({ id: c.warehouseId as string, name: c.name, color: o.colorOf(c.warehouseId as string, c.name), to_accept: c.to_accept, to_pack: c.to_pack, to_dispatch: c.to_dispatch }));
+    return { warehouses, whStages };
+  });
+  const whStock = Promise.all([ob, L.desk]).then(([o, desk]) => {
+    const stockCards = desk && desk.kind === "ready" ? desk.view.cards : [];
+    return { whStock: stockCards.map((x) => ({ id: x.id, name: x.name, color: o.colorOf(x.id, x.name), units: x.units, out: x.empty, low: x.low })) };
+  });
+
+  // ---- The queues: the ranking is a sort, so the work rows rank the same on their own as among the order rows ------
+  const orderQueue = Promise.all([ob, sb, L.lineRes, work]).then(([o, s, lineRes, w]) => ({ queue: tagged([...orderItems(o, s, lineRes.data, now), ...w]) }));
+  const workQueue = Promise.all([work, L.openTickets]).then(([w, open]) => ({ queue: tagged(w), openTickets: open.count ?? 0 }));
+
+  // ---- Dispatch chart -----------------------------------------------------------------------------------------------
+  const dispatch = L.dispatchRes.then((dispatchRes) => {
+    const disp = rows(dispatchRes.data).map((r) => ({ label: weekday.format(new Date(`${String(r.day).slice(0, 10)}T12:00:00+05:30`)), value: Number(r.units) || 0 }));
+    const dispatchTotal = disp.reduce((n, d) => n + d.value, 0);
+    return { dispatch: disp.length ? { points: disp, total: dispatchTotal, avg: Math.round(dispatchTotal / disp.length) } : null };
+  });
+
+  // ---- Stock health -------------------------------------------------------------------------------------------------
+  const stockHealth = Promise.all([L.desk, L.series, L.openTickets]).then(([desk, series, openTickets]) => {
+    const tiles = desk && desk.kind === "ready" ? desk.view.tiles : null;
+    const stockSeries = series?.stock ?? [];
+    return {
+      kpis: {
+        units: tiles ? tiles.units : null,
+        unitsChange: tiles ? tiles.unitsChange : null,
+        low: tiles ? tiles.low : null,
+        out: tiles ? tiles.out : null,
+        weight: tiles ? tiles.weight : null,
+        openTickets: openTickets.count ?? 0,
+        stockSeries: { units: stockSeries.map((x) => x.units), low: stockSeries.map((x) => x.low), out: stockSeries.map((x) => x.out) },
+        ticketSeries: (series?.tickets ?? []).map((t) => t.n),
+        snapshot: desk && desk.kind === "ready" ? desk.meta.snapshotDate : null,
+      },
+    };
+  });
 
   // ---- Movers -----------------------------------------------------------------------------------------------------
-  const moversRows = topMovers(buildRows(forecast, cover?.days ?? 0, false), 5).filter((r) => r.f30 > 0);
-  const topF30 = Math.max(...moversRows.map((m) => m.f30), 1);
+  const movers = sb.then((s) => {
+    const moversRows = topMovers(buildRows(s.forecast, s.cover?.days ?? 0, false), 5).filter((r) => r.f30 > 0);
+    const topF30 = Math.max(...moversRows.map((m) => m.f30), 1);
+    return { movers: moversRows.map((m) => ({ sku: m.sku, title: m.title, f30: m.f30, rate: m.rate, cover: m.cover, share: m.f30 / topF30 })), moversDays: s.cover?.days ?? 0 };
+  });
 
-  const notes: string[] = [];
-  if (desk && desk.kind === "empty") notes.push("Stock has not been read from Flipkart yet, so stock numbers are not shown.");
+  const parts = { head, todayCard, pulses, flow, orderQueue, workQueue, dispatch, stockHealth, whStock, movers };
+  // A part that fails shows its section's error; this only stops Node reporting it before the section has asked.
+  for (const part of Object.values(parts)) part.catch(() => undefined);
+  return { meta: { firstName: user.name.split(" ")[0], nowIso: now.toISOString(), today }, ...parts };
+}
 
-  return {
-    firstName: user.name.split(" ")[0],
-    nowIso: now.toISOString(),
-    today,
-    hero,
-    urgent: urgentCount(queue),
-    pulses,
-    queue,
-    warehouses: whRows,
-    whStock,
-    whStages,
-    dispatch: disp.length ? { points: disp, total: dispatchTotal, avg: Math.round(dispatchTotal / disp.length) } : null,
-    todayCard,
-    trend,
-    kpis: {
-      units: tiles ? tiles.units : null,
-      unitsChange: tiles ? tiles.unitsChange : null,
-      low: tiles ? tiles.low : null,
-      out: tiles ? tiles.out : null,
-      weight: tiles ? tiles.weight : null,
-      openTickets: openTickets.count ?? 0,
-      stockSeries: { units: stockSeries.map((s) => s.units), low: stockSeries.map((s) => s.low), out: stockSeries.map((s) => s.out) },
-      ticketSeries: (series?.tickets ?? []).map((t) => t.n),
-      snapshot: desk && desk.kind === "ready" ? desk.meta.snapshotDate : null,
-    },
-    movers: moversRows.map((m) => ({ sku: m.sku, title: m.title, f30: m.f30, rate: m.rate, cover: m.cover, share: m.f30 / topF30 })),
-    moversDays: cover?.days ?? 0,
-    notes,
-  };
+/** The whole deck at once (the Dashboard shows it in one piece): the same parts, put together. */
+export async function loadDeck(user: SessionUser): Promise<DeckData> {
+  const { meta, ...p } = await startDeck(user);
+  const [head, today, pulses, flow, orders, dispatch, health, whStock, movers] = await Promise.all([p.head, p.todayCard, p.pulses, p.flow, p.orderQueue, p.dispatch, p.stockHealth, p.whStock, p.movers]);
+  return { ...meta, ...head, urgent: urgentCount(orders.queue), ...pulses, queue: orders.queue, ...flow, ...whStock, ...dispatch, ...today, ...health, ...movers };
 }

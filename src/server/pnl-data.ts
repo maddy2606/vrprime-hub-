@@ -2,6 +2,7 @@ import "server-only";
 import { forUser } from "@/server/short-cache-user";
 import type { AdsUpload, CostingRow, MonthPnl, UnlinkedSku } from "@/components/pnl/pnl-board";
 import { applyAds, findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthAds, type MonthUnits, type ReportUnits, type SkuFacts } from "@/lib/costing";
+import { todayIST } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 // The P&L figures, for the P&L page and the dashboard. Owner only: the tables and functions refuse anyone else.
@@ -17,7 +18,8 @@ const FROM = "2026-09-01";
 const ADS_GST = 0.18;
 export const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
 
-export type PnlData = { months: MonthPnl[]; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; reportSkus: number; error: string | null };
+/** cutoff: orders after this India date are left out (setting pnl_cutoff_days, default 15); null when the setting is 0. */
+export type PnlData = { months: MonthPnl[]; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; reportSkus: number; cutoff: { days: number; date: string } | null; error: string | null };
 
 /** Profit and loss by month (newest first), from Flipkart's reports and the synced orders, and every master SKU's cost. */
 /** The P&L (also the Dashboard's money), through the 30-second short cache (graphite-spec 10.2). */
@@ -27,7 +29,7 @@ export async function loadPnl(): Promise<PnlData> {
 
 async function loadPnlFresh(): Promise<PnlData> {
   const db = (await createClient()) as unknown as Loose;
-  const [mpRes, linkRes, costRes, priceRes, unitsRes, feeRes, adRes, adUpRes, rateRes] = await Promise.all([
+  const [mpRes, linkRes, costRes, priceRes, unitsRes, feeRes, adRes, adUpRes, rateRes, cutRes] = await Promise.all([
     db.from("master_products").select("id, name, kit_parts").order("name"),
     db.from("sku_master").select("channel_sku, master_id, units_per_order"),
     db.from("master_costs").select("master_id, cost"),
@@ -37,7 +39,12 @@ async function loadPnlFresh(): Promise<PnlData> {
     db.from("pnl_ad_spend").select("month, sku, spend").limit(20000),
     db.from("pnl_ad_uploads").select("month, period_from, period_to, filename, skus, spend, uploaded_at").order("month", { ascending: false }),
     db.rpc("pnl_report_units", { p_from: FROM }),
+    db.from("app_settings").select("value").eq("key", "pnl_cutoff_days").maybeSingle(),
   ]);
+  // The database leaves out orders placed in the last N days (20261116150000_pnl_cutoff_15_days.sql); say which date.
+  const cutRaw = Number((cutRes.data as { value: unknown } | null)?.value ?? 15);
+  const cutDays = Number.isFinite(cutRaw) ? Math.max(0, Math.min(60, Math.round(cutRaw))) : 15;
+  const cutoff = cutDays > 0 ? { days: cutDays, date: new Date(Date.parse(`${todayIST()}T00:00:00Z`) - cutDays * 86_400_000).toISOString().slice(0, 10) } : null;
 
   const masters = new Map<string, MasterInfo>(
     ((mpRes.data ?? []) as { id: string; name: string; kit_parts: KitPart[] | null }[]).map((m) => [m.id, { id: m.id, name: m.name, kitParts: Array.isArray(m.kit_parts) ? m.kit_parts : [] }]),
@@ -177,5 +184,5 @@ async function loadPnlFresh(): Promise<PnlData> {
   }));
 
 
-  return { months, costing, uploads, feePct, reportSkus: rates.size, error: unitsRes.error?.message ?? null };
+  return { months, costing, uploads, feePct, reportSkus: rates.size, cutoff, error: unitsRes.error?.message ?? null };
 }

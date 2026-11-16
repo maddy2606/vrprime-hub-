@@ -20,6 +20,7 @@ export default async function PnlPage({ searchParams }: { searchParams: Promise<
       uploads={d.uploads}
       feePct={d.feePct}
       reportSkus={d.reportSkus}
+      cutoff={d.cutoff}
       error={d.error}
     />
   );

@@ -65,7 +65,7 @@ export function fakePnl(): PnlData {
     skus: [{ sku: `FAKE-${p.id.toUpperCase()}-A`, units: Math.round(p.units * 0.7) }, { sku: `FAKE-${p.id.toUpperCase()}-B`, units: Math.round(p.units * 0.3) }],
   }));
   const months = [month("2026-11", "November 2026", 0.5, "2026-11-14"), month("2026-10", "October 2026", 1, "2026-10-31"), month("2026-09", "September 2026", 0.9, "2026-09-30"), month("2026-08", "August 2026", 0.8, "2026-08-31")];
-  return { months, costing, uploads: months.map((m) => m.adsUpload).filter((u): u is AdsUpload => u !== null), feePct: 12, reportSkus: 42, error: null };
+  return { months, costing, uploads: months.map((m) => m.adsUpload).filter((u): u is AdsUpload => u !== null), feePct: 12, reportSkus: 42, cutoff: null, error: null };
 }
 
 export function fakeDashboard(): DashboardData {

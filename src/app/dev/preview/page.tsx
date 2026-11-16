@@ -30,9 +30,8 @@ import { OverfillTab } from "@/components/flipkart/overfill-tab";
 import { PricesTab } from "@/components/flipkart/prices-tab";
 import { ReturnsTab } from "@/components/flipkart/returns-tab";
 import { StockoutsTab } from "@/components/flipkart/stockouts-tab";
-import { AdsTracker } from "@/components/ads/ads-tracker";
 import { ReviewTracker } from "@/components/reviews/review-tracker";
-import { fakeAdsTracker, fakeReviews } from "@/lib/dev-fixtures-trackers";
+import { fakeReviews } from "@/lib/dev-fixtures-trackers";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
 import { CommandDeck } from "@/components/deck/sections";
 import { DashboardBoard } from "@/components/dashboard/board";
@@ -128,7 +127,6 @@ const VIEWS = [
   "team",
   "closing",
   "adsdesk",
-  "ads",
   "reviews",
   "pnl",
   "settings",
@@ -317,7 +315,6 @@ export default async function PreviewPage({
         </div>
       ) : null}
       {view === "team" ? <TeamBoard d={fakeTeam()} /> : null}
-      {view === "ads" ? <AdsTracker view={fakeAdsTracker()} /> : null}
       {view === "reviews" ? <ReviewTracker view={fakeReviews()} /> : null}
       {view === "adsdesk" ? <AdsDesk raw={fakeAdsDesk()} today="2026-11-11" /> : null}
       {view === "expenses" ? (

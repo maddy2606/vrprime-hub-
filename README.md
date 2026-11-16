@@ -479,7 +479,10 @@ were sold. Shown only once 30 days of shipped orders are loaded.
 - Changing the function: edit `supabase/functions/orders-sync/`, then `npx supabase functions deploy orders-sync --no-verify-jwt --use-api`.
 - Seller Hub links are in `src/lib/seller-hub.ts`.
 
-## The Ads tracker
+## The Ads tracker (page removed)
+
+> The Ads tracker page was removed on 16 Nov 2026; `/ads` now opens the **Ads Desk** (`/ads/desk`), which takes the same
+> report uploads. The tables and saved scans below are kept. What follows describes the old page.
 
 **Ads tracker** (`/ads`, owner and admin) shows Flipkart Ads (PLA) spend per tracked SKU and campaign, one scan per period:
 spend, average daily spend, units, revenue and ROI, each campaign with its name and ID, a "Needs a look" list (spend with no

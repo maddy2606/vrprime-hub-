@@ -66,7 +66,7 @@ async function syncAdsReportRun(text: unknown, filename: unknown): Promise<Actio
     const { from, to, rows, spend } = daily.report;
     const { error } = await s.db.rpc("ads_save_daily", { p_from: from, p_to: to, p_rows: rows });
     if (error) return dbError(error, "save the daily ads report");
-    revalidatePath("/ads");
+    revalidatePath("/ads/desk");
     return { ok: true, message: `Synced daily spend ${day(from)} to ${day(to)}: ₹${Math.round(spend).toLocaleString("en-IN")} across ${new Set(rows.map((r) => r.campaign_id)).size} campaigns` };
   }
   const read = readAdsCampaignReport(text);
@@ -96,7 +96,7 @@ async function syncAdsReportRun(text: unknown, filename: unknown): Promise<Actio
     p_campaigns: [...campaigns.values()].map((c) => ({ campaign_id: c.campaign_id, name: c.name, skus: [...c.skus] })),
   });
   if (error) return dbError(error, "save the ads report");
-  revalidatePath("/ads");
+  revalidatePath("/ads/desk");
   const trackedSpend = rows.filter((r) => tracked.has(r.sku)).reduce((n, r) => n + r.spend, 0);
   const cover = fsnCoverage(spend, await dailySpend(s.db, from, to));
   if (cover && !cover.complete) {
@@ -156,7 +156,7 @@ export async function saveAdCampaign(input: unknown): Promise<ActionResult> {
     { onConflict: "sku", ignoreDuplicates: true },
   );
   if (skuErr) return dbError(skuErr, "track the campaign's SKUs");
-  revalidatePath("/ads");
+  revalidatePath("/ads/desk");
   return { ok: true, message: existing ? `${c.name} saved` : `${c.name} added to the log` };
 }
 
@@ -167,7 +167,7 @@ export async function deleteAdCampaign(campaignId: unknown): Promise<ActionResul
   if (typeof campaignId !== "string" || !/^[A-Z0-9]{4,30}$/.test(campaignId)) return { ok: false, message: "That campaign was not found." };
   const { error } = await s.db.from("ad_campaigns").delete().eq("campaign_id", campaignId);
   if (error) return dbError(error, "remove the campaign");
-  revalidatePath("/ads");
+  revalidatePath("/ads/desk");
   return { ok: true, message: "Campaign removed from the log" };
 }
 
@@ -179,7 +179,7 @@ export async function addTrackedSku(sku: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Type a SKU." };
   const { error } = await s.db.from("ad_tracked_skus").upsert({ sku: parsed.data, added_by: s.user.id }, { onConflict: "sku", ignoreDuplicates: true });
   if (error) return dbError(error, "track the SKU");
-  revalidatePath("/ads");
+  revalidatePath("/ads/desk");
   return { ok: true, message: `Tracking ${parsed.data}` };
 }
 
@@ -190,7 +190,7 @@ export async function removeTrackedSku(sku: unknown): Promise<ActionResult> {
   if (typeof sku !== "string" || !sku) return { ok: false, message: "That SKU was not found." };
   const { error } = await s.db.from("ad_tracked_skus").delete().eq("sku", sku);
   if (error) return dbError(error, "stop tracking the SKU");
-  revalidatePath("/ads");
+  revalidatePath("/ads/desk");
   return { ok: true, message: `Stopped tracking ${sku}` };
 }
 

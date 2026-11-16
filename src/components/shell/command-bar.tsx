@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ALERTS_COUNT_EVENT, ALERTS_OPEN_EVENT } from "@/components/alerts/alert-center";
-import { BellIcon, PlusIcon, RefreshIcon, SearchIcon } from "@/components/icons";
+import { BellIcon, Logo, PlusIcon, RefreshIcon, SearchIcon } from "@/components/icons";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { UnreadBadge } from "@/components/ui";
 import { formatDate, formatDateTime, todayIST } from "@/lib/format";
@@ -321,9 +321,9 @@ export function CommandBar({
             prefetch={false}
             href="/"
             aria-label="VR Prime Ops, Command Centre"
-            className="focus-ring relative flex h-[30px] w-[30px] shrink-0 after:absolute after:-inset-1.5 after:content-[''] items-center justify-center rounded-[9px] bg-accent font-display text-[12px] font-bold text-accent-ink min-[700px]:hidden"
+            className="focus-ring relative flex h-[30px] w-[30px] shrink-0 after:absolute after:-inset-1.5 after:content-[''] items-center justify-center rounded-[9px] min-[700px]:hidden"
           >
-            VR
+            <Logo size={30} />
           </Link>
           <button
             type="button"

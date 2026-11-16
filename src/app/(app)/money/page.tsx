@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { PageTitle } from "@/components/ui";
+import { Loader, PageTitle } from "@/components/ui";
 import { requireOwnerPage } from "@/server/money-data";
 import { ChecksPanel, CostsPanel, ProfitPanel, UploadsPanel, WeightPanel, type Search } from "./panels";
 
@@ -44,7 +44,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
           </Link>
         ))}
       </nav>
-      <Suspense key={`${tab}|${JSON.stringify(sp)}`} fallback={<div aria-busy="true" className="skeleton h-72 w-full" />}>
+      <Suspense key={`${tab}|${JSON.stringify(sp)}`} fallback={<Loader label={`Loading ${current.label.toLowerCase()}…`} />}>
         {tab === "profit" ? <ProfitPanel db={db} sp={sp} /> : null}
         {tab === "costs" ? <CostsPanel db={db} /> : null}
         {tab === "weight" ? <WeightPanel db={db} sp={sp} /> : null}

@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { AlertCenter } from "@/components/alerts/alert-center";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CommandBar, SyncControl } from "@/components/shell/command-bar";
+import { NavProgress } from "@/components/shell/nav-progress";
 import { Rail } from "@/components/shell/rail";
 import { ThemeSwitch } from "@/components/shell/theme-switch";
 import { buttonClass } from "@/components/ui";
@@ -40,6 +41,9 @@ export async function AppShell({
   const theme = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
     <div className="vr-shell min-h-dvh">
+      <Suspense fallback={null}>
+        <NavProgress />
+      </Suspense>
       <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} sync={{ syncedAt, scope, canSync: user.role !== "warehouse" }} />
       <CommandBar
         user={{ name: user.name, role: user.role, roleLabel: ROLE_LABEL[user.role], sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}

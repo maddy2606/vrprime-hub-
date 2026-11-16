@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { PanelSkeleton } from "@/components/flipkart/panel-skeleton";
+import { PanelLoader } from "@/components/flipkart/panel-loader";
 import { isTabKey, TabBar, tabsFor, type TabKey } from "@/components/flipkart/tab-bar";
 import { PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -44,8 +44,8 @@ export default async function FlipkartPage({ searchParams }: { searchParams: Pro
     <>
       <PageTitle title="Flipkart" sub={user.role === "warehouse" ? `${SUB[tab]}, at your warehouses` : SUB[tab]} />
       <TabBar tabs={tabs} active={tab} counts={toCheck === null ? {} : { claim: toCheck }} />
-      {/* The title and tabs above are sent at once; each tab's numbers stream in behind a skeleton. */}
-      <Suspense key={`${tab}|${JSON.stringify(sp)}`} fallback={<PanelSkeleton tab={tab} />}>
+      {/* The title and tabs above are sent at once; each tab's numbers stream in behind the loader. */}
+      <Suspense key={`${tab}|${JSON.stringify(sp)}`} fallback={<PanelLoader tab={tab} />}>
         {tab === "needs" ? <NeedsPanel user={user} /> : null}
         {tab === "orders" ? <OrdersPanel user={user} sp={sp} /> : null}
         {tab === "stock" ? <StockPanel user={user} sp={sp} /> : null}

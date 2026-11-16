@@ -6,7 +6,7 @@ import { OrdersSyncBar } from "@/components/flipkart/orders-sync-bar";
 import { BUCKET_TONE, SkuGroups } from "@/components/flipkart/sku-groups";
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { Lanes } from "@/components/signal/lanes";
-import { Chip, EmptyState, SectionHead, buttonClass } from "@/components/ui";
+import { Chip, EmptyState, Loader, SectionHead, buttonClass } from "@/components/ui";
 import { formatDue, isRed, urgency } from "@/lib/flipkart-analysis";
 import { formatDate, formatNumber, todayIST } from "@/lib/format";
 import {
@@ -71,15 +71,6 @@ export function exportHref(q: OrdersQuery): string {
   return `/flipkart/export?${params.toString()}`;
 }
 
-function SkeletonRows() {
-  return (
-    <div aria-busy="true" aria-label="Loading">
-      {Array.from({ length: 5 }, (_, i) => (
-        <div key={i} className="skeleton mb-2 h-20 w-full" />
-      ))}
-    </div>
-  );
-}
 
 export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, initialQuery, initialData }: Props) {
   const now = useMemo(() => new Date(nowIso), [nowIso]);
@@ -212,7 +203,7 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
 
   let body: ReactNode = null;
   if (!ready) {
-    body = <SkeletonRows />;
+    body = <Loader label="Loading orders…" />;
   } else if (data.view === "sku") {
     body = (
       <SkuGroups

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   AlertIcon,
   BoxIcon,
   ClockIcon,
   InboxIcon,
+  Logo,
   MegaphoneIcon,
   ReturnIcon,
   RupeeIcon,
@@ -352,50 +353,71 @@ export function ItemRow({
 /** The tint an item row takes from a tone. */
 export const TONE_TINT: Record<Tone, Tint> = { neutral: "violet", accent: "violet", info: "blue", ok: "green", warn: "amber", bad: "red" };
 
-export function PostListSkeleton({ rows = 5 }: { rows?: number }) {
+// ---- Loading (owner-approved exception to graphite-spec 10.4: one centred loader in place of skeleton blocks, with
+// the logo's gradient and glow) ----------------------------------------------------------------------------------------
+
+/** The logo with a slow pulsing glow and a shine sweeping across it (the loading screen and the sign-in page). */
+export function LiveLogo({ size = 56 }: { size?: number }) {
   return (
-    <div aria-busy="true" aria-label="Loading" className="g-cards">
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="sp-card g-pad">
-          <div className="skeleton h-4 w-32" />
-          <div className="skeleton mt-3 h-5 w-4/5" />
-          <div className="skeleton mt-3 h-4 w-1/2" />
-        </div>
-      ))}
+    <span className="vr-live-logo" style={{ borderRadius: Math.round((size * 16) / 56) }}>
+      <Logo size={size} />
+    </span>
+  );
+}
+
+/** A gradient arc turning on a --line track; `size` 92 for the page loader, 28 inside a card. */
+export function LoaderRing({ size = 28, className = "" }: { size?: number; className?: string }) {
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const track = size >= 60 ? 3 : 2.5;
+  const arc = size >= 60 ? 3.5 : 3;
+  const r = (size - arc) / 2;
+  const turn = 2 * Math.PI * r;
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} aria-hidden="true" className={`vr-ring-svg ${className}`}>
+      <defs>
+        <linearGradient id={`vr-ring-${id}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#c084fc" />
+          <stop offset=".5" stopColor="#6d83ff" />
+          <stop offset="1" stopColor="#22d3ee" />
+        </linearGradient>
+      </defs>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--line)" strokeWidth={track} />
+      <circle
+        className="vr-ring-arc"
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={`url(#vr-ring-${id})`}
+        strokeWidth={arc}
+        strokeLinecap="round"
+        strokeDasharray={`${turn / 4} ${turn}`}
+      />
+    </svg>
+  );
+}
+
+/**
+ * The loading screen: the 92 px ring turning around the live logo, and a caption naming what is loading, centred in the
+ * content area. With reduced motion nothing moves; the logo and caption show.
+ */
+export function Loader({ label }: { label: string }) {
+  return (
+    <div role="status" aria-label={label} className="vr-loader">
+      <span className="relative flex h-[92px] w-[92px] items-center justify-center">
+        <LoaderRing size={92} className="absolute inset-0" />
+        <LiveLogo size={56} />
+      </span>
+      <p className="text-[13px] text-muted">{label}</p>
     </div>
   );
 }
 
-/** A route's loading screen: the page header, a KPI row, then two cards, in grey Skeleton blocks (graphite-spec 10.4). */
-export function PageSkeleton({ kpis = 4 }: { kpis?: number }) {
+/** Inside a card that is still loading: the small ring, centred, no logo and no caption. */
+export function CardLoader({ label, className = "" }: { label: string; className?: string }) {
   return (
-    <div aria-busy="true" aria-label="Loading">
-      <div className="mb-4">
-        <div className="skeleton h-8 w-56" />
-        <div className="skeleton mt-2 h-4 w-80 max-w-full" />
-      </div>
-      <div className="kpi-row">
-        {Array.from({ length: kpis }, (_, i) => (
-          <div key={i} className="sp-card kpi-card">
-            <div className="skeleton h-[46px] w-[46px] shrink-0 rounded-[13px]" />
-            <div className="min-w-0 flex-1">
-              <div className="skeleton h-3 w-24" />
-              <div className="skeleton mt-2 h-6 w-16" />
-              <div className="skeleton mt-2 h-3 w-28" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="g-grid mt-[14px]">
-        <div className="sp-card g-pad span-8">
-          <div className="skeleton h-5 w-40" />
-          <div className="skeleton mt-4 h-56 w-full" />
-        </div>
-        <div className="sp-card g-pad span-4">
-          <div className="skeleton h-5 w-32" />
-          <div className="skeleton mt-4 h-56 w-full" />
-        </div>
-      </div>
+    <div role="status" aria-label={label} className={`flex items-center justify-center ${className}`}>
+      <LoaderRing size={28} />
     </div>
   );
 }

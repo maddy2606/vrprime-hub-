@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { CostsTable } from "@/components/money/costs-table";
 import { ProfitTable, UnpaidTable, WeightTable, WrongFeesTable } from "@/components/money/tables";
 import { UploadReport } from "@/components/money/upload-report";
-import { Card, Chip, EmptyState } from "@/components/ui";
+import { Card, CardLoader, Chip, EmptyState } from "@/components/ui";
 import { addDays, formatDate, formatDateTime, formatNumber, todayIST } from "@/lib/format";
 import { percent, rupees, totalsOf } from "@/lib/money/profit";
 import { PRESETS, readPeriod, type Period } from "@/lib/money/period";
@@ -163,10 +163,10 @@ export async function ProfitPanel({ db, sp }: { db: MoneyDb; sp: Search }) {
 
       <ProfitTable rows={rows} from={period.from} to={period.to} lowMargin={low} />
 
-      <Suspense fallback={<div aria-busy="true" className="skeleton mt-6 h-40 w-full" />}>
+      <Suspense fallback={<Card className="mt-6 p-4"><CardLoader label="Loading orders not settled yet…" className="h-32" /></Card>}>
         <EstimateCard db={db} />
       </Suspense>
-      <Suspense fallback={<div aria-busy="true" className="skeleton mt-4 h-24 w-full" />}>
+      <Suspense fallback={<Card className="mt-4 p-4"><CardLoader label="Loading the cross-check…" className="h-16" /></Card>}>
         <CrosscheckCard db={db} />
       </Suspense>
     </>

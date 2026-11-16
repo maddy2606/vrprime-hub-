@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { BarsIcon, BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BarsIcon, BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, Logo, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
 import { SyncCard } from "@/components/shell/command-bar";
 import { InstallAppCard, InstallAppRow } from "@/components/shell/install-app";
 import { Sheet } from "@/components/shell/sheet";
@@ -82,7 +82,7 @@ function RailInner({ isOwner, isStaff, sync }: { isOwner: boolean; isStaff: bool
       {/* Side rail (graphite-spec section 8): 72px icons only from 700px, 228px with labels from 1100px. */}
       <aside className="vr-rail fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line bg-surface2 px-3 py-[22px] min-[700px]:flex min-[1100px]:px-4">
         <Link href="/" aria-label="VR Prime Ops, Command Centre" className="focus-ring flex h-10 items-center gap-2.5 rounded-[11px] max-[1099.98px]:justify-center">
-          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-accent font-display text-[12px] font-bold text-accent-ink">VR</span>
+          <Logo size={30} />
           <span className="vr-rail-label font-display text-[16px] font-bold">VR Prime Ops</span>
         </Link>
         <nav aria-label="Main" className="mt-5 flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto">

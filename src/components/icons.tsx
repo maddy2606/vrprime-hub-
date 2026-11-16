@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 function Icon({ children, className = "h-6 w-6" }: { children: ReactNode; className?: string }) {
   return (
@@ -252,3 +252,40 @@ export const BarsIcon = (p: IconProps) => (
     <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
   </Icon>
 );
+
+/** The V of the mark, on the 64-unit tile (also drawn by scripts/make-icons.mjs). */
+const LOGO_V = "M16 18l16 28 16-28";
+
+/**
+ * The VR Prime mark, "Neon V" (owner-approved exception to graphite-spec section 1: a gradient and a glow): a dark
+ * #0d1018 tile in every theme with a gradient border, and the V in the same gradient over a blurred copy of itself.
+ * Under 24 px the blurred copy is left out so the V stays crisp. The ids are per instance, so several logos can share
+ * a page.
+ */
+export function Logo({ size = 30, className = "" }: { size?: number; className?: string }) {
+  const id = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const neon = `vr-neon-${id}`;
+  const glow = `vr-glow-${id}`;
+  const paint = `url(#${neon})`;
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" className={`shrink-0 ${className}`}>
+      <defs>
+        <linearGradient id={neon} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#c084fc" />
+          <stop offset=".5" stopColor="#6d83ff" />
+          <stop offset="1" stopColor="#22d3ee" />
+        </linearGradient>
+        {size >= 24 ? (
+          <filter id={glow} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3.5" />
+          </filter>
+        ) : null}
+      </defs>
+      <rect x="1.5" y="1.5" width="61" height="61" rx="17" fill="#0d1018" stroke={paint} strokeWidth="3" />
+      {size >= 24 ? (
+        <path d={LOGO_V} fill="none" stroke={paint} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${glow})`} opacity=".9" />
+      ) : null}
+      <path d={LOGO_V} fill="none" stroke={paint} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

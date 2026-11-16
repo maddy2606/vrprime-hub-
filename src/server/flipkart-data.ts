@@ -193,17 +193,28 @@ export async function loadInTransit(supabase: Supabase): Promise<Record<string, 
 export async function readOrderSyncState(supabase: Supabase, canSeeError: boolean): Promise<OrderSyncState> {
   const runs = () => supabase.from("order_runs").select(RUN_COLUMNS);
   const lastDone = (kind: "pending" | "daily" | "upcoming") => runs().eq("kind", kind).eq("status", "done").order("finished_at", { ascending: false }).limit(1);
-  const [latest, pending, daily, upcoming, backfill] = await Promise.all([
+  const newest = (kind: "pending" | "daily" | "upcoming") => runs().eq("kind", kind).order("created_at", { ascending: false }).limit(1);
+  const [latest, pending, daily, upcoming, backfill, newPending, newDaily, newUpcoming] = await Promise.all([
     runs().neq("kind", "backfill").order("created_at", { ascending: false }).limit(1),
     lastDone("pending"),
     lastDone("daily"),
     lastDone("upcoming"),
     runs().eq("kind", "backfill").order("created_at", { ascending: false }).limit(1),
+    newest("pending"),
+    newest("daily"),
+    newest("upcoming"),
   ]);
-  const err = latest.error ?? pending.error ?? daily.error ?? upcoming.error ?? backfill.error;
+  const err = latest.error ?? pending.error ?? daily.error ?? upcoming.error ?? backfill.error ?? newPending.error ?? newDaily.error ?? newUpcoming.error;
   if (err) throw new Error(err.message);
   const one = (r: { data: RunRowRaw[] | null }) => (r.data?.[0] ? toRun(r.data[0], canSeeError) : null);
-  return { latest: one(latest), lastPending: one(pending), lastDaily: one(daily), lastUpcoming: one(upcoming), backfill: one(backfill) };
+  return {
+    latest: one(latest),
+    latestOf: { pending: one(newPending), daily: one(newDaily), upcoming: one(newUpcoming) },
+    lastPending: one(pending),
+    lastDaily: one(daily),
+    lastUpcoming: one(upcoming),
+    backfill: one(backfill),
+  };
 }
 
 export async function loadOrderSyncState(supabase: Supabase, canSeeError: boolean): Promise<OrderSyncState> {

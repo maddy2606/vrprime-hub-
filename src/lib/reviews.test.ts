@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { byDistanceToTarget, priorityProgress, reviewLines, reviewTotals, sortForAttention, targetProgress, toGo, type ReviewLink } from "./reviews.ts";
+import { thinCheck, byDistanceToTarget, priorityProgress, reviewLines, reviewTotals, sortForAttention, targetProgress, toGo, type ReviewLink } from "./reviews.ts";
 
 // Made-up listings in the shape of the tracker's links.
 const link = (rowNo: number, platform: "Flipkart" | "Shopsy", sharesWith: number | null = null): ReviewLink => ({
@@ -78,4 +78,12 @@ test("nearest-to-target leaves out links already there, without a target or not 
   const lines = reviewLines(links, now, null);
   assert.deepEqual(byDistanceToTarget(lines, "nearest").map((l) => l.rowNo), [6, 2, 3]);
   assert.deepEqual(byDistanceToTarget(lines, "furthest").map((l) => l.rowNo), [3, 2, 6]);
+});
+
+test("a check that read under half of its links is not a count", () => {
+  assert.equal(thinCheck(1, 78), true);
+  assert.equal(thinCheck(38, 78), true);
+  assert.equal(thinCheck(39, 78), false);
+  assert.equal(thinCheck(44, 78), false);
+  assert.equal(thinCheck(0, 0), false);
 });

@@ -2,6 +2,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { todayIST } from "@/lib/format";
 import { isUnratedProductPage, readReviewCount, reviewsPageUrl } from "@/lib/review-count";
+import { thinCheck } from "@/lib/reviews";
 import { logError } from "@/lib/redact";
 import { serverDb } from "@/server/service-db";
 
@@ -84,7 +85,17 @@ export async function syncReviews(deadline: number, note: string): Promise<Revie
     const when = last ? ` The latest counts are from ${new Date(`${last.checked_on}T12:00:00+05:30`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}${last.note ? ` (${last.note})` : ""}.` : "";
     return { ok: false, text: `Flipkart and Shopsy did not answer the site's server just now, so nothing changed.${when} The PC counter reads them every 5 days.`, read: 0, missed: links.map((l) => l.row_no) };
   }
-  return saveCounts(links.map((l) => l.row_no), counts, note);
+  const read = [...counts.values()].filter((n) => n != null).length;
+  if (!thinCheck(read, links.length)) return saveCounts(links.map((l) => l.row_no), counts, note);
+  // Under half read: only add to a check already saved today; never start a new, nearly empty one.
+  const { data: today } = await db.from("review_checks").select("id").eq("checked_on", todayIST()).maybeSingle();
+  if (today) return saveCounts(links.map((l) => l.row_no), counts, note);
+  return {
+    ok: false,
+    text: `Flipkart and Shopsy blocked the site's server: only ${read} of ${links.length} links could be read, so nothing was saved and the last full count stays. The PC counter reads them all every 5 days.`,
+    read,
+    missed: links.filter((l) => counts.get(l.row_no) == null).map((l) => l.row_no),
+  };
 }
 
 /**

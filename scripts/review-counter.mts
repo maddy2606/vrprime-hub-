@@ -68,11 +68,12 @@ const NPX = join(dirname(process.execPath), "node_modules", "npm", "bin", "npx-c
 
 function cliStore(dir: string): Store {
   // The SQL goes in a file; npx runs through this same Node, with no shell in between to mangle the arguments.
+  // --yes: the CLI now asks before running a statement on the live project, and an unattended run cannot answer.
   const query = async <T,>(sql: string): Promise<T[]> => {
     const file = join(here, `query-${process.pid}.sql`);
     writeFileSync(file, sql);
     try {
-      const { stdout } = await run(process.execPath, [NPX, "--yes", "supabase", "db", "query", "--linked", "-o", "json", "-f", file], { cwd: dir, windowsHide: true, maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
+      const { stdout } = await run(process.execPath, [NPX, "--yes", "supabase", "db", "query", "--linked", "--yes", "-o", "json", "-f", file], { cwd: dir, windowsHide: true, maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
       const at = stdout.indexOf("{");
       if (at < 0) throw new Error(`The Supabase CLI gave no answer: ${stdout.slice(0, 200)}`);
       return (JSON.parse(stdout.slice(at)) as { rows?: T[] }).rows ?? [];

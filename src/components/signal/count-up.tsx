@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { formatNumber } from "@/lib/format";
 
 /**
- * A big number that counts up once on load. The markup always holds the final value, so it is correct without
+ * A big number that counts up once on load (600 ms), in the font of whatever holds it. The markup always holds the final value, so it is correct without
  * JavaScript and under prefers-reduced-motion (no animation is started then).
  */
 export function CountUp({ value, className = "", format = formatNumber }: { value: number; className?: string; format?: (n: number) => string }) {
@@ -13,7 +13,7 @@ export function CountUp({ value, className = "", format = formatNumber }: { valu
     const el = ref.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches || value === 0) return;
     const started = performance.now();
-    const ms = 900;
+    const ms = 600;
     let frame = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - started) / ms);
@@ -29,7 +29,7 @@ export function CountUp({ value, className = "", format = formatNumber }: { valu
     };
   }, [value, format]);
   return (
-    <span ref={ref} className={`font-mono tabular-nums ${className}`}>
+    <span ref={ref} className={`tabular-nums ${className}`}>
       {format(value)}
     </span>
   );

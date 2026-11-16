@@ -5,6 +5,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // The WhatsApp library and its crypto are loaded by Node as they are, not bundled.
   serverExternalPackages: ["@whiskeysockets/baileys", "libsignal", "pino", "sharp", "qrcode"],
+  // Router cache (graphite-spec 10.3): a page visited in the last 30 seconds opens from the client cache.
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+    },
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -29,7 +29,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageTitle title="Money" sub={current.sub} />
-      <nav aria-label="Money sections" className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0">
+      <nav aria-label="Money sections" className="-mx-3 min-[700px]:-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-3 min-[700px]:px-4 pb-1 lg:mx-0 lg:px-0">
         {TABS.map((t) => (
           <Link
             key={t.key}

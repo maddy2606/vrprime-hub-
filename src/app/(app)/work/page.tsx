@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { WorkSwitch } from "@/components/posts/post-card";
 import { MyWork } from "@/components/posts/my-work";
 import { requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
@@ -20,14 +20,7 @@ export default async function MyWorkPage() {
 
   return (
     <>
-      <div className="mb-4 flex max-w-sm gap-1 rounded-xl border border-line bg-panel2 p-1">
-        <span className="flex min-h-11 flex-1 items-center justify-center rounded-[10px] bg-accent text-sm font-bold text-accent-ink sp-glow">
-          My work
-        </span>
-        <Link prefetch={false} href="/all" className="focus-ring flex min-h-11 flex-1 items-center justify-center rounded-[10px] text-sm font-bold text-muted">
-          Everything
-        </Link>
-      </div>
+      <WorkSwitch on="mine" />
       <MyWork posts={posts ?? []} lookups={lookups} today={todayIST()} firstName={user.name.split(" ")[0]} />
     </>
   );

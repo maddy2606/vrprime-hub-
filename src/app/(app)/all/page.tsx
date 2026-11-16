@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Filters } from "@/components/posts/filters";
-import { PostGrid } from "@/components/posts/post-card";
+import { PostGrid, WorkSwitch } from "@/components/posts/post-card";
 import { buttonClass, EmptyState, PageTitle } from "@/components/ui";
 import { canManage, requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
@@ -95,14 +95,7 @@ export default async function AllPostsPage({
 
   return (
     <>
-      <div className="mb-4 flex max-w-sm gap-1 rounded-xl border border-line bg-panel2 p-1">
-        <Link prefetch={false} href="/work" className="focus-ring flex min-h-11 flex-1 items-center justify-center rounded-[10px] text-sm font-bold text-muted">
-          My work
-        </Link>
-        <span className="flex min-h-11 flex-1 items-center justify-center rounded-[10px] bg-accent text-sm font-bold text-accent-ink sp-glow">
-          Everything
-        </span>
-      </div>
+      <WorkSwitch on="all" />
 
       <PageTitle
         title={filters.nl ? "New listings" : "All posts"}

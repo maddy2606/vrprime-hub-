@@ -67,31 +67,21 @@ export function SyncBar({ latest: initialLatest, lastDone: initialDone, snapshot
   const progress = latest && latest.total > 0 ? Math.min(100, Math.round((latest.cursor / latest.total) * 100)) : 0;
 
   return (
-    <div className="mb-4 sp-card px-3 py-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className="sp-card mb-4 overflow-hidden">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 p-3">
         <div className="min-w-0 flex-1 basis-40">
           {running ? (
             <>
-              <p className="text-sm font-bold">
+              <p className="t-card-title">
                 {latest && latest.total > 0
                   ? `Reading Flipkart: ${formatNumber(latest.cursor)} of ${formatNumber(latest.total)} listings`
                   : "Asking Flipkart for the list of products…"}
               </p>
-              <div
-                className="mt-2 h-2 overflow-hidden rounded-full bg-surface2"
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={progress}
-                aria-label="Sync progress"
-              >
-                <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
-              </div>
             </>
           ) : lastDone?.finishedAt ? (
             <>
-              <p className="text-sm font-bold">Synced {formatDateTime(lastDone.finishedAt)}</p>
-              <p className="mt-0.5 text-xs text-muted">
+              <p className="t-card-title">Synced {formatDateTime(lastDone.finishedAt)}</p>
+              <p className="t-caption mt-0.5">
                 {formatNumber(listings)} listings
                 {lastDone.skippedFbf ? ` · ${formatNumber(lastDone.skippedFbf)} FBF skipped` : " · no FBF listings skipped"}
                 {lastDone.missing ? ` · ${formatNumber(lastDone.missing)} without details` : ""}
@@ -100,7 +90,7 @@ export function SyncBar({ latest: initialLatest, lastDone: initialDone, snapshot
               </p>
             </>
           ) : (
-            <p className="text-sm font-bold">Not synced yet</p>
+            <p className="t-card-title">Not synced yet</p>
           )}
         </div>
         {canSync ? (
@@ -109,9 +99,14 @@ export function SyncBar({ latest: initialLatest, lastDone: initialDone, snapshot
           </button>
         ) : null}
       </div>
+      {running ? (
+        <div className="vr-progress mx-3 mb-3 h-1 overflow-hidden rounded-full bg-surface2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-label="Sync progress">
+          <span className="block h-full rounded-full bg-accent transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      ) : null}
 
       {failed ? (
-        <p role="alert" className="mt-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
+        <p role="alert" className="tone-row tone-bad tone-row-title border-t border-line-soft">
           {canSync
             ? `The last sync did not finish${latest?.error ? `: ${redactSecrets(latest.error)}` : "."}`
             : "The last sync did not finish, so these numbers may be out of date. Tell the owner."}

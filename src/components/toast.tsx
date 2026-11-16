@@ -43,15 +43,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 lg:bottom-6"
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-50 flex flex-col items-center gap-2 px-4 min-[700px]:bottom-6 min-[700px]:left-auto min-[700px]:items-end min-[700px]:px-6"
       >
         {toasts.map((t) => (
           <div
             key={t.id}
             role="status"
-            className={`toast pointer-events-auto max-w-sm rounded-lg px-4 py-3 text-sm font-semibold shadow-lg ${
-              t.tone === "ok" ? "bg-ink text-canvas" : "bg-bad text-canvas"
-            }`}
+            className={`toast sp-pop sp-tip tone-row pointer-events-auto max-w-sm !rounded-[var(--radius)] py-3 pr-4 text-sm font-semibold text-ink ${t.tone === "ok" ? "tone-ok" : "tone-bad"}`}
           >
             {t.message}
           </div>

@@ -21,10 +21,10 @@ function Amount({ v, digits = 0, good }: { v: number | null; digits?: number; go
 function Buttons({ ticket, hub = SELLER_HUB.payments }: { ticket: string; hub?: string }) {
   return (
     <div className="flex min-w-44 flex-wrap gap-1.5">
-      <Link prefetch={false} href={ticket} className="focus-ring inline-flex min-h-9 items-center rounded-lg border border-line bg-surface px-2.5 text-xs font-bold hover:bg-surface2">
+      <Link prefetch={false} href={ticket} className="focus-ring inline-flex min-h-10 items-center rounded-lg border border-line bg-surface px-2.5 text-xs font-bold hover:bg-surface2">
         Raise ticket
       </Link>
-      <a href={hub} target="_blank" rel="noreferrer noopener" className="focus-ring inline-flex min-h-9 items-center rounded-lg border border-line bg-surface px-2.5 text-xs font-bold hover:bg-surface2">
+      <a href={hub} target="_blank" rel="noreferrer noopener" className="focus-ring inline-flex min-h-10 items-center rounded-lg border border-line bg-surface px-2.5 text-xs font-bold hover:bg-surface2">
         Open in Seller Hub
       </a>
     </div>

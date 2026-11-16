@@ -7,6 +7,7 @@ import { getActiveUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
+import { clearShortCache } from "@/server/short-cache";
 
 // The P&L page's costs. Owner only: checked here, and by row level security on master_costs.
 
@@ -19,6 +20,15 @@ const schema = z
 
 /** Saves the pack-of-1 cost of master SKUs; a cost of null removes it. */
 export async function saveMasterCosts(input: unknown): Promise<ActionResult> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await saveMasterCostsRun(input);
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function saveMasterCostsRun(input: unknown): Promise<ActionResult> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   if (user.role !== "owner") return { ok: false, message: "Only the owner can change costs." };
@@ -43,6 +53,15 @@ export async function saveMasterCosts(input: unknown): Promise<ActionResult> {
 
 /** Uploads a Flipkart Ads PLA Consolidated FSN Report (CSV text): replaces that month's ad spend per SKU. */
 export async function uploadAdsReport(text: unknown, filename: unknown): Promise<ActionResult> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await uploadAdsReportRun(text, filename);
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function uploadAdsReportRun(text: unknown, filename: unknown): Promise<ActionResult> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   if (user.role !== "owner") return { ok: false, message: "Only the owner can upload ads reports." };

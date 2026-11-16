@@ -39,11 +39,7 @@ type Props = {
 export function TicketCard({ ticket, post, warehouseName, today }: Props) {
   const due = followUpState(ticket, today) === "due";
   return (
-    <div
-      className={`relative min-w-0 rounded-xl border bg-surface p-3 transition focus-within:border-accent hover:border-accent ${
-        due ? "border-bad/60" : "border-line"
-      }`}
-    >
+    <div className={`sp-card bar-card ${due ? "tone-bad" : ""} relative min-w-0 p-3.5 pl-[17px] transition-colors duration-160 focus-within:border-accent hover:border-accent`}>
       <div className="flex items-center gap-1.5">
         <span className="font-mono text-xs font-medium text-muted">{ticketNumber(ticket.number)}</span>
         <span className="ml-auto">
@@ -54,13 +50,13 @@ export function TicketCard({ ticket, post, warehouseName, today }: Props) {
       <Link
         prefetch={false}
         href={`/tickets/${ticket.id}`}
-        className="focus-ring mt-2 block break-all font-mono text-[15px] font-bold leading-snug after:absolute after:inset-0 after:rounded-xl"
+        className="focus-ring mt-2 block break-all font-mono text-[15px] font-semibold leading-snug after:absolute after:inset-0 after:rounded-[var(--radius-lg)]"
       >
         {ticket.ticket_id}
       </Link>
 
       {post ? (
-        <p className="mt-1 break-words text-sm leading-snug">
+        <p className="t-body mt-1 break-words">
           <Link
             prefetch={false}
             href={`/posts/${post.id}`}
@@ -70,7 +66,7 @@ export function TicketCard({ ticket, post, warehouseName, today }: Props) {
           </Link>
         </p>
       ) : (
-        <p className="mt-1 text-sm text-muted">Not linked to a post</p>
+        <p className="t-caption mt-1">Not linked to a post</p>
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -79,10 +75,10 @@ export function TicketCard({ ticket, post, warehouseName, today }: Props) {
         {warehouseName ? <Chip>{warehouseName}</Chip> : null}
       </div>
 
-      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
+      <p className="t-caption mt-2 flex flex-wrap gap-x-3 gap-y-0.5">
         <span>Raised {formatDate(ticket.raised_on, today)}</span>
         {followUpState(ticket, today) !== "none" && ticket.next_follow_up ? (
-          <span className={due ? "font-bold text-bad" : undefined}>
+          <span className={due ? "font-semibold text-bad" : undefined}>
             Follow-up {dueState(ticket.next_follow_up, today) === "today" ? "today" : formatDate(ticket.next_follow_up, today)}
           </span>
         ) : null}

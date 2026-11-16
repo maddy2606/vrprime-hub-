@@ -162,7 +162,7 @@ export function AlertCenter({ initial, total }: { initial: NotificationRow[]; to
       }
     >
       {groups.length ? (
-        <ul className="flex flex-col gap-3">
+        <ul className="sp-inner m-0 flex list-none flex-col divide-y divide-line-soft overflow-hidden p-0">
           {groups.map((g, i) => (
             <li key={g.kind} className="sp-reveal" style={{ ["--i" as string]: i }}>
               <NotificationCard

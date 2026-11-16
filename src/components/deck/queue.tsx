@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { buttonClass, Chip } from "@/components/ui";
+import { useState, type ReactNode } from "react";
+import { AlertIcon, BoardIcon, BoxIcon, ClockIcon, TicketIcon } from "@/components/icons";
+import { buttonClass, ItemRow, type Tint } from "@/components/ui";
 import type { QueueKind } from "@/lib/deck";
-import type { Tone } from "@/lib/labels";
+import Link from "next/link";
 
 type Row = {
   key: string;
@@ -15,43 +15,46 @@ type Row = {
   actions: { label: string; href: string }[];
 };
 
-const TONE: Record<QueueKind, Tone> = { late: "bad", overfill: "bad", dry: "warn", risk: "warn", ticket: "accent", work: "neutral" };
-const SHOWN = 6;
+/** Each kind's icon badge (graphite-spec 4: icon and tint by meaning; red for late, amber for at risk). */
+const BADGE: Record<QueueKind, { icon: ReactNode; tint: Tint }> = {
+  late: { icon: <ClockIcon />, tint: "red" },
+  overfill: { icon: <BoxIcon />, tint: "red" },
+  risk: { icon: <ClockIcon />, tint: "amber" },
+  dry: { icon: <AlertIcon />, tint: "amber" },
+  ticket: { icon: <TicketIcon />, tint: "green" },
+  work: { icon: <BoardIcon />, tint: "violet" },
+};
 
-/** The ranked list. Each row has a kind tag, what is wrong and a button that goes straight to where it is fixed. */
-export function QueueList({ rows }: { rows: Row[] }) {
+/**
+ * The ranked list as item rows: the kind's icon badge, the title over "kind · detail", and the row's buttons (40px
+ * secondary) on the right. The first `shown` rows show; the rest open in place.
+ */
+export function QueueList({ rows, shown = 6, expand = "more" }: { rows: Row[]; shown?: number; expand?: "more" | "all" }) {
   const [all, setAll] = useState(false);
-  const shown = all ? rows : rows.slice(0, SHOWN);
+  const list = all ? rows : rows.slice(0, shown);
   return (
     <>
-      <ul className="divide-y divide-line-soft">
-        {shown.map((r) => (
-          <li key={r.key} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="mt-0.5 w-[5.5rem] shrink-0">
-                <Chip tone={TONE[r.kind]}>{r.tag}</Chip>
-              </span>
-              <div className="min-w-0">
-                <p className="break-words font-mono text-[13px] font-bold leading-snug [overflow-wrap:anywhere]">{r.title}</p>
-                <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.detail}</p>
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-wrap gap-2 pl-[6.25rem] sm:pl-0">
-              {r.actions.map((a, i) => (
-                <Link key={a.label} prefetch={false} href={a.href} className={buttonClass(i === 0 ? "secondary" : "ghost", "min-h-11 px-3 text-xs sm:min-h-9")}>
+      <ul className="item-list m-0 list-none p-0">
+        {list.map((r) => (
+          <li key={r.key}>
+            <ItemRow
+              icon={BADGE[r.kind].icon}
+              tint={BADGE[r.kind].tint}
+              title={<span className="font-mono">{r.title}</span>}
+              detail={`${r.tag} · ${r.detail}`}
+              end={r.actions.map((a) => (
+                <Link key={a.label} prefetch={false} href={a.href} className={buttonClass("row")}>
                   {a.label}
                 </Link>
               ))}
-            </div>
+            />
           </li>
         ))}
       </ul>
-      {rows.length > SHOWN ? (
-        <div className="border-t border-line-soft p-2">
-          <button type="button" onClick={() => setAll((v) => !v)} className="focus-ring min-h-11 w-full rounded-xl text-sm font-bold text-accent-text hover:bg-accent-soft">
-            {all ? "Show fewer" : `Show ${rows.length - SHOWN} more`}
-          </button>
-        </div>
+      {rows.length > shown ? (
+        <button type="button" onClick={() => setAll((v) => !v)} className={buttonClass("ghost", "mt-2 w-full")}>
+          {all ? "Show fewer" : expand === "all" ? "View all" : `Show ${rows.length - shown} more`}
+        </button>
       ) : null}
     </>
   );

@@ -111,7 +111,7 @@ export function Filters({ values, effectiveStatus, people, warehouses, meId, new
           type="button"
           aria-pressed={values.overdue}
           onClick={() => set({ overdue: !values.overdue })}
-          className={`focus-ring min-h-11 rounded-xl border px-3 text-sm font-bold transition sm:min-h-9 ${
+          className={`focus-ring min-h-11 rounded-xl border px-3 text-sm font-bold transition sm:min-h-10 ${
             values.overdue ? "border-bad bg-bad-soft text-bad" : "border-line bg-surface text-muted hover:text-ink"
           }`}
         >
@@ -127,7 +127,7 @@ export function Filters({ values, effectiveStatus, people, warehouses, meId, new
                 setQ("");
                 go({ q: "", type: "", status: "", warehouse: "", assignee: "", priority: "", overdue: false, nl: values.nl, sort: values.sort });
               }}
-              className="focus-ring min-h-9 rounded-full px-3 text-sm font-bold text-accent-text"
+              className="focus-ring min-h-10 rounded-full px-3 text-sm font-bold text-accent-text"
             >
               Clear filters
             </button>

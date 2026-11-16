@@ -95,7 +95,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center px-3 pt-[10vh]" role="dialog" aria-modal="true" aria-label="Search">
       <button type="button" aria-label="Close search" tabIndex={-1} onClick={onClose} className="absolute inset-0 cursor-default bg-scrim" />
-      <div onKeyDown={onKey} className="sp-card sp-card-lg relative w-full max-w-xl overflow-hidden bg-surface2">
+      <div onKeyDown={onKey} className="sp-pop vr-sheet vr-pop relative w-full max-w-xl overflow-hidden">
         <div className="flex items-center gap-3 border-b border-line px-4">
           <SearchIcon className="h-5 w-5 shrink-0 text-muted" />
           <input
@@ -114,7 +114,7 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
             placeholder="Search SKUs, orders, tickets, work, pages"
             className="min-h-14 w-full bg-transparent text-base outline-none placeholder:text-faint"
           />
-          <kbd className="hidden shrink-0 rounded-md border border-line px-1.5 py-0.5 font-mono text-[10px] text-muted sm:block">Esc</kbd>
+          <kbd className="tabular-nums hidden shrink-0 rounded-md border border-line px-1.5 py-0.5 text-[10px] text-muted sm:block">Esc</kbd>
         </div>
         <ul id={listId} role="listbox" aria-label="Results" className="max-h-[55vh] overflow-y-auto p-2">
           {hits.length === 0 ? (
@@ -126,14 +126,14 @@ export function CommandPalette({ open, onClose, role }: { open: boolean; onClose
                   type="button"
                   onClick={() => go(h)}
                   onMouseMove={() => setActive(i)}
-                  className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2 text-left ${i === active ? "bg-accent-soft" : ""}`}
+                  className={`flex min-h-12 w-full items-center gap-3 rounded-[var(--radius)] px-3 py-2 text-left transition-colors duration-160 ${i === active ? "bg-accent-soft" : ""}`}
                 >
-                  <span className={`w-16 shrink-0 rounded-full px-2 py-0.5 text-center font-mono text-[10px] font-bold tracking-wider ${KIND_TONE[h.kind]}`}>{KIND_LABEL[h.kind]}</span>
+                  <span className={`g-chip w-16 justify-center ${KIND_TONE[h.kind]}`}>{KIND_LABEL[h.kind]}</span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-[13px] font-bold">{h.label}</span>
-                    <span className="block truncate text-xs text-muted">{h.sub}</span>
+                    <span className="block truncate font-mono text-[13px] font-medium">{h.label}</span>
+                    <span className="t-caption block truncate">{h.sub}</span>
                   </span>
-                  {i === active ? <span aria-hidden="true" className="shrink-0 font-mono text-xs text-muted">↵</span> : null}
+                  {i === active ? <span aria-hidden="true" className="tabular-nums shrink-0 text-xs text-muted">↵</span> : null}
                 </button>
               </li>
             ))

@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getActiveUser } from "@/lib/auth";
 import { ticketNumber } from "@/lib/format";
+import { isFlagReason } from "@/lib/return-claims";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult, Platform } from "@/lib/types";
 import { ticketSchema } from "@/lib/validation";
+import { logError } from "@/lib/redact";
 import { dbError, invalid, NOT_SIGNED_IN } from "@/server/action-helpers";
 
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
@@ -41,6 +43,9 @@ export async function createTicket(input: unknown): Promise<ActionResult<{ id: s
     };
   }
 
+  // A ticket raised from Returns to claim also saves the return (tickets.return_id, graphite-spec 12.2). The column is
+  // only sent when there is a return, so ordinary tickets work before that migration is applied.
+  const fromReturn = v.return_id && v.order_item_id ? { return_id: v.return_id, order_item_id: v.order_item_id } : null;
   const { data, error } = await supabase
     .from("tickets")
     .insert({
@@ -54,10 +59,20 @@ export async function createTicket(input: unknown): Promise<ActionResult<{ id: s
       status: v.status,
       resolution_notes: v.resolution_notes,
       created_by: user.id,
+      ...(fromReturn ? { return_id: fromReturn.return_id } : {}),
     })
     .select("id, number")
     .single();
   if (error) return dbError(error, "save the ticket");
+  if (fromReturn) {
+    const { error: checkError } = await (supabase as unknown as LooseRpc).rpc("return_check_ticket", {
+      p_return_id: fromReturn.return_id,
+      p_order_item_id: fromReturn.order_item_id,
+      p_ticket: data.id,
+    });
+    // The ticket is saved either way; the return stays on the list if its check could not be written.
+    if (checkError) logError("return check ticket", checkError);
+  }
 
   revalidatePath("/", "layout");
   return { ok: true, message: `Ticket ${ticketNumber(data.number)} saved`, data: { id: data.id } };
@@ -103,3 +118,37 @@ export async function updateTicket(ticketId: unknown, input: unknown): Promise<A
   revalidatePath("/", "layout");
   return { ok: true, message: `Ticket ${ticketNumber(data[0].number)} saved` };
 }
+
+const returnKey = z.string().trim().min(1).max(120);
+
+/** "Looks fine" on Returns to claim (graphite-spec 12.2): records an 'ok' check, so the return leaves the list. */
+export async function markReturnChecked(returnId: unknown, orderItemId: unknown): Promise<ActionResult> {
+  const user = await getActiveUser();
+  if (!user) return NOT_SIGNED_IN;
+  const r = returnKey.safeParse(returnId);
+  const i = returnKey.safeParse(orderItemId);
+  if (!r.success || !i.success) return { ok: false, message: "That return was not found." };
+  const supabase = (await createClient()) as unknown as LooseRpc;
+  const { error } = await supabase.rpc("return_check_ok", { p_return_id: r.data, p_order_item_id: i.data });
+  if (error) return dbError(error, "mark the return as checked");
+  revalidatePath("/flipkart");
+  return { ok: true, message: "Marked as checked" };
+}
+
+/** "Needs claim" on All returns: the warehouse opened a completed return and found a problem. The return joins Returns
+ *  to claim under that reason (and comes back if it was marked "Looks fine"). */
+export async function flagReturnForClaim(returnId: unknown, orderItemId: unknown, reason: unknown): Promise<ActionResult> {
+  const user = await getActiveUser();
+  if (!user) return NOT_SIGNED_IN;
+  const r = returnKey.safeParse(returnId);
+  const i = returnKey.safeParse(orderItemId);
+  if (!r.success || !i.success) return { ok: false, message: "That return was not found." };
+  if (!isFlagReason(reason)) return { ok: false, message: "Pick what was wrong with the return." };
+  const supabase = (await createClient()) as unknown as LooseRpc;
+  const { error } = await supabase.rpc("return_flag_claim", { p_return_id: r.data, p_order_item_id: i.data, p_reason: reason });
+  if (error) return dbError(error, "mark the return as needing a claim");
+  revalidatePath("/flipkart");
+  return { ok: true, message: "Added to Returns to claim" };
+}
+
+type LooseRpc = { rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<{ error: { message: string; code?: string } | null }> };

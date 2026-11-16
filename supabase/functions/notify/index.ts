@@ -98,7 +98,19 @@ type NotificationRow = {
   body: string | null;
   post_id: string | null;
   ticket_id: string | null;
+  created_at?: string | null;
 };
+
+/**
+ * The Monday that starts the week a weekly summary covers: the summary is sent on a Monday morning (India time) about the
+ * seven days before it, so this is the Monday a week before the day it was created. Missing date: now.
+ */
+function weeklySummaryStart(createdAt?: string | null): string {
+  const t = createdAt ? Date.parse(createdAt) : NaN;
+  const ist = new Date((Number.isFinite(t) ? t : Date.now()) + 330 * 60_000);
+  ist.setUTCDate(ist.getUTCDate() - 7 - ((ist.getUTCDay() + 6) % 7));
+  return ist.toISOString().slice(0, 10);
+}
 
 function urlFor(n: NotificationRow): string {
   if (n.post_id) return `/posts/${n.post_id}`;
@@ -108,6 +120,9 @@ function urlFor(n: NotificationRow): string {
   if (n.kind === "dispatch_risk") return "/flipkart?tab=orders";
   if (n.kind === "stock_alert") return "/flipkart?tab=forecast";
   if (n.kind === "capacity_alert") return "/team";
+  if (n.kind === "closing_report") return "/reports/closing";
+  if (n.kind === "listing_alert") return "/flipkart?tab=listingcheck";
+  if (n.kind === "weekly_summary") return `/business?tab=week&start=${weeklySummaryStart(n.created_at)}`;
   if (n.kind === "sync_alert") {
     // Which sync: the title says ("WhatsApp expenses…", "Flipkart orders…", "Flipkart stock…", "VR Prime stock…").
     const t = n.title.toLowerCase();

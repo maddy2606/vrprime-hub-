@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { BackIcon } from "@/components/icons";
 import { FollowUpChip } from "@/components/tickets/ticket-card";
-import { TicketForm } from "@/components/tickets/ticket-form";
+import { LinkedPostCard, TicketForm } from "@/components/tickets/ticket-form";
 import { buttonClass, Chip } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { formatDateTime, postNumber, todayIST, ticketNumber } from "@/lib/format";
+import { formatDateTime, todayIST, ticketNumber } from "@/lib/format";
 import { ISSUE_LABEL, PLATFORM_LABEL, TICKET_STATUS_LABEL, TICKET_STATUS_TONE } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 
@@ -39,14 +39,14 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
   const today = todayIST();
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div>
       <div className="mb-3">
         <Link prefetch={false} href="/tickets" className={buttonClass("ghost", "-ml-3 px-3")}>
           <BackIcon className="h-5 w-5" /> All tickets
         </Link>
       </div>
 
-      <div className="mb-4 sp-card p-4">
+      <div className="sp-card g-pad mb-4">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-mono text-sm font-medium text-muted">{ticketNumber(ticket.number)}</span>
           <Chip tone="accent">{PLATFORM_LABEL[ticket.platform]}</Chip>
@@ -54,20 +54,15 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
           <Chip tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABEL[ticket.status]}</Chip>
           <FollowUpChip ticket={ticket} today={today} />
         </div>
-        <h1 className="mt-3 break-all font-mono text-xl font-semibold leading-snug tracking-tight">{ticket.ticket_id}</h1>
-        <p className="mt-1 text-xs text-muted">Saved {formatDateTime(ticket.created_at)}</p>
-        {post ? (
-          <Link prefetch={false} href={`/posts/${post.id}`} className="focus-ring mt-3 block rounded-lg bg-canvas p-3 text-sm font-bold">
-            <span className="block text-xs font-semibold text-muted">Linked post</span>
-            <span className="font-mono">{postNumber(post.number)}</span> {post.title}
-          </Link>
-        ) : null}
+        <h1 className="t-h1 mt-3 break-all font-mono">{ticket.ticket_id}</h1>
+        <p className="t-caption mt-1">Saved {formatDateTime(ticket.created_at)}</p>
       </div>
 
       <TicketForm
         ticketId={ticket.id}
         today={today}
         linkedPost={null}
+        aside={post ? <LinkedPostCard post={{ id: post.id, number: post.number, title: post.title }} /> : undefined}
         initial={{
           ticket_id: ticket.ticket_id,
           platform: ticket.platform,

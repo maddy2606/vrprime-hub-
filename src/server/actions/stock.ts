@@ -6,11 +6,21 @@ import { SYNC_COLUMNS, toSummary, type SyncSummary } from "@/lib/stock-sync";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
+import { clearShortCache } from "@/server/short-cache";
 
 const CAN_SYNC = ["owner", "admin"];
 
 /** The "Sync now" button. Owner and admin only (the database checks this too). */
 export async function startStockSync(): Promise<ActionResult<{ run: SyncSummary }>> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await startStockSyncRun();
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function startStockSyncRun(): Promise<ActionResult<{ run: SyncSummary }>> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   if (!CAN_SYNC.includes(user.role)) return { ok: false, message: "Only an owner or an admin can sync stock." };

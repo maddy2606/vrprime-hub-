@@ -171,6 +171,9 @@ export const ticketSchema = z
     next_follow_up: optionalDate,
     status: z.enum(TICKET_STATUSES).default("open"),
     resolution_notes: optionalText(2000),
+    // Hidden fields from Returns to claim (graphite-spec 12.2).
+    return_id: optionalText(120).optional(),
+    order_item_id: optionalText(120).optional(),
   })
   .superRefine((v, ctx) => {
     if (v.next_follow_up && v.next_follow_up < v.raised_on) {
@@ -192,6 +195,13 @@ const wholeNumber = (label: string, min: number, max: number) =>
     .min(min, `${label} must be at least ${min}`)
     .max(max, `${label} must be at most ${max.toLocaleString("en-IN")}`);
 
+/** Whole rupees, 0 or more; blank means not set (saved as null). */
+const optionalRupees = (label: string) =>
+  z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : v),
+    z.coerce.number({ error: `Enter a number for ${label}` }).int(`${label} must be whole rupees`).min(0, `${label} must be 0 or more`).max(100_000_000_000, `${label} is too big`).nullable(),
+  );
+
 /** The thresholds on the Flipkart page (owner only). */
 export const settingsSchema = z.object({
   low_stock_threshold: wholeNumber("the low-stock level", 1, 1_000_000),
@@ -201,6 +211,9 @@ export const settingsSchema = z.object({
   dispatch_sla_days: wholeNumber("the number of days", 1, 30),
   running_out_days: wholeNumber("the number of days", 1, 365),
   return_rate_percent: wholeNumber("the percentage", 1, 100),
+  return_claim_days: wholeNumber("the number of days", 1, 30),
+  target_sales_month: optionalRupees("the sales target"),
+  target_profit_month: optionalRupees("the profit target"),
   money_low_margin_percent: wholeNumber("the percentage", 1, 99),
   money_default_fee_percent: wholeNumber("the percentage", 1, 60),
   money_unpaid_after_days: wholeNumber("the number of days", 1, 120),

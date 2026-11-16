@@ -72,11 +72,11 @@ export function StockoutsTab({ rows, warehouses, snapshotDate, previousDate, tod
       cell: (r) => (
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="break-all font-mono text-[13px] font-bold leading-tight">{r.sku}</span>
+            <span className="break-all font-mono text-[13px] font-medium leading-tight">{r.sku}</span>
             {r.kind === "out" ? <Chip tone="bad">Stocked out</Chip> : <Chip tone="ok">Back in stock</Chip>}
             {r.status === "INACTIVE" ? <Chip>Inactive</Chip> : null}
           </div>
-          {r.title ? <p className="mt-0.5 line-clamp-2 break-words text-xs leading-snug text-muted">{r.title}</p> : null}
+          {r.title ? <p className="t-caption mt-0.5 line-clamp-2 break-words">{r.title}</p> : null}
         </div>
       ),
       csv: () => null,
@@ -125,7 +125,7 @@ export function StockoutsTab({ rows, warehouses, snapshotDate, previousDate, tod
           />
         ) : null}
         <SearchField value={q} onChange={setQ} placeholder="Search SKU or title" />
-        <label className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold sm:min-h-9">
+        <label className="toolbar-ctl flex h-10 items-center gap-2 whitespace-nowrap rounded-[var(--radius)] border border-line bg-surface2 px-3 text-[13px] font-semibold">
           <input type="checkbox" className="h-4 w-4 accent-(--accent)" checked={hide} onChange={(e) => setHide(e.target.checked)} />
           Hide inactive
         </label>

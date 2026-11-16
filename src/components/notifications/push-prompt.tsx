@@ -43,11 +43,11 @@ export function PushPrompt({ userId }: { userId: string }) {
     setHidden(true);
   };
   return (
-    <section aria-label="Turn on notifications" className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-line bg-surface px-3 py-2">
+    <section aria-label="Turn on notifications" className="sp-card mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
       <BellIcon className="h-5 w-5 shrink-0 text-accent-text" />
       <p className="min-w-0 flex-1 text-sm">
         <span className="font-semibold">Get alerts on this phone?</span>{" "}
-        <span className="text-muted">
+        <span className="t-caption">
           {state === "needs-install"
             ? "On iPhone, add the app to your Home Screen first (Share, then Add to Home Screen), then turn alerts on from Notifications."
             : "Stock running out, orders at risk, sync problems and work assigned to you, even when the app is closed."}
@@ -63,12 +63,12 @@ export function PushPrompt({ userId }: { userId: string }) {
                 if (toast.result(await enable())) setHidden(true);
               })
             }
-            className={buttonClass("primary", "min-h-9 px-3 text-xs")}
+            className={buttonClass("secondary")}
           >
-            {pending ? "Turning on…" : "Turn on"}
+            {pending ? "Turning on…" : "Turn on notifications"}
           </button>
         ) : null}
-        <button type="button" onClick={dismiss} className={buttonClass("ghost", "min-h-9 px-3 text-xs")}>
+        <button type="button" onClick={dismiss} className={buttonClass("ghost")}>
           Not now
         </button>
       </span>

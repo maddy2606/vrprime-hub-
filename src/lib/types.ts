@@ -133,6 +133,8 @@ export type Ticket = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** The Flipkart return the ticket was raised for (graphite-spec 12.2; after migration 20261116091000). */
+  return_id?: string | null;
 };
 
 export type PushSubscriptionRow = {

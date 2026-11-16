@@ -7,6 +7,11 @@ export const SETTING_KEYS = [
   "dispatch_sla_days",
   "running_out_days",
   "return_rate_percent",
+  // Returns to claim (graphite-spec 12.2)
+  "return_claim_days",
+  // Business page targets (graphite-spec 12.1), whole rupees, blank means not set
+  "target_sales_month",
+  "target_profit_month",
   // Money (owner only to read on the Money page, owner only to change)
   "money_low_margin_percent",
   "money_default_fee_percent",

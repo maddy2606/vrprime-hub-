@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
 import { buttonClass, Field } from "@/components/ui";
 import { addDays, postNumber } from "@/lib/format";
@@ -18,11 +18,25 @@ type Props = {
   ticketId?: string;
   initial: TicketFormValues;
   linkedPost: LinkedPost | null;
+  /** Shown 4 columns beside the form; defaults to the linked post. */
+  aside?: ReactNode;
   today: string;
 };
 
 /** Ticket ID, platform, issue type, SKU, raised on, next follow-up, status, notes. Nothing else. */
-export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
+/** The linked post as its own Card, 4 columns beside the form (glass-spec 8.6). */
+export function LinkedPostCard({ post }: { post: LinkedPost }) {
+  return (
+    <aside className="sp-card g-pad span-4">
+      <p className="t-label">Linked post</p>
+      <Link prefetch={false} href={`/posts/${post.id}`} className="focus-ring t-card-title mt-2 block break-words">
+        <span className="font-mono">{postNumber(post.number)}</span> · {post.title}
+      </Link>
+    </aside>
+  );
+}
+
+export function TicketForm({ ticketId, initial, linkedPost, today, aside }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [values, setValues] = useState<TicketFormValues>(initial);
@@ -67,22 +81,15 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
   };
 
   return (
+    <div className="g-grid items-start">
     <form
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
-      className="flex flex-col gap-4"
+      className="sp-card g-pad span-8 flex flex-col gap-4"
     >
-      {linkedPost ? (
-        <div className="sp-card px-4 py-3">
-          <p className="text-xs font-semibold text-muted">Linked post</p>
-          <Link prefetch={false} href={`/posts/${linkedPost.id}`} className="focus-ring mt-0.5 block break-words text-sm font-bold">
-            <span className="font-mono">{postNumber(linkedPost.number)}</span> · {linkedPost.title}
-          </Link>
-        </div>
-      ) : null}
 
       <Field label="Marketplace ticket ID" htmlFor="ticket_id" required error={errors.ticket_id} hint="The ID Flipkart or Amazon gave you">
         <input
@@ -98,7 +105,7 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
         />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[700px]:grid-cols-2">
         <Field label="Platform" htmlFor="platform" required error={errors.platform}>
           <select id="platform" className="input" value={values.platform} onChange={(e) => set("platform", e.target.value as Platform)}>
             {PLATFORMS.map((p) => (
@@ -132,7 +139,7 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
         />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[700px]:grid-cols-2">
         <Field label="Raised on" htmlFor="raised_on" required error={errors.raised_on}>
           <input id="raised_on" type="date" className="input" value={values.raised_on} onChange={(e) => set("raised_on", e.target.value)} aria-invalid={Boolean(errors.raised_on)} />
         </Field>
@@ -148,13 +155,13 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
                 key={quick.days}
                 type="button"
                 onClick={() => set("next_follow_up", addDays(today, quick.days))}
-                className="focus-ring min-h-9 rounded-full border border-line bg-surface px-3 text-sm font-bold text-muted"
+                className={buttonClass("secondary", "rounded-full")}
               >
                 {quick.label}
               </button>
             ))}
             {values.next_follow_up ? (
-              <button type="button" onClick={() => set("next_follow_up", "")} className="focus-ring min-h-9 rounded-full px-3 text-sm font-bold text-accent-text">
+              <button type="button" onClick={() => set("next_follow_up", "")} className={buttonClass("ghost", "rounded-full")}>
                 No follow-up
               </button>
             ) : null}
@@ -185,5 +192,7 @@ export function TicketForm({ ticketId, initial, linkedPost, today }: Props) {
         </button>
       </div>
     </form>
+    {aside ?? (linkedPost ? <LinkedPostCard post={linkedPost} /> : null)}
+    </div>
   );
 }

@@ -2,22 +2,28 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { BarsIcon, BoardIcon, BoxIcon, DashIcon, DeckIcon, GaugeIcon, MegaphoneIcon, MoreIcon, StarIcon, RupeeIcon, SlidersIcon, TicketIcon, TrendIcon, UsersIcon } from "@/components/icons";
+import { SyncCard } from "@/components/shell/command-bar";
 import { Sheet } from "@/components/shell/sheet";
 
 type Item = { key: string; href: string; label: string; icon: (p: { className?: string }) => ReactNode };
 type Group = { label: string; items: Item[] };
 
 /**
- * The navigation, in three groups. Operate: Command Deck, Dashboard (owner), Work board, Tickets, Team (owner and
- * admin). Marketplace: Flipkart, Forecast, Ads tracker and Review tracker (owner and admin). Admin (owner): P&L,
- * People, Settings. Who sees what is exactly as before; only the grouping and the labels are new.
- * On a phone it is a bottom bar of five: Deck, Work, Tickets and Flipkart within thumb reach, with the rest under More.
+ * The navigation (graphite-spec section 8), in three groups with no headings and a 14px gap between them: Command
+ * Centre, Dashboard and Business (owner), Work board, Tickets, Team (owner and admin); Flipkart, Forecast, Ads tracker and Review
+ * tracker (owner and admin); P&L, People, Settings (owner). Who sees what is exactly as before.
+ * Under 700px it is a bottom bar of five: Deck, Work, Tickets and Flipkart within thumb reach, with the rest under More.
  */
 function groups(isOwner: boolean, isStaff: boolean): Group[] {
   const operate: Item[] = [
-    { key: "deck", href: "/", label: "Command Deck", icon: DeckIcon },
-    ...(isOwner ? [{ key: "dashboard", href: "/dashboard", label: "Dashboard", icon: DashIcon }] : []),
+    { key: "deck", href: "/", label: "Command Centre", icon: DeckIcon },
+    ...(isOwner
+      ? [
+          { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: DashIcon },
+          { key: "business", href: "/business", label: "Business", icon: BarsIcon },
+        ]
+      : []),
     { key: "work", href: "/work", label: "Work board", icon: BoardIcon },
     { key: "tickets", href: "/tickets", label: "Tickets", icon: TicketIcon },
     ...(isStaff ? [{ key: "team", href: "/team", label: "Team", icon: GaugeIcon }] : []),
@@ -49,6 +55,7 @@ function groups(isOwner: boolean, isStaff: boolean): Group[] {
 function activeKey(pathname: string, tab: string | null): string {
   if (pathname === "/") return "deck";
   if (pathname.startsWith("/dashboard")) return "dashboard";
+  if (pathname.startsWith("/business")) return "business";
   if (pathname.startsWith("/flipkart")) return tab === "forecast" ? "forecast" : "flipkart";
   if (pathname === "/work" || pathname === "/all" || pathname.startsWith("/posts")) return "work";
   if (pathname.startsWith("/tickets")) return "tickets";
@@ -61,7 +68,9 @@ function activeKey(pathname: string, tab: string | null): string {
   return "";
 }
 
-function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean }) {
+export type RailSync = { syncedAt: string | null; scope: string; canSync: boolean };
+
+function RailInner({ isOwner, isStaff, sync }: { isOwner: boolean; isStaff: boolean; sync: RailSync }) {
   const pathname = usePathname();
   const tab = useSearchParams().get("tab");
   const active = activeKey(pathname, tab);
@@ -69,46 +78,43 @@ function RailInner({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean })
   const flat = list.flatMap((g) => g.items);
   return (
     <>
-      {/* Sidebar: a 72px icon rail from 561px, the full labelled sidebar from 1100px (see .vr-rail in globals.css). */}
-      <aside className="vr-rail fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line bg-panel2 min-[561px]:flex">
-        <Link href="/" aria-label="VR Prime Ops, Command Deck" className="focus-ring mx-3 mt-4 flex h-11 items-center gap-3 rounded-lg px-1.5">
-          <span className="font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-ink text-[13px] font-bold tracking-tight text-canvas">VR</span>
-          <span className="vr-rail-label font-display text-[15px] font-semibold tracking-tight">VR Prime Ops</span>
+      {/* Side rail (graphite-spec section 8): 72px icons only from 700px, 228px with labels from 1100px. */}
+      <aside className="vr-rail fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-line bg-surface2 px-3 py-[22px] min-[700px]:flex min-[1100px]:px-4">
+        <Link href="/" aria-label="VR Prime Ops, Command Centre" className="focus-ring flex h-10 items-center gap-2.5 rounded-[11px] max-[1099.98px]:justify-center">
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[9px] bg-accent font-display text-[12px] font-bold text-accent-ink">VR</span>
+          <span className="vr-rail-label font-display text-[16px] font-bold">VR Prime Ops</span>
         </Link>
-        <nav aria-label="Main" className="mt-5 flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
+        <nav aria-label="Main" className="mt-5 flex min-h-0 flex-1 flex-col gap-[14px] overflow-y-auto">
           {list.map((g) => (
-            <div key={g.label}>
-              <p className="vr-rail-group mb-1.5 px-2 text-[11px] font-semibold text-faint">{g.label}</p>
-              <ul className="flex flex-col gap-0.5">
-                {g.items.map((item) => {
-                  const on = active === item.key;
-                  return (
-                    <li key={item.key}>
-                      <Link
-                        href={item.href}
-                        aria-label={item.label}
-                        aria-current={on ? "page" : undefined}
-                        className={`focus-ring group relative flex h-11 items-center gap-3 rounded-lg px-2.5 text-sm font-semibold transition-colors ${
-                          on ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface2 hover:text-ink"
-                        }`}
+            <ul key={g.label} aria-label={g.label} className="flex flex-col gap-0.5">
+              {g.items.map((item) => {
+                const on = active === item.key;
+                return (
+                  <li key={item.key}>
+                    <Link
+                      href={item.href}
+                      aria-label={item.label}
+                      aria-current={on ? "page" : undefined}
+                      className={`focus-ring group relative flex h-11 items-center gap-3 rounded-[11px] px-[13px] text-[14px] transition-colors duration-160 ${
+                        on ? "bg-accent-soft font-semibold text-ink" : "text-muted hover:bg-panel2"
+                      }`}
+                    >
+                      <item.icon className="h-[18px] w-[18px] shrink-0" />
+                      <span className="vr-rail-label truncate">{item.label}</span>
+                      <span
+                        role="tooltip"
+                        className="sp-pop sp-tip pointer-events-none absolute left-[58px] z-50 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-ink opacity-0 transition-opacity duration-160 group-hover:opacity-100 group-focus-visible:opacity-100 min-[1100px]:hidden"
                       >
-                        {on ? <span aria-hidden="true" className="absolute -left-3 h-6 w-[3px] rounded-r-full bg-accent" /> : null}
-                        <item.icon className="h-[21px] w-[21px] shrink-0" />
-                        <span className="vr-rail-label truncate">{item.label}</span>
-                        <span
-                          role="tooltip"
-                          className="sp-pop pointer-events-none absolute left-[58px] z-50 whitespace-nowrap px-2.5 py-1.5 text-xs font-semibold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 min-[1100px]:hidden"
-                        >
-                          {item.label}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+                        {item.label}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           ))}
         </nav>
+        <SyncCard since={sync.syncedAt} scope={sync.scope} canSync={sync.canSync} />
       </aside>
       <BottomBar list={flat} active={active} />
     </>
@@ -132,20 +138,22 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
   const moreActive = more.some((i) => i.key === active);
   const slots = bar.length + (more.length ? 1 : 0);
   const slotClass = (on: boolean) =>
-    `focus-ring flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-semibold transition-colors ${on ? "text-accent-text" : "text-muted active:text-ink"}`;
-  const pill = (on: boolean) => `flex h-8 w-14 items-center justify-center rounded-full transition-colors ${on ? "bg-accent-soft" : ""}`;
+    `focus-ring relative flex h-16 w-full flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors duration-160 ${on ? "text-accent-text" : "text-muted active:text-ink"}`;
+  const pill = "relative flex h-6 w-10 items-center justify-center";
+  const dot = (on: boolean) => (on ? <span aria-hidden="true" className="absolute -top-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-accent" /> : null);
   return (
     <>
-      {/* Bottom bar, 560px and under */}
-      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel2 pb-[env(safe-area-inset-bottom)] min-[561px]:hidden">
+      {/* Bottom bar, under 700px */}
+      <nav aria-label="Main" className="vr-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line pb-[env(safe-area-inset-bottom)] min-[700px]:hidden">
         <ul className="grid" style={{ gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))` }}>
           {bar.map((item) => {
             const on = active === item.key;
             return (
               <li key={item.key}>
                 <Link href={item.href} aria-current={on ? "page" : undefined} className={slotClass(on)}>
-                  <span aria-hidden="true" className={pill(on)}>
-                    <item.icon className="h-[22px] w-[22px]" />
+                  <span aria-hidden="true" className={pill}>
+                    {dot(on)}
+                    <item.icon className="h-5 w-5" />
                   </span>
                   <span className="max-w-full truncate px-0.5">{SHORT[item.key] ?? item.label}</span>
                 </Link>
@@ -155,8 +163,9 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
           {more.length ? (
             <li>
               <button type="button" onClick={() => setMoreOpen(true)} aria-haspopup="dialog" className={slotClass(moreActive)}>
-                <span aria-hidden="true" className={pill(moreActive)}>
-                  <MoreIcon className="h-[22px] w-[22px]" />
+                <span aria-hidden="true" className={pill}>
+                  {dot(moreActive)}
+                  <MoreIcon className="h-5 w-5" />
                 </span>
                 <span>More</span>
               </button>
@@ -174,11 +183,11 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
                   href={item.href}
                   onClick={() => setMoreOpen(false)}
                   aria-current={on ? "page" : undefined}
-                  className={`focus-ring flex min-h-14 items-center gap-3 rounded-lg border px-3.5 py-3 text-sm font-semibold transition-colors ${
-                    on ? "border-accent/50 bg-accent-soft text-accent-text" : "border-line bg-surface text-ink active:bg-surface2"
+                  className={`focus-ring sp-inner flex min-h-14 items-center gap-3 px-3.5 py-3 text-sm font-medium transition-colors duration-160 ${
+                    on ? "!bg-accent-soft text-ink" : "text-ink active:bg-panel2"
                   }`}
                 >
-                  <item.icon className="h-5 w-5 shrink-0 text-muted" />
+                  <item.icon className={`h-5 w-5 shrink-0 ${on ? "text-accent-text" : "text-muted"}`} />
                   {item.label}
                 </Link>
               </li>
@@ -190,11 +199,11 @@ function BottomBar({ list, active }: { list: Item[]; active: string }) {
   );
 }
 
-export function Rail({ isOwner, isStaff }: { isOwner: boolean; isStaff: boolean }) {
+export function Rail({ isOwner, isStaff, sync }: { isOwner: boolean; isStaff: boolean; sync: RailSync }) {
   // useSearchParams needs a boundary; the fallback is the rail with nothing marked yet.
   return (
     <Suspense fallback={null}>
-      <RailInner isOwner={isOwner} isStaff={isStaff} />
+      <RailInner isOwner={isOwner} isStaff={isStaff} sync={sync} />
     </Suspense>
   );
 }

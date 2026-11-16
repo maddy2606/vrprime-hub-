@@ -1,4 +1,5 @@
 import "server-only";
+import { forUser } from "@/server/short-cache-user";
 import type { AdsUpload, CostingRow, MonthPnl, UnlinkedSku } from "@/components/pnl/pnl-board";
 import { applyAds, findSku, masterUnitCost, monthlyPnl, skuCost, type KitPart, type MasterInfo, type MonthAds, type MonthUnits, type ReportUnits, type SkuFacts } from "@/lib/costing";
 import { createClient } from "@/lib/supabase/server";
@@ -19,7 +20,12 @@ export const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleD
 export type PnlData = { months: MonthPnl[]; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; reportSkus: number; error: string | null };
 
 /** Profit and loss by month (newest first), from Flipkart's reports and the synced orders, and every master SKU's cost. */
+/** The P&L (also the Dashboard's money), through the 30-second short cache (graphite-spec 10.2). */
 export async function loadPnl(): Promise<PnlData> {
+  return forUser("loadPnl", [], () => loadPnlFresh());
+}
+
+async function loadPnlFresh(): Promise<PnlData> {
   const db = (await createClient()) as unknown as Loose;
   const [mpRes, linkRes, costRes, priceRes, unitsRes, feeRes, adRes, adUpRes, rateRes] = await Promise.all([
     db.from("master_products").select("id, name, kit_parts").order("name"),

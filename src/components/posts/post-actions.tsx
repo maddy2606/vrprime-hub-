@@ -79,11 +79,11 @@ export function PostActions({
           e.preventDefault();
           run(() => markDone({ postId: post.id, ...proof }), () => setDoneOpen(false));
         }}
-        className="flex flex-col gap-4 rounded-xl border border-accent bg-surface p-4"
+        className="flex flex-col gap-4"
       >
         <div>
-          <p className="text-base font-semibold">Mark done</p>
-          <p className="mt-0.5 text-sm text-muted">{DONE_HINT[post.type]}</p>
+          <p className="t-card-title">Mark done</p>
+          <p className="t-caption mt-0.5">{DONE_HINT[post.type]}</p>
         </div>
 
         {post.type === "problem" ? (

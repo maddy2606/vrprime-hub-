@@ -1,0 +1,61 @@
+# Aurora Glass: where the spec is silent (rule applied, per section 11)
+
+- Font variable names: next/font sets --font-manrope, --font-unbounded, --font-geist-mono, mapped onto --font-sans, --font-display, --font-mono in globals.css (Tailwind already owns those three names). Section 2 intent kept.
+- Spec values outside the token table (row hover, hero highlight, primary inset, skeleton sweep, page background) are held as variables in globals.css so no component file holds a colour. Values unchanged.
+- Chart line draw: drawn with a left-to-right clip over 700 ms, because a dash-offset draw does not work with the non-scaling strokes the charts use. Section 6 timing unchanged.
+- Trend chart's latest-value label: drawn as an accent Chip (rule 1, closest component).
+- Bar (horizontal share bar): track uses the ShareBar track (surface2, 10 px, pill); fill uses the Bars rule (radius 6 px, vertical gradient). Rule 1.
+- Lane segment text: stage 1 takes --ink, stages 2 and 3 take --accent-ink, in both modes (no new colour).
+- Toast: built from tone row (3 px bar) on the popover surface, as section 4 Toasts describes.
+- Phone sync status: the shell cannot place a line inside each page's own title block, so it is the first line of the page area, directly above the title (section 7 intent). Sync now goes with it, so owner and admin keep that action on a phone.
+- Rail group gap at ≥1100 px: 16 px (the section 3 gap); 700–1099 px uses the 8 px the spec gives.
+- Push banner text "Turn on" now reads "Turn on notifications", as the spec names it.
+- Dashboard Profit hero: the hero number takes the bad tone when profit after ads is below zero (closest reading of the t-hero is-bad rule).
+- Deck Stock health: the card title sits above its StatStrip card, because StatStrip is itself a card (no card in card).
+- Deck queue: split into "Orders and stock" and "Work and tickets" by queue kind, as section 8.1 allows.
+- Push banner: placed in the Deck headline slot (it only shows on the Deck route), not in the shell.
+- Phone tables: the ledger table shows at every width with a sticky first column; the old phone card view is gone (section 4 Tables).
+- Flipkart second-level tabs: "ghost-style pills" built as the ghost button with radius 999 px; the open tab takes the ghost hover background (--accent-soft). Rule 1.
+- Needs action tone rows carry no kind Chip: the section's tone bar header names the kind (closest reading of section 4 Tone rows).
+- Needs action section tone: the most urgent tone among its rows (bad, then warn, then info).
+- Status and notice lines on Flipkart tabs (sync failed, backfill, forecast warnings): tone row inside a Card, tone kept from main.
+- Forecasting and Master SKUs phone card views replaced by the glass ledger with a sticky first column (section 4 Tables); Sort by stays above on phones.
+- Forecasting top movers strip: each mover as a neutral Chip (rule 1).
+- Master SKU links: each SKU as a neutral Chip with its × inside (20 px button within the 22 px chip).
+- Edge-to-edge pill rows on phones now bleed by the 12 px phone gutter (they used 16 px and caused a sideways scroll).
+- Work board: a column with no posts shows "None." as a caption, so the three columns always show.
+- Post page facts (assignee, warehouse, SKU, due, created) moved from the header card into their own Card in the right column, as 8.5 lists "facts" there.
+- Post page Actions Card has no heading (the spec names the Card, not a title).
+- New post type icons: task Check, new listing List, problem Alert, restock Box (existing icon set; rule 1).
+- New post priority picker: segmented control (closest component).
+- Ticket page: the ticket header Card stays full width above the form and linked post Cards.
+- Ticket follow-up quick picks: secondary buttons with pill radius; "No follow-up" ghost.
+- Tickets page: the "N open · N waiting · N follow-up due" subtitle became the headline sentence (same numbers).
+- Notifications filter pills: ghost pills as on Flipkart, counts in the segmented-control mono style.
+- Notification rows: tone row with the 3 px bar; unread rows keep the accent dot; read rows use --muted titles.
+- Ads tracker figures (six KPI tiles, not named in 8.8): one StatStrip under the notes.
+- Ads tracker notes: captions; bad and warn notes keep their tone colour in the caption text.
+- Ads tracker campaign form: the 4-column Card shows only while adding or editing; the log is full width otherwise.
+- Ads tracker trend bars: the Bars rule (barFill, radius 6); the selected scan in accent, the rest --surface2.
+- Ads Desk overview hero (spend line and six figures, not named in 8.9): headline sentence plus a StatStrip.
+- Ads Desk sticky section nav: the top bar's glass (vr-bar) on a pill row; ghost pills with mono counts.
+- Ads Desk problem card rows: tone rows in the card's tone (context from the card), kind named by the card header.
+- Review tracker tiles: a StatStrip of link/div cells (tiles link to their sections) instead of a dl.
+- Review tracker priority groups: Cards in a 2-column grid from 700 px; link cards inside are inner boxes.
+- Team hero figures (people, capacity, busiest day, today): StatStrip under the headline sentence.
+- Team per-warehouse row: a layout class (.wh-row) with the column counts from 8.11; card count from the data.
+- Team, Removed people and the people list: one glass ledger at every width (phone card list removed).
+- P&L month switch: segmented control with each month's profit in the count style; it wraps under the title on narrow screens.
+- P&L loss: the last StatStrip cell uses --bad instead of --grad-accent when the month is a loss, and its label reads "Loss after ads".
+- P&L units sold and margin: units as the Sales cell caption; margin Chip beside the month heading.
+- P&L warnings (missing days, uncosted sales): tone rows in a Card under the strip.
+- Glass ledger row headers (th in tbody): body style, not the column-header Label style.
+- Sign-in (8.15): the old "VR" tile beside the name is not in the spec, so it was removed; the lane mark sits centred above the name (rule 11.3).
+- Settings (8.14): the first group had no heading; a "General" Card title was added because the spec names the Card (rule 11.1, Card head).
+- Settings sticky Save bar: on phones it sits above the bottom bar (4.5rem + safe area) so the bar does not cover it; on ≥700 px it sits at the viewport bottom (rule 11.2).
+- People (8.14): warehouse picker toggles in the user form use ghost pill buttons with the accent-soft active state, the same as other filter pills (rule 11.1).
+- Money (8.13): no layout changes; it inherits the shared Card, ledger, chip and button styles only.
+- Section 9 contrast: these text tokens measured under 4.5:1 against their darkest/lightest backing (canvas, card, popover, inner box and their own soft tint, computed by alpha compositing; aurora glows not included) and were raised toward --ink by the smallest step that passes: dark --faint #7b8094→#878c9e, dark --bad #ff5d73→#fe6b7f; light --faint #80859a→#626678, --bad #c81e30→#b71d2e, --warn #8a5a00→#815502, --ok #1c7a46→#1a6c41, --info #1f6fb8→#1d61a1, --cyan #0e8fa0→#0f6978. Backgrounds and soft tints unchanged. The same tokens also colour bars and dots, which therefore shift by the same small step.
+- Section 9 touch targets vs section 5 segmented options (32 px): options keep their 32 px look; a transparent ::after extends each tap area across the control's 3 px padding (38 px; the 1 px border is outside the scroll box, so 40 px would need a taller control than the spec gives).
+- Section 9 touch targets: the phone top-bar VR mark (32 px, spec 7) and the Ads tracker chip remove (20 px) keep their size and get a transparent ::after tap area of 40 px. Buttons at 36 px (min-h-9) raised to 40 px; the stock table sort button set at 34 px in area 1 now uses the spec toolbar height of 40 px.
+- Colour sweep: manifest theme/background colour #050505 set to the spec canvas #07080d; attendance-panel fallback #8a8f98 removed (var(--muted)); Ads Desk bar segment text-white now var(--accent-ink). Left as is: WhatsApp QR box bg-white (a QR needs a white quiet zone to scan); app/layout.tsx viewport theme colours are literal hex because meta theme-color cannot read CSS variables (they equal --canvas).

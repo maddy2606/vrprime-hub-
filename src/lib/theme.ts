@@ -59,3 +59,7 @@ export function warehouseColor(name: string, index: number): string {
 
 /** Order stages as one indigo ramp, light to dark as the order moves along (validated as an ordinal ramp, both modes). */
 export const STAGE_COLOR = { to_accept: "var(--stage-1)", to_pack: "var(--stage-2)", to_dispatch: "var(--stage-3)" } as const;
+
+/** Chart series colours (graphite-spec section 6): the first series is --wh-1, the second --cyan. */
+export const SERIES = "var(--wh-1)";
+export const SERIES_2 = "var(--cyan)";

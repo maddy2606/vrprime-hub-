@@ -6,7 +6,7 @@ import { OrdersSyncBar } from "@/components/flipkart/orders-sync-bar";
 import { BUCKET_TONE, SkuGroups } from "@/components/flipkart/sku-groups";
 import { DataTable, type Column } from "@/components/stock/data-table";
 import { Lanes } from "@/components/signal/lanes";
-import { Chip, EmptyState, SectionHead } from "@/components/ui";
+import { Chip, EmptyState, SectionHead, buttonClass } from "@/components/ui";
 import { formatDue, isRed, urgency } from "@/lib/flipkart-analysis";
 import { formatDate, formatNumber, todayIST } from "@/lib/format";
 import {
@@ -163,7 +163,7 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
   const orderCell = (id: string) => <span className="break-all font-mono text-xs">{id}</span>;
   const skuCell = (sku: string | null, title?: string | null, extra?: string) => (
     <div className="max-w-36 sm:max-w-60">
-      <span className="block break-all font-mono text-[13px] font-bold">{sku || "—"}</span>
+      <span className="block break-all font-mono text-[13px] font-medium">{sku || "—"}</span>
       {title ? <span className="block truncate text-xs text-muted">{title}</span> : null}
       {extra ? <span className="block text-xs font-semibold">{extra}</span> : null}
     </div>
@@ -251,7 +251,7 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
           table(data.rows, cancelColumns, (r) => r.order_item_id)
         )}
         {data.rows.length > 0 && data.rows.length < data.total ? (
-          <button type="button" onClick={more} disabled={loading} className="focus-ring mt-2 min-h-11 w-full rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-surface2 disabled:opacity-60">
+          <button type="button" onClick={more} disabled={loading} className={buttonClass("secondary", "mt-2 w-full")}>
             {loading ? "Loading…" : `Show ${formatNumber(Math.min(50, data.total - data.rows.length))} more (${formatNumber(data.total - data.rows.length)} not shown; the CSV has all of them)`}
           </button>
         ) : null}
@@ -267,15 +267,15 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
       <OrdersSyncBar state={state} canSync={canSync} kind={query.status === "upcoming" ? "upcoming" : "pending"} today={today} />
 
       {/* The warehouse lanes: orders flow To Accept, To Pack, To Dispatch; late orders are the red block at the gate. Tap a lane to look at that warehouse alone. */}
-      <section aria-labelledby="orders-lanes" className="sp-card mb-5 px-4 pb-3 pt-4 sm:px-5">
+      <section aria-labelledby="orders-lanes" className="sp-card sp-hero g-pad mb-4">
         <SectionHead
           id="orders-lanes"
           title="Waiting at each warehouse"
           sub={query.wh ? `Showing ${nameOf(query.wh)} only. Tap it again to see all.` : "Tap a warehouse to look at it alone."}
-          action={<span className="font-mono text-sm font-semibold tabular-nums text-muted">{formatNumber(cards.reduce((n, c) => n + c.active, 0))} active</span>}
+          action={<span className="t-caption"><span className="font-display text-[20px] font-semibold text-ink tabular-nums">{formatNumber(cards.reduce((n, c) => n + c.active, 0))}</span> active</span>}
         />
         {cards.length === 0 ? (
-          <p className="pb-2 text-sm text-muted">No warehouse to show.</p>
+          <p className="t-caption pb-2">No warehouse to show.</p>
         ) : (
           <Lanes
             ariaLabel="Orders waiting at each warehouse, by stage"
@@ -360,28 +360,30 @@ export function OrdersTab({ cards, warehouses, state, canSync, today, nowIso, in
         </InfoTip>
       </Toolbar>
       {failed ? (
-        <p role="alert" className="mb-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
-          Could not load this list. Check your connection and try again.
-        </p>
+        <div role="alert" className="sp-card mb-4 overflow-hidden">
+          <p className="tone-row tone-bad">
+            <span className="tone-row-title">Could not load this list. Check your connection and try again.</span>
+          </p>
+        </div>
       ) : null}
 
       {summary ? (
-        <div className="mb-4 overflow-x-auto sp-card">
-          <table className="ledger w-full border-collapse text-sm">
-            <caption className="px-3 py-2.5 text-left text-sm font-semibold">Cancellations per day</caption>
+        <div className="sp-card ledger-card mb-4 overflow-x-auto">
+          <table className="ledger w-full border-collapse">
+            <caption className="t-card-title px-3 py-3 text-left">Cancellations per day</caption>
             <thead>
               <tr>
-                <th scope="col" className="px-3 py-2 text-left">Day</th>
-                <th scope="col" className="px-3 py-2 text-right">Seller</th>
-                <th scope="col" className="px-3 py-2 text-right">Buyer</th>
+                <th scope="col">Day</th>
+                <th scope="col" className="num">Seller</th>
+                <th scope="col" className="num">Buyer</th>
               </tr>
             </thead>
             <tbody>
               {summary.days.map((d) => (
-                <tr key={d.day} className="border-b border-line last:border-b-0">
-                  <td className="px-3 py-1.5">{formatDate(d.day, today)}</td>
-                  <td className={`px-3 py-1.5 text-right font-mono tabular-nums ${d.seller ? "font-bold text-bad" : "text-muted"}`}>{d.seller}</td>
-                  <td className="px-3 py-1.5 text-right font-mono tabular-nums text-muted">{d.buyer}</td>
+                <tr key={d.day}>
+                  <td>{formatDate(d.day, today)}</td>
+                  <td className={`num ${d.seller ? "text-bad" : "text-muted"}`}>{d.seller}</td>
+                  <td className="num text-muted">{d.buyer}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useMemo, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import { RefreshIcon } from "@/components/icons";
+import { MegaphoneIcon, RefreshIcon } from "@/components/icons";
 import { useToast } from "@/components/toast";
-import { buttonClass, Chip, EmptyState } from "@/components/ui";
+import { barFill } from "@/components/signal/charts";
+import { buttonClass, Chip, EmptyState, ItemRow, Stat, StatStrip, TONE_TINT } from "@/components/ui";
 import { formatINR, formatNumber } from "@/lib/format";
 import type { AdCampaignStatus } from "@/lib/types";
 import { addTrackedSku, deleteAdCampaign, removeTrackedSku, saveAdCampaign, syncAdsReport } from "@/server/actions/ads";
@@ -94,15 +95,15 @@ function summarise(skus: string[], rows: ScanRow[]): SkuSummary[] {
   });
 }
 
-function Section({ id, title, sub, action, children }: { id: string; title: string; sub?: string; action?: ReactNode; children: ReactNode }) {
+function Section({ id, title, sub, action, children, className = "span-12" }: { id: string; title: string; sub?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section id={id} className="sp-card min-w-0 p-5 sm:p-6" aria-labelledby={`${id}-title`}>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <section id={id} className={`sp-card g-pad min-w-0 ${className}`} aria-labelledby={`${id}-title`}>
+      <div className="g-head flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={`${id}-title`} className="font-display text-lg font-semibold">
+          <h2 id={`${id}-title`} className="t-card-title">
             {title}
           </h2>
-          {sub ? <p className="max-w-2xl text-xs text-muted">{sub}</p> : null}
+          {sub ? <p className="t-caption mt-1 max-w-2xl">{sub}</p> : null}
         </div>
         {action}
       </div>
@@ -150,7 +151,7 @@ function SyncButton() {
 
 function HowToSync() {
   return (
-    <details className="rounded-xl border border-line-soft bg-surface2/40 px-4 py-3 text-sm">
+    <details className="sp-card t-body px-4 py-3">
       <summary className="focus-ring cursor-pointer rounded font-bold">How Sync works</summary>
       <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
         <li>In Seller Hub open Ads, Reports, Other Reports.</li>
@@ -161,7 +162,7 @@ function HowToSync() {
         <li>For the split per SKU, also download the <b>Consolidated FSN Report</b> for the same dates.</li>
         <li>Press Sync here and choose each file. Syncing the same dates again replaces them, so uploading a day twice never counts it twice.</li>
       </ol>
-      <p className="mt-2 text-xs text-muted">
+      <p className="t-caption mt-2">
         Each SKU report is checked against the daily report: if it holds less than 95% of the true spend for its days, it was an incomplete download and the page says so.
         Campaigns found on tracked SKUs are added to the campaign log.
       </p>
@@ -187,11 +188,11 @@ function DataNotices({ daily, scan }: { daily: AdsView["daily"]; scan: AdsView["
   if (scan && daily.to && !daily.scan)
     notes.push({ tone: "warn", text: `The daily report does not cover all of ${day(scan.from)} to ${day(scan.to)}, so these totals come from the SKU report and cannot be checked.` });
   if (!notes.length) return null;
-  const TONE = { bad: "border-bad/40 bg-bad-soft text-bad", warn: "border-warn/40 bg-warn-soft text-warn", ok: "border-line-soft bg-surface2/50 text-ink" } as const;
+  const TONE = { bad: "font-semibold text-bad", warn: "font-semibold text-warn", ok: "" } as const;
   return (
-    <div className="flex flex-col gap-2" role="status">
+    <div className="span-12 flex flex-col gap-1" role="status">
       {notes.map((n) => (
-        <p key={n.text} className={`rounded-xl border px-3 py-2 text-sm font-semibold ${TONE[n.tone]}`}>
+        <p key={n.text} className={`t-caption ${TONE[n.tone]}`}>
           {n.text}
         </p>
       ))}
@@ -218,14 +219,12 @@ function Kpis({ summary, rows, scan, truth }: { summary: SkuSummary[]; rows: Sca
     ["Campaigns", formatNumber(new Set(rows.map((r) => r.campaignId)).size), "running these SKUs"],
   ];
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-      {tiles.map(([label, value, foot]) => (
-        <div key={label} className="sp-card min-w-0 p-4">
-          <p className="font-mono text-[11px] font-bold text-muted">{label}</p>
-          <p className="mt-1 font-mono text-xl font-bold tabular-nums">{value}</p>
-          <p className="text-xs text-muted">{foot}</p>
-        </div>
-      ))}
+    <div className="span-12 min-w-0">
+      <StatStrip ariaLabel="Ads in figures">
+        {tiles.map(([label, value, foot]) => (
+          <Stat key={label} label={label} value={value} sub={foot || undefined} />
+        ))}
+      </StatStrip>
     </div>
   );
 }
@@ -244,20 +243,27 @@ function Attention({ summary }: { summary: SkuSummary[] }) {
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 8);
   return (
-    <Section id="ads-attention" title="Needs a look" sub="Campaigns with spend and no sales, or ROI under 3.5">
+    <Section id="ads-attention" className="span-5" title="Needs a look" sub="Campaigns with spend and no sales, or ROI under 3.5">
       {items.length ? (
-        <ul className="grid gap-2">
+        <ul className="item-list m-0 list-none p-0">
           {items.map(({ r, tone, why }) => (
-            <li key={`${r.sku}-${r.campaignId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-surface2/50 px-3 py-2 text-sm">
-              <Chip tone={tone}>{r.sku}</Chip>
-              <span className="font-bold">{r.campaignName}</span>
-              <span className="font-mono text-xs text-muted">{r.campaignId}</span>
-              <span className="text-muted">{why}</span>
+            <li key={`${r.sku}-${r.campaignId}`}>
+              <ItemRow
+                icon={<MegaphoneIcon />}
+                tint={TONE_TINT[tone]}
+                title={r.campaignName}
+                detail={
+                  <>
+                    <span className="font-mono">{r.campaignId}</span> · {why}
+                  </>
+                }
+                end={<Chip tone={tone}><span className="font-mono">{r.sku}</span></Chip>}
+              />
             </li>
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-muted">Nothing below the line in this scan.</p>
+        <p className="t-caption">Nothing below the line in this scan.</p>
       )}
     </Section>
   );
@@ -318,8 +324,8 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
       return next;
     });
   const head = (key: SortKey, label: string, right = true) => (
-    <th scope="col" className={`whitespace-nowrap px-3 py-2 text-[11px] font-bold text-muted ${right ? "text-right" : "text-left"}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
-      <button type="button" className="focus-ring rounded" onClick={() => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "sku" ? 1 : -1 }))}>
+    <th scope="col" className={right ? "num" : "text-left"} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button type="button" className="focus-ring rounded font-[inherit] uppercase tracking-[inherit]" onClick={() => setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: key === "sku" ? 1 : -1 }))}>
         {label}
         {sort.key === key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
       </button>
@@ -333,9 +339,9 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
       sub="Tap a SKU to see its campaigns with name and ID. Avg / day is spend ÷ the days each campaign ran in the period. A shared budget is one campaign advertising several SKUs."
       action={
         <div className="flex flex-wrap items-center gap-2">
-          <div role="group" aria-label="Platform" className="inline-flex overflow-hidden rounded-xl border border-line">
+          <div role="group" aria-label="Platform" className="seg">
             {(["all", "Flipkart", "Shopsy"] as const).map((p) => (
-              <button key={p} type="button" aria-pressed={platform === p} onClick={() => setPlatform(p)} className={`focus-ring min-h-10 px-3 text-sm font-bold ${platform === p ? "bg-accent-soft text-accent-text" : "text-muted hover:bg-surface2"}`}>
+              <button key={p} type="button" aria-pressed={platform === p} onClick={() => setPlatform(p)} className="seg-opt">
                 {p === "all" ? "All" : p}
               </button>
             ))}
@@ -344,18 +350,18 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
         </div>
       }
     >
-      <div className="overflow-x-auto rounded-xl border border-line-soft">
-        <table className="w-full min-w-[760px] border-collapse text-sm">
-          <thead className="bg-surface2/40">
+      <div className="overflow-x-auto sp-inner">
+        <table className="ledger min-w-[760px]">
+          <thead>
             <tr>
               {head("sku", "SKU", false)}
-              <th scope="col" className="px-3 py-2 text-left text-[11px] font-bold text-muted">
+              <th scope="col" className="text-left">
                 Platform
               </th>
               {head("ads", "Ads")}
               {head("spend", "Spend")}
               {head("avg", "Avg / day")}
-              <th scope="col" className="w-24 px-3 py-2">
+              <th scope="col" className="w-24">
                 <span className="sr-only">Avg / day bar</span>
               </th>
               {head("units", "Units")}
@@ -370,8 +376,8 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
                 const has = s.rows.length > 0;
                 return (
                   <Fragment key={s.sku}>
-                    <tr className="cursor-pointer border-t border-line-soft hover:bg-surface2/40" onClick={() => toggle(s.sku)}>
-                      <td className="px-3 py-2">
+                    <tr className="cursor-pointer" onClick={() => toggle(s.sku)}>
+                      <td>
                         <button type="button" aria-expanded={isOpen} className="focus-ring flex items-center gap-1.5 rounded font-mono font-bold" onClick={(e) => (e.stopPropagation(), toggle(s.sku))}>
                           <span aria-hidden="true" className={`inline-block text-muted transition-transform ${isOpen ? "rotate-90" : ""}`}>
                             ›
@@ -379,23 +385,23 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
                           {s.sku}
                         </button>
                       </td>
-                      <td className="px-3 py-2">
+                      <td>
                         <Chip tone={s.platform === "Shopsy" ? "warn" : "accent"}>{s.platform}</Chip>
                       </td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">{has ? s.rows.length : <Chip tone="bad">No ads</Chip>}</td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">{has ? rs(s.spend) : "—"}</td>
-                      <td className="px-3 py-2 text-right font-mono font-bold tabular-nums">{has ? rs(s.avg) : "—"}</td>
-                      <td className="px-3 py-2">{has ? <span className="block h-1.5 rounded-full bg-accent/70" style={{ width: `${Math.max(3, (s.avg / maxAvg) * 100)}%` }} /> : null}</td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">{has ? formatNumber(s.units) : "—"}</td>
-                      <td className="px-3 py-2 text-right font-mono tabular-nums">{has ? rs(s.revenue) : "—"}</td>
-                      <td className="px-3 py-2 text-right">{has ? <Chip tone={roiTone(s.spend, s.revenue, s.units)}>{roiText(s.roi)}</Chip> : "—"}</td>
+                      <td className="num">{has ? s.rows.length : <Chip tone="bad">No ads</Chip>}</td>
+                      <td className="num">{has ? rs(s.spend) : "—"}</td>
+                      <td className="num font-bold">{has ? rs(s.avg) : "—"}</td>
+                      <td>{has ? <span className="block h-1.5 rounded-full bg-accent/70" style={{ width: `${Math.max(3, (s.avg / maxAvg) * 100)}%` }} /> : null}</td>
+                      <td className="num">{has ? formatNumber(s.units) : "—"}</td>
+                      <td className="num">{has ? rs(s.revenue) : "—"}</td>
+                      <td className="text-right">{has ? <Chip tone={roiTone(s.spend, s.revenue, s.units)}>{roiText(s.roi)}</Chip> : "—"}</td>
                     </tr>
                     {isOpen ? (
-                      <tr className="bg-surface2/30">
-                        <td colSpan={9} className="px-3 pb-4 pt-1">
+                      <tr className="is-expanded">
+                        <td colSpan={9} >
                           {has ? (
                             <div className="overflow-x-auto">
-                              <table className="w-full min-w-[820px] border-collapse text-xs">
+                              <table className="ledger min-w-[820px]">
                                 <thead>
                                   <tr className="text-[10px] text-muted">
                                     {["Campaign", "Campaign ID", "Status", "Daily budget", "Spend", "Avg / day", "Days", "Views", "Clicks", "Units", "Revenue", "ROI"].map((h, i) => (
@@ -407,24 +413,24 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
                                 </thead>
                                 <tbody>
                                   {s.rows.map((r) => (
-                                    <tr key={r.campaignId} className="border-t border-line-soft">
-                                      <td className="px-2 py-1.5 font-bold">{r.campaignName}</td>
-                                      <td className="px-2 py-1.5">
+                                    <tr key={r.campaignId}>
+                                      <td className="font-bold">{r.campaignName}</td>
+                                      <td>
                                         <CopyId id={r.campaignId} />
                                       </td>
-                                      <td className="px-2 py-1.5">{r.status ? <Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip> : <span className="text-muted">Not in log</span>}</td>
-                                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                                      <td>{r.status ? <Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip> : <span className="text-muted">Not in log</span>}</td>
+                                      <td className="num">
                                         {rs(r.budget)}
                                         {r.shared ? <span className="ml-1.5 rounded-full bg-surface2 px-1.5 py-0.5 text-[10px] font-bold text-muted">shared</span> : null}
                                       </td>
-                                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">{rs(r.spend)}</td>
-                                      <td className="px-2 py-1.5 text-right font-mono font-bold tabular-nums">{rs(r.avg)}</td>
-                                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">{r.days}</td>
-                                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">{formatNumber(r.views)}</td>
-                                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">{formatNumber(r.clicks)}</td>
-                                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">{formatNumber(r.units)}</td>
-                                      <td className="px-2 py-1.5 text-right font-mono tabular-nums">{rs(r.revenue)}</td>
-                                      <td className="px-2 py-1.5 text-right">
+                                      <td className="num">{rs(r.spend)}</td>
+                                      <td className="num font-bold">{rs(r.avg)}</td>
+                                      <td className="num">{r.days}</td>
+                                      <td className="num">{formatNumber(r.views)}</td>
+                                      <td className="num">{formatNumber(r.clicks)}</td>
+                                      <td className="num">{formatNumber(r.units)}</td>
+                                      <td className="num">{rs(r.revenue)}</td>
+                                      <td className="text-right">
                                         <Chip tone={roiTone(r.spend, r.revenue, r.units)}>{roiText(r.spend > 0 ? r.revenue / r.spend : null)}</Chip>
                                       </td>
                                     </tr>
@@ -433,7 +439,7 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
                               </table>
                             </div>
                           ) : (
-                            <p className="py-2 text-sm text-muted">No ad spend or views for this SKU in this period. Put it in a campaign, then log the campaign below.</p>
+                            <p className="t-caption py-2">No ad spend or views for this SKU in this period. Put it in a campaign, then log the campaign below.</p>
                           )}
                         </td>
                       </tr>
@@ -443,7 +449,7 @@ function SkuTable({ summary }: { summary: SkuSummary[] }) {
               })
             ) : (
               <tr>
-                <td colSpan={9} className="px-3 py-8 text-center text-muted">
+                <td colSpan={9} className="text-center text-muted">
                   No SKU matches.
                 </td>
               </tr>
@@ -462,6 +468,7 @@ function Trend({ trend, scanId, by }: { trend: AdsView["trend"]; scanId: string 
   return (
     <Section
       id="ads-trend"
+      className="span-7"
       title={by === "week" ? "Average daily spend, week by week" : "Average daily spend, scan by scan"}
       sub={by === "week" ? `Last ${trend.length} weeks, every campaign (daily report)` : trend.length < 2 ? "The trend fills in from the second scan." : `Last ${trend.length} scans, tracked SKUs only`}
     >
@@ -469,14 +476,14 @@ function Trend({ trend, scanId, by }: { trend: AdsView["trend"]; scanId: string 
         <div className="flex h-44 items-end gap-3 overflow-x-auto" role="img" aria-label={`Average daily spend: ${trend.map((t) => `${day(t.to)} ${rs(t.avg)}`).join(", ")}`}>
           {trend.map((t) => (
             <div key={t.id} className="flex h-full min-w-16 flex-1 flex-col items-center justify-end gap-1">
-              <span className="font-mono text-[11px] font-bold tabular-nums">{rs(t.avg)}</span>
-              <span className={`w-full max-w-14 rounded-t-lg ${t.id === scanId ? "bg-accent" : "bg-ink/15"}`} style={{ height: `${Math.max(2, (t.avg / max) * 100)}%` }} />
-              <span className="whitespace-nowrap font-mono text-[11px] text-muted">{day(t.to)}</span>
+              <span className="text-[11px] tabular-nums">{rs(t.avg)}</span>
+              <span className="sp-bar-y w-full max-w-14 rounded-[6px]" style={{ height: `${Math.max(2, (t.avg / max) * 100)}%`, background: t.id === scanId ? barFill("var(--accent)") : "var(--surface2)" }} />
+              <span className="tabular-nums whitespace-nowrap text-[11px] text-faint">{day(t.to)}</span>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-sm text-muted">No scans yet.</p>
+        <p className="t-caption">No scans yet.</p>
       )}
     </Section>
   );
@@ -515,9 +522,9 @@ function CampaignForm({ initial, editing, onDone }: { initial: Draft; editing: b
       }
     });
   };
-  const label = "flex flex-col gap-1 text-xs font-bold text-muted";
+  const label = "t-label flex flex-col gap-1";
   return (
-    <form onSubmit={submit} className="mb-5 grid gap-3 rounded-xl border border-line-soft bg-surface2/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
+    <form onSubmit={submit} className="grid gap-3">
       <label className={label}>
         Campaign name
         <input id="ads-f-name" className="input" required maxLength={200} value={d.name} onChange={(e) => set("name", e.target.value)} placeholder="HFLY1_Auto" />
@@ -526,7 +533,7 @@ function CampaignForm({ initial, editing, onDone }: { initial: Draft; editing: b
         Campaign ID
         <input id="ads-f-id" className="input font-mono uppercase" required maxLength={30} value={d.campaignId} readOnly={editing} onChange={(e) => set("campaignId", e.target.value)} placeholder="7SCQQ9CHX7RP" />
       </label>
-      <label className={`${label} sm:col-span-2`}>
+      <label className={label}>
         SKUs (comma separated)
         <input id="ads-f-skus" className="input font-mono uppercase" required maxLength={2000} value={d.skus} onChange={(e) => set("skus", e.target.value)} placeholder="HFLY1, SH_HFLY1" />
       </label>
@@ -540,7 +547,7 @@ function CampaignForm({ initial, editing, onDone }: { initial: Draft; editing: b
       </label>
       <label className={label}>
         Daily budget (₹)
-        <input id="ads-f-budget" className="input font-mono" inputMode="numeric" value={d.budget} onChange={(e) => set("budget", e.target.value)} placeholder="800" />
+        <input id="ads-f-budget" className="tabular-nums input" inputMode="numeric" value={d.budget} onChange={(e) => set("budget", e.target.value)} placeholder="800" />
       </label>
       <label className={label}>
         Start date
@@ -554,7 +561,7 @@ function CampaignForm({ initial, editing, onDone }: { initial: Draft; editing: b
           ))}
         </select>
       </label>
-      <label className={`${label} sm:col-span-2 lg:col-span-3`}>
+      <label className={label}>
         Notes
         <input id="ads-f-notes" className="input" maxLength={500} value={d.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Why it was made, target ROI, bids…" />
       </label>
@@ -562,7 +569,7 @@ function CampaignForm({ initial, editing, onDone }: { initial: Draft; editing: b
         <input id="ads-f-shared" type="checkbox" className="h-4 w-4 accent-[var(--accent)]" checked={d.shared} onChange={(e) => set("shared", e.target.checked)} />
         Budget shared with other SKUs
       </label>
-      <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
+      <div className="flex flex-wrap gap-2">
         <button type="submit" className={buttonClass("primary")} disabled={pending}>
           {pending ? "Saving…" : editing ? "Save campaign" : "Add campaign"}
         </button>
@@ -583,7 +590,7 @@ function RemoveButton({ campaignId }: { campaignId: string }) {
     <button
       type="button"
       disabled={pending}
-      className={`focus-ring rounded-lg px-2 py-1 text-xs font-bold ${armed ? "bg-bad-soft text-bad" : "text-muted hover:text-bad"}`}
+      className={buttonClass(armed ? "danger" : "ghost")}
       onClick={() => {
         if (!armed) {
           setArmed(true);
@@ -613,8 +620,15 @@ function CampaignLog({ log }: { log: CampaignLogRow[] }) {
     document.getElementById("ads-log")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   return (
+    <>
+    {editing ? (
+      <section className="sp-card g-pad span-4 min-w-0" aria-label={isEdit ? "Edit campaign" : "Add campaign"}>
+        <CampaignForm key={formKey} initial={editing} editing={isEdit} onDone={() => setEditing(null)} />
+      </section>
+    ) : null}
     <Section
       id="ads-log"
+      className={editing ? "span-8" : "span-12"}
       title="Campaign log"
       sub={`${log.length} campaigns${waiting ? ` · ${waiting} live with no spend in this period` : ""}. Add each new campaign when you make it; a sync fills in its numbers.`}
       action={
@@ -625,11 +639,10 @@ function CampaignLog({ log }: { log: CampaignLogRow[] }) {
         )
       }
     >
-      {editing ? <CampaignForm key={formKey} initial={editing} editing={isEdit} onDone={() => setEditing(null)} /> : null}
       {sorted.length ? (
-        <div className="overflow-x-auto rounded-xl border border-line-soft">
-          <table className="w-full min-w-[900px] border-collapse text-sm">
-            <thead className="bg-surface2/40 text-[11px] text-muted">
+        <div className="overflow-x-auto sp-inner">
+          <table className="ledger min-w-[900px]">
+            <thead>
               <tr>
                 {["Campaign", "Campaign ID", "SKUs", "Status", "Daily budget", "Start", "Spend (period)", "ROI", ""].map((h, i) => (
                   <th key={h || "actions"} scope="col" className={`px-3 py-2 font-bold ${i === 4 || i === 6 || i === 7 ? "text-right" : "text-left"}`}>
@@ -640,33 +653,33 @@ function CampaignLog({ log }: { log: CampaignLogRow[] }) {
             </thead>
             <tbody>
               {sorted.map((c) => (
-                <tr key={c.campaignId} className="border-t border-line-soft align-top">
-                  <td className="px-3 py-2">
+                <tr key={c.campaignId} className="align-top">
+                  <td>
                     <p className="font-bold">{c.name}</p>
-                    <p className="text-xs text-muted">
+                    <p className="t-caption">
                       {c.type ?? "—"}
                       {c.source === "report" ? " · found by a sync" : " · added by hand"}
                       {c.notes ? ` · ${c.notes}` : ""}
                     </p>
                   </td>
-                  <td className="px-3 py-2">
+                  <td>
                     <CopyId id={c.campaignId} />
                   </td>
-                  <td className="max-w-56 px-3 py-2 font-mono text-xs">{c.skus.join(", ")}</td>
-                  <td className="px-3 py-2">
+                  <td className="max-w-56 text-xs">{c.skus.join(", ")}</td>
+                  <td>
                     <Chip tone={STATUS_TONE[c.status]}>{c.status}</Chip>
                   </td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">
+                  <td className="num">
                     {rs(c.budget)}
                     {c.shared ? <span className="ml-1.5 rounded-full bg-surface2 px-1.5 py-0.5 text-[10px] font-bold text-muted">shared</span> : null}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-xs">{c.startDate ? dayYear(c.startDate) : "—"}</td>
-                  <td className="px-3 py-2 text-right font-mono tabular-nums">{c.inScan ? rs(c.inScan.spend) : <Chip tone="warn">No spend yet</Chip>}</td>
-                  <td className="px-3 py-2 text-right">{c.inScan ? <Chip tone={roiTone(c.inScan.spend, c.inScan.revenue, c.inScan.units)}>{roiText(c.inScan.spend > 0 ? c.inScan.revenue / c.inScan.spend : null)}</Chip> : "—"}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right">
+                  <td className="whitespace-nowrap text-xs">{c.startDate ? dayYear(c.startDate) : "—"}</td>
+                  <td className="num">{c.inScan ? rs(c.inScan.spend) : <Chip tone="warn">No spend yet</Chip>}</td>
+                  <td className="text-right">{c.inScan ? <Chip tone={roiTone(c.inScan.spend, c.inScan.revenue, c.inScan.units)}>{roiText(c.inScan.spend > 0 ? c.inScan.revenue / c.inScan.spend : null)}</Chip> : "—"}</td>
+                  <td className="whitespace-nowrap text-right">
                     <button
                       type="button"
-                      className="focus-ring rounded-lg px-2 py-1 text-xs font-bold text-accent-text hover:bg-accent-soft"
+                      className={buttonClass("ghost")}
                       onClick={() =>
                         open(
                           {
@@ -694,9 +707,10 @@ function CampaignLog({ log }: { log: CampaignLogRow[] }) {
           </table>
         </div>
       ) : (
-        <p className="text-sm text-muted">No campaigns yet. Add your first one, or press Sync.</p>
+        <p className="t-caption">No campaigns yet. Add your first one, or press Sync.</p>
       )}
     </Section>
+    </>
   );
 }
 
@@ -733,9 +747,9 @@ function TrackedSkus({ skus, active }: { skus: string[]; active: Set<string> }) 
       </form>
       <ul className="flex flex-wrap gap-2">
         {skus.map((sku) => (
-          <li key={sku} className={`inline-flex items-center gap-1 rounded-full border py-1 pl-3 pr-1 font-mono text-xs ${active.has(sku) ? "border-line bg-surface" : "border-dashed border-line text-muted"}`}>
+          <li key={sku} className={`g-chip font-mono ${active.has(sku) ? "" : "border-dashed"}`}>
             {sku}
-            <button type="button" disabled={pending} aria-label={`Stop tracking ${sku}`} className="focus-ring flex h-6 w-6 items-center justify-center rounded-full text-muted hover:bg-bad-soft hover:text-bad" onClick={() => remove(sku)}>
+            <button type="button" disabled={pending} aria-label={`Stop tracking ${sku}`} className="focus-ring relative -mr-1.5 flex h-5 w-5 after:absolute after:-inset-2.5 after:content-[''] items-center justify-center rounded-full text-muted hover:bg-bad-soft hover:text-bad" onClick={() => remove(sku)}>
               ×
             </button>
           </li>
@@ -753,7 +767,7 @@ export function AdsTracker({ view }: { view: AdsView | null }) {
   if (!view) {
     return (
       <div className="flex min-w-0 flex-col gap-5">
-        <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Ads tracker</h1>
+        <h1 className="t-h1">Ads tracker</h1>
         <EmptyState
           title="The Ads tracker isn't set up in the database yet"
           body="Apply the migrations 20261021090000_ads_tracker.sql and 20261021091000_ads_tracker_first_scan.sql (in supabase/migrations) to the Supabase project, then reload this page."
@@ -764,13 +778,13 @@ export function AdsTracker({ view }: { view: AdsView | null }) {
   const scan = view.scans.find((s) => s.id === view.scanId) ?? null;
   const active = new Set(view.rows.map((r) => r.sku));
   return (
-    <div className="flex min-w-0 flex-col gap-5">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+    <div className="g-grid items-start">
+      <header className="span-12 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-mono text-[11px] font-bold text-muted">Flipkart &amp; Shopsy · PLA ads</p>
-          <h1 className="font-display text-[1.65rem] font-semibold tracking-tight">Ads tracker</h1>
-          <a href="/ads/desk" className="text-sm font-semibold text-accent-text underline-offset-2 hover:underline">Ads Desk: where the money went and what to fix →</a>
-          <p className="mt-0.5 text-sm text-muted">
+          <h1 className="t-h1">Ads tracker</h1>
+          <p className="t-headline mt-1">Flipkart &amp; Shopsy · PLA ads</p>
+          <a href="/ads/desk" className="t-body font-semibold text-accent-text underline-offset-2 hover:underline">Ads Desk: where the money went and what to fix →</a>
+          <p className="t-caption mt-0.5">
             {scan
               ? `${scan.days}-day period, ${dayYear(scan.from)} to ${dayYear(scan.to)} · synced ${new Date(scan.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}`
               : "No scan yet. Press Sync to load the first report."}
@@ -789,12 +803,14 @@ export function AdsTracker({ view }: { view: AdsView | null }) {
           <SyncButton />
         </div>
       </header>
-      <HowToSync />
+      <div className="span-12 min-w-0">
+        <HowToSync />
+      </div>
       <DataNotices daily={view.daily} scan={scan} />
       <Kpis summary={summary} rows={view.rows} scan={scan} truth={view.daily.scan} />
       <Attention summary={summary} />
-      <SkuTable summary={summary} />
       <Trend trend={view.trend} scanId={view.scanId} by={view.trendBy} />
+      <SkuTable summary={summary} />
       <CampaignLog log={view.log} />
       <TrackedSkus skus={view.skus} active={active} />
     </div>

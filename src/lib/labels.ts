@@ -126,4 +126,7 @@ export const NOTIFICATION_ICON_LABEL: Record<string, string> = {
   stock_alert: "Stock",
   capacity_alert: "Capacity",
   sync_alert: "Sync",
+  closing_report: "Closing",
+  weekly_summary: "Week",
+  listing_alert: "Listing",
 };

@@ -84,20 +84,18 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
   const daysLoaded = backfill?.coverageFrom ? Math.min(30, daysBetween(backfill.coverageFrom, today) + 1) : 0;
 
   return (
-    <div className="mb-4 sp-card px-3 py-2">
+    <div className="sp-card mb-4 overflow-hidden">
+      <div className="p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-40">
           {running ? (
             <>
-              <p className="text-sm font-bold">Reading Flipkart: part {Math.min(parts, (latest?.step ?? 0) + 1)} of {parts}…</p>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(((latest?.step ?? 0) / parts) * 100)} aria-label="Sync progress">
-                <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${Math.round(((latest?.step ?? 0) / parts) * 100)}%` }} />
-              </div>
+              <p className="t-card-title">Reading Flipkart: part {Math.min(parts, (latest?.step ?? 0) + 1)} of {parts}…</p>
             </>
           ) : last?.finishedAt ? (
             <>
               <div className="flex items-center gap-1">
-                <p className="text-sm font-bold">{TITLE[kind]} read {formatDateTime(last.finishedAt)}</p>
+                <p className="t-card-title">{TITLE[kind]} read {formatDateTime(last.finishedAt)}</p>
                 <InfoTip label="How often this is read">
                   {HOW_OFTEN[kind]}
                   {kind === "pending" ? (state.lastUpcoming?.finishedAt ? ` All upcoming orders last read ${formatDateTime(state.lastUpcoming.finishedAt)}.` : " All upcoming orders are read every night at 10:30 PM.") : ""}
@@ -108,7 +106,7 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
           ) : (
             <>
               <div className="flex items-center gap-1">
-                <p className="text-sm font-bold">{kind === "upcoming" ? "All upcoming orders not read yet" : "Not read from Flipkart yet"}</p>
+                <p className="t-card-title">{kind === "upcoming" ? "All upcoming orders not read yet" : "Not read from Flipkart yet"}</p>
                 <InfoTip label="How often this is read">{HOW_OFTEN[kind]}</InfoTip>
               </div>
             </>
@@ -120,22 +118,28 @@ export function OrdersSyncBar({ state: initial, canSync, kind, today }: Props) {
           </button>
         ) : null}
       </div>
+      </div>
+      {running ? (
+        <div className="vr-progress mx-3 mb-3 h-1 overflow-hidden rounded-full bg-surface2" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(((latest?.step ?? 0) / parts) * 100)} aria-label="Sync progress">
+          <span className="block h-full rounded-full bg-accent transition-all" style={{ width: `${Math.round(((latest?.step ?? 0) / parts) * 100)}%` }} />
+        </div>
+      ) : null}
 
       {failed ? (
-        <p role="alert" className="mt-3 rounded-lg bg-bad-soft px-3 py-2 text-sm font-semibold text-bad">
-          {canSync ? `The last sync did not finish${latest?.error ? `: ${redactSecrets(latest.error)}` : "."}` : "The last sync did not finish, so these numbers may be out of date. Tell the owner."}
+        <p role="alert" className="tone-row tone-bad border-t border-line-soft">
+          <span className="tone-row-title">{canSync ? `The last sync did not finish${latest?.error ? `: ${redactSecrets(latest.error)}` : "."}` : "The last sync did not finish, so these numbers may be out of date. Tell the owner."}</span>
         </p>
       ) : null}
 
       {backfill && backfill.status !== "done" ? (
-        <p className="mt-3 rounded-lg bg-info-soft px-3 py-2 text-xs font-semibold text-info">
+        <p className="tone-row tone-info t-caption border-t border-line-soft">
           {backfill.status === "failed"
             ? `Loading the last 30 days of shipped orders stopped${canSync && backfill.error ? `: ${redactSecrets(backfill.error)}` : ""}. It starts again tonight.`
             : `Loading the last 30 days of shipped orders, one night at a time (after 10:15 PM): ${daysLoaded} of 30 days so far${backfill.coverageFrom ? `, back to ${formatDate(backfill.coverageFrom, today)}` : ""}. Return rates and sales-based "running out soon" use it.`}
         </p>
       ) : null}
       {!backfill ? (
-        <p className="mt-3 rounded-lg bg-info-soft px-3 py-2 text-xs font-semibold text-info">
+        <p className="tone-row tone-info t-caption border-t border-line-soft">
           The last 30 days of shipped orders will load tonight after 10:15 PM. Until then, return rates and sales-based “running out soon” are not shown.
         </p>
       ) : null}

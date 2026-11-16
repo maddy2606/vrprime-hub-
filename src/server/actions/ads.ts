@@ -7,6 +7,7 @@ import { canManage, getActiveUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
+import { clearShortCache } from "@/server/short-cache";
 
 // The Ads tracker's actions. Owner and admin only: checked here, and by row level security on the ad_* tables.
 
@@ -47,6 +48,15 @@ async function dailySpend(db: Loose, from: string, to: string): Promise<number |
  *    first) and checked against the daily record. Campaigns found on tracked SKUs are added to the campaign log.
  */
 export async function syncAdsReport(text: unknown, filename: unknown): Promise<ActionResult> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await syncAdsReportRun(text, filename);
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function syncAdsReportRun(text: unknown, filename: unknown): Promise<ActionResult> {
   const s = await staff();
   if (!s.ok) return s.error;
   if (typeof text !== "string" || text.length === 0 || text.length > 8_000_000) return { ok: false, message: "That file is empty or too large. Upload the report as downloaded (CSV)." };

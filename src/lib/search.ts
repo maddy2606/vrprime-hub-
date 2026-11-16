@@ -10,7 +10,7 @@ export type SearchHit = { kind: SearchKind; id: string; label: string; sub: stri
 type Role = "owner" | "admin" | "warehouse";
 
 const PAGES: (SearchHit & { roles?: Role[]; words: string })[] = [
-  { kind: "page", id: "p-deck", label: "Command Deck", sub: "What needs action right now", href: "/", words: "home deck dashboard overview" },
+  { kind: "page", id: "p-deck", label: "Command Centre", sub: "What needs action right now", href: "/", words: "home deck dashboard overview" },
   { kind: "page", id: "p-work", label: "Work board", sub: "My work and everyone's posts", href: "/work", words: "work board tasks posts mine" },
   { kind: "page", id: "p-all", label: "All posts", sub: "Every post, filtered", href: "/all", words: "all posts everything" },
   { kind: "page", id: "p-new", label: "New post", sub: "Raise a task, problem, restock or new listing", href: "/posts/new", words: "new post create task problem restock listing" },

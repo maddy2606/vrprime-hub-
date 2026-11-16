@@ -11,6 +11,7 @@ export const ALERT_KINDS = [
   "stock_alert",
   "overdue",
   "listing_not_found",
+  "listing_alert",
   "capacity_alert",
   "follow_up",
   "money_reminder",
@@ -36,6 +37,9 @@ export const KIND_TONE: Record<string, Tone> = {
   stock_alert: "bad",
   capacity_alert: "warn",
   sync_alert: "bad",
+  listing_alert: "bad",
+  closing_report: "info",
+  weekly_summary: "info",
 };
 
 export function kindTone(kind: string): Tone {
@@ -82,8 +86,9 @@ export function alertLines(kind: string, body: string | null | undefined): { lea
       rest = text.slice(at + 2);
     }
   }
+  // The closing report writes one warehouse per line.
   const lines = rest
-    .split(" · ")
+    .split(kind === "closing_report" ? "\n" : " · ")
     .map((p) => p.trim())
     .filter(Boolean)
     .map((p) => lineFor(kind, p));

@@ -16,8 +16,8 @@ import type { Json, Platform, Post, PostComment, PostEvent, PostStatus, Priority
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-semibold text-muted">{label}</dt>
-      <dd className="mt-0.5 break-words text-sm font-semibold">{children}</dd>
+      <dt className="t-label">{label}</dt>
+      <dd className="t-body mt-1 break-words font-semibold">{children}</dd>
     </div>
   );
 }
@@ -106,8 +106,8 @@ function NewListingCard({ post, today, weightLimit }: { post: Post; today: strin
   return (
     <>
       {hasRequestDetails ? (
-        <Card className="p-4">
-          <h2 className="mb-3 text-base font-semibold">Request details</h2>
+        <Card className="g-pad">
+          <h2 className="t-card-title g-head">Request details</h2>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
             {post.product_name ? <Fact label="Product name">{post.product_name}</Fact> : null}
             {post.target_price !== null ? <Fact label="Target price">{money(post.target_price)}</Fact> : null}
@@ -130,27 +130,25 @@ function NewListingCard({ post, today, weightLimit }: { post: Post; today: strin
       ) : null}
 
       {beforeWarning ? (
-        <Card className="border-warn/50 bg-warn-soft p-4">
-          <p className="text-sm font-semibold text-warn">Over the weight limit</p>
-          <p className="mt-1 text-sm">{beforeWarning}</p>
+        <Card className="g-pad">
+          <p className="tone-head tone-warn t-card-title">Over the weight limit</p>
+          <p className="t-body mt-2">{beforeWarning}</p>
         </Card>
       ) : null}
 
       {line && post.status === "done" ? (
-        <Card
-          className={`p-4 ${state.kind === "live" ? "border-ok/40 bg-ok-soft" : state.kind === "not_found" && state.late ? "border-bad/40 bg-bad-soft" : ""}`}
-        >
-          <p className={`text-sm font-semibold ${state.kind === "live" ? "text-ok" : state.kind === "not_found" && state.late ? "text-bad" : ""}`}>{line}</p>
+        <Card className="g-pad">
+          <p className={`tone-head t-card-title ${state.kind === "live" ? "tone-ok" : state.kind === "not_found" && state.late ? "tone-bad" : ""}`}>{line}</p>
           {state.kind === "not_found" && state.late ? (
-            <p className="mt-1 text-sm">
+            <p className="t-body mt-2">
               It was marked done more than 3 days ago and is still not in your Flipkart listings. The SKU may be wrong: check it and
               edit it if needed.
             </p>
           ) : null}
           {state.kind === "not_found" && !state.late ? (
-            <p className="mt-1 text-sm text-muted">Flipkart can take a day or two. It is checked again at every daily stock sync.</p>
+            <p className="t-caption mt-2">Flipkart can take a day or two. It is checked again at every daily stock sync.</p>
           ) : null}
-          {liveWarning ? <p className="mt-2 text-sm font-semibold text-warn">{liveWarning}</p> : null}
+          {liveWarning ? <p className="t-body mt-2 font-semibold text-warn">{liveWarning}</p> : null}
         </Card>
       ) : null}
     </>
@@ -159,6 +157,7 @@ function NewListingCard({ post, today, weightLimit }: { post: Post; today: strin
 
 export function PostView({ post, tickets, lookups, today, comments, events, photos, weightLimit }: Props) {
   const done = post.status === "done";
+  // Phones: header, Actions, then the rest in reading order. From 1100 px: left 8 columns, right 4 (sticky under the top bar).
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -170,9 +169,9 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
         </Link>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:gap-6">
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card className="p-4">
+      <div className="flex flex-col gap-3 min-[700px]:gap-4 min-[1100px]:grid min-[1100px]:grid-cols-12 min-[1100px]:items-start">
+        <div className="contents min-[1100px]:col-span-8 min-[1100px]:flex min-[1100px]:min-w-0 min-[1100px]:flex-col min-[1100px]:gap-4">
+          <Card className="g-pad order-1">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="font-mono text-sm font-medium text-muted">{postNumber(post.number)}</span>
               <TypeChip type={post.type} />
@@ -180,32 +179,19 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
               <StatusChip status={post.status} />
               <DueChip post={post} today={today} />
             </div>
-            <h1 className="mt-3 break-words text-xl font-semibold leading-snug tracking-tight">{post.title}</h1>
-            {post.details ? (
-              <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-relaxed">{post.details}</p>
-            ) : null}
-
-            <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line pt-4 sm:grid-cols-3">
-              <Fact label="Assigned to">{lookups.personName(post.assignee_id)}</Fact>
-              {post.warehouse_id ? <Fact label="Warehouse">{lookups.warehouseName(post.warehouse_id)}</Fact> : null}
-              {post.platform ? <Fact label="Platform">{PLATFORM_LABEL[post.platform]}</Fact> : null}
-              {post.sku ? (
-                <Fact label="SKU">
-                  <span className="font-mono">{post.sku}</span>
-                </Fact>
-              ) : null}
-              {post.qty_needed !== null ? <Fact label="Quantity needed">{formatNumber(post.qty_needed)}</Fact> : null}
-              <Fact label="Due">{post.due_date ? formatDate(post.due_date, today) : "No due date"}</Fact>
-              <Fact label="Created by">{lookups.personName(post.created_by)}</Fact>
-              <Fact label="Created">{formatDateTime(post.created_at)}</Fact>
-            </dl>
+            <h1 className="t-h1 mt-3 break-words">{post.title}</h1>
+            {post.details ? <p className="t-body mt-2 whitespace-pre-wrap break-words">{post.details}</p> : null}
           </Card>
 
-          {post.type === "new_listing" ? <NewListingCard post={post} today={today} weightLimit={weightLimit} /> : null}
+          {post.type === "new_listing" ? (
+            <div className="order-3 flex flex-col gap-3 min-[700px]:gap-4">
+              <NewListingCard post={post} today={today} weightLimit={weightLimit} />
+            </div>
+          ) : null}
 
           {done ? (
-            <Card className="border-ok/40 bg-ok-soft p-4">
-              <p className="text-sm font-semibold text-ok">
+            <Card className="g-pad order-3">
+              <p className="tone-head tone-ok t-card-title">
                 Done by {lookups.personName(post.done_by)}
                 {post.done_at ? ` · ${formatDateTime(post.done_at)}` : ""}
               </p>
@@ -232,10 +218,46 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
             </Card>
           ) : null}
 
+          <Card className="g-pad order-3">
+            <h2 className="t-card-title g-head">Photos</h2>
+            <Photos postId={post.id} photos={photos} />
+          </Card>
+
+          <Card className="g-pad order-3">
+            <CommentThread
+              postId={post.id}
+              comments={comments}
+              names={Object.fromEntries(lookups.people.map((person) => [person.id, person.name]))}
+            />
+          </Card>
+        </div>
+
+        <div className="contents min-[1100px]:sticky min-[1100px]:top-[80px] min-[1100px]:col-span-4 min-[1100px]:flex min-[1100px]:min-w-0 min-[1100px]:flex-col min-[1100px]:gap-4">
+          <Card className="g-pad order-2">
+            <PostActions post={post} linkedTicketIds={tickets.map((t) => t.ticket_id)} />
+          </Card>
+
+          <Card className="g-pad order-4">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+              <Fact label="Assigned to">{lookups.personName(post.assignee_id)}</Fact>
+              {post.warehouse_id ? <Fact label="Warehouse">{lookups.warehouseName(post.warehouse_id)}</Fact> : null}
+              {post.platform ? <Fact label="Platform">{PLATFORM_LABEL[post.platform]}</Fact> : null}
+              {post.sku ? (
+                <Fact label="SKU">
+                  <span className="font-mono">{post.sku}</span>
+                </Fact>
+              ) : null}
+              {post.qty_needed !== null ? <Fact label="Quantity needed">{formatNumber(post.qty_needed)}</Fact> : null}
+              <Fact label="Due">{post.due_date ? formatDate(post.due_date, today) : "No due date"}</Fact>
+              <Fact label="Created by">{lookups.personName(post.created_by)}</Fact>
+              <Fact label="Created">{formatDateTime(post.created_at)}</Fact>
+            </dl>
+          </Card>
+
           {post.type === "problem" || tickets.length ? (
-            <Card className="p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="text-base font-semibold">Tickets</h2>
+            <Card className="g-pad order-4">
+              <div className="g-head flex items-center justify-between gap-3">
+                <h2 className="t-card-title">Tickets</h2>
                 {post.type === "problem" ? (
                   <Link prefetch={false} href={`/tickets/new?post=${post.id}`} className={buttonClass("secondary", "shrink-0")}>
                     Raise ticket
@@ -246,63 +268,39 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
                 <ul className="flex flex-col gap-2">
                   {tickets.map((ticket) => (
                     <li key={ticket.id}>
-                      <Link
-                        prefetch={false}
-                        href={`/tickets/${ticket.id}`}
-                        className="focus-ring block rounded-lg bg-canvas p-3"
-                      >
+                      <Link prefetch={false} href={`/tickets/${ticket.id}`} className="focus-ring sp-inner block p-3">
                         <span className="flex flex-wrap items-center gap-1.5">
                           <span className="font-mono text-xs font-medium text-muted">{ticketNumber(ticket.number)}</span>
                           <Chip tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABEL[ticket.status]}</Chip>
                           <FollowUpChip ticket={ticket} today={today} />
                         </span>
-                        <span className="mt-1 block break-all font-mono text-sm font-bold">{ticket.ticket_id}</span>
+                        <span className="mt-1 block break-all font-mono text-sm font-medium">{ticket.ticket_id}</span>
                       </Link>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted">
-                  No ticket yet. If the marketplace needs to fix this, raise one here so its follow-up is tracked.
-                </p>
+                <p className="t-caption">No ticket yet. If the marketplace needs to fix this, raise one here so its follow-up is tracked.</p>
               )}
             </Card>
           ) : null}
 
-          <PostActions post={post} linkedTicketIds={tickets.map((t) => t.ticket_id)} />
-
-          <Card className="p-4">
-            <h2 className="mb-3 text-base font-semibold">Photos</h2>
-            <Photos postId={post.id} photos={photos} />
-          </Card>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-4">
-          <Card className="p-4">
-            <CommentThread
-              postId={post.id}
-              comments={comments}
-              names={Object.fromEntries(lookups.people.map((person) => [person.id, person.name]))}
-            />
-          </Card>
-
-          <Card className="p-4">
-            <h2 className="mb-3 text-base font-semibold">History</h2>
-            <ol className="flex flex-col gap-3 border-l-2 border-line pl-4">
+          <Card className="g-pad order-4">
+            <h2 className="t-card-title g-head">History</h2>
+            <ol className="flex flex-col gap-3 border-l-2 border-line-soft pl-4">
               {events.map((event) => {
                 const [first, ...rest] = describeEvent(event, lookups, today);
                 return (
-                  <li key={event.id} className="text-sm">
+                  <li key={event.id} className="t-body">
                     <p className="break-words">
-                      <span className="font-bold">{event.actor_id ? lookups.personName(event.actor_id) : "System"}</span>{" "}
-                      {first}
+                      <span className="font-semibold">{event.actor_id ? lookups.personName(event.actor_id) : "System"}</span> {first}
                     </p>
                     {rest.map((line) => (
                       <p key={line} className="break-words text-muted">
                         {line}
                       </p>
                     ))}
-                    <p className="text-xs text-muted">{formatDateTime(event.created_at)}</p>
+                    <p className="t-caption">{formatDateTime(event.created_at)}</p>
                   </li>
                 );
               })}
@@ -313,4 +311,3 @@ export function PostView({ post, tickets, lookups, today, comments, events, phot
     </div>
   );
 }
-

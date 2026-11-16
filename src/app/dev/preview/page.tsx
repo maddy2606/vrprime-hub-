@@ -1,11 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ClaimsTab } from "@/components/flipkart/claims-tab";
+import { fakeClaimRows } from "@/lib/dev-fixtures-claims";
+import { ListingCheckTab } from "@/components/flipkart/listing-check-tab";
+import { fakeCheckRows } from "@/lib/dev-fixtures-listing";
+import { ClosingReport } from "@/components/reports/closing-report";
+import { fakeClosingRows } from "@/lib/dev-fixtures-closing";
+import { BusinessFrame } from "@/components/business/business-board";
+import { DeadTab } from "@/components/business/dead-tab";
+import { TargetsTab } from "@/components/business/targets-tab";
+import { WeekTab } from "@/components/business/week-tab";
+import { businessWeekStart, weekDays, weekSentence } from "@/lib/business";
+import { fakeBusinessWeek, fakeDeadRows } from "@/lib/dev-fixtures-business";
 import { UsersAdmin, type AdminUser } from "@/components/admin/users-admin";
 import { AppShell } from "@/components/app-shell";
 import { ChangePasswordForm } from "@/components/auth/auth-forms";
 import { Filters } from "@/components/posts/filters";
 import { MyWork } from "@/components/posts/my-work";
-import { PostGrid } from "@/components/posts/post-card";
+import { PostGrid, WorkSwitch } from "@/components/posts/post-card";
 import { PostForm } from "@/components/posts/post-form";
 import { PostView } from "@/components/posts/post-view";
 import { SettingsForm } from "@/components/admin/settings-form";
@@ -23,6 +35,9 @@ import { ReviewTracker } from "@/components/reviews/review-tracker";
 import { fakeAdsTracker, fakeReviews } from "@/lib/dev-fixtures-trackers";
 import { TabBar, tabsFor } from "@/components/flipkart/tab-bar";
 import { CommandDeck } from "@/components/deck/sections";
+import { DashboardBoard } from "@/components/dashboard/board";
+import { PnlBoard } from "@/components/pnl/pnl-board";
+import { fakeDashboard, fakePnl } from "@/lib/dev-fixtures-pnl";
 import { fakeDeck } from "@/lib/dev-fixtures-deck";
 import { fakeTeam } from "@/lib/dev-fixtures-team";
 import { TeamBoard } from "@/components/team/board";
@@ -36,8 +51,8 @@ import { MarkAllReadButton, NotificationList } from "@/components/notifications/
 import { PushSettings } from "@/components/notifications/push-settings";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
-import { TicketForm } from "@/components/tickets/ticket-form";
-import { PageTitle, PostListSkeleton } from "@/components/ui";
+import { LinkedPostCard, TicketForm } from "@/components/tickets/ticket-form";
+import { buttonClass, Num, PageTitle, PostListSkeleton } from "@/components/ui";
 import { buildLookups } from "@/lib/data";
 import {
   FAKE_ALERTS,
@@ -60,7 +75,7 @@ import {
   fakeReturnRates,
   fakeReturnsPage,
 } from "@/lib/dev-fixtures-flipkart";
-import { addDays, todayIST } from "@/lib/format";
+import { addDays, formatINR, todayIST } from "@/lib/format";
 import { defaultQuery, type OrderView, type StatusFilter } from "@/lib/orders-view";
 import { EMPTY_POST } from "@/lib/post-options";
 import type { DeskListing } from "@/lib/stock-analysis";
@@ -77,6 +92,10 @@ const PREVIEW_SYNCED = new Date(Date.now() - 42_000).toISOString();
 const VIEWS = [
   "deck",
   "deckclear",
+  "dashboard",
+  "business",
+  "btargets",
+  "bdead",
   "mywork",
   "listings",
   "empty",
@@ -100,14 +119,18 @@ const VIEWS = [
   "fcancelled",
   "freturns",
   "frates",
+  "fclaim",
   "fprices",
+  "flistcheck",
   "fhealth",
   "fforecast",
   "fmasters",
   "team",
+  "closing",
   "adsdesk",
   "ads",
   "reviews",
+  "pnl",
   "settings",
   "users",
   "password",
@@ -157,7 +180,7 @@ export default async function PreviewPage({
       scope={role === "warehouse" ? "2 warehouses" : "All warehouses"}
       syncedAt={PREVIEW_SYNCED}
     >
-      <nav className="mb-4 flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-warn-soft px-3 py-2 text-xs font-bold text-warn">
+      <nav className="sp-card t-caption mb-4 flex flex-wrap gap-x-3 gap-y-1 px-4 py-3">
         <span>Preview (fake data), drawn as {role}:</span>
         {(["owner", "admin", "warehouse"] as const).map((r) => (
           <Link prefetch={false} key={r} href={`/dev/preview?view=${view}&role=${r}`} className={r === role ? "" : "underline"}>
@@ -173,10 +196,39 @@ export default async function PreviewPage({
       </nav>
 
       {view === "deck" || view === "deckclear" ? <CommandDeck d={fakeDeck(view === "deckclear")} /> : null}
+      {view === "dashboard" ? <DashboardBoard d={fakeDashboard()} /> : null}
+      {view === "business" ? (() => {
+        const start = businessWeekStart(today);
+        const w = fakeBusinessWeek(today);
+        return (
+          <BusinessFrame tab="week" sub={weekSentence(w.cur, w.prev, (n) => formatINR(Math.round(n)))} base="/dev/preview?view=business">
+            <WeekTab start={start} days={weekDays(start, today)} today={today} cur={w.cur} prev={w.prev} ready={sp.ready !== "0"} base="/dev/preview?view=business" />
+          </BusinessFrame>
+        );
+      })() : null}
+      {view === "btargets" ? (
+        <BusinessFrame tab="targets" sub="This month against your monthly targets, from the same figures as the Dashboard.">
+          <TargetsTab months={fakePnl().months} today={today} sales={1_500_000} profit={sp.empty === "1" ? null : 240_000} />
+        </BusinessFrame>
+      ) : null}
+      {view === "bdead" ? (
+        <BusinessFrame tab="dead" sub="Stock that is not selling, by its value at cost.">
+          <DeadTab rows={fakeDeadRows()} warehouses={FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }))} error={false} />
+        </BusinessFrame>
+      ) : null}
+      {view === "closing" ? (
+        <ClosingReport day={typeof sp.day === "string" ? sp.day : today} today={today} rows={sp.empty === "1" ? [] : fakeClosingRows()} ready={sp.ready !== "0"} base="/dev/preview?view=closing" />
+      ) : null}
+      {view === "pnl" ? (() => {
+        const p = fakePnl();
+        return <PnlBoard months={p.months} month={p.months[0]?.month ?? null} costing={p.costing} uploads={p.uploads} feePct={p.feePct} reportSkus={p.reportSkus} error={p.error} />;
+      })() : null}
+      {view === "mywork" || view === "empty" ? <WorkSwitch on="mine" /> : null}
       {view === "mywork" ? <MyWork posts={open} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "empty" ? <MyWork posts={[]} lookups={lookups} today={today} firstName="Test" /> : null}
       {view === "all" ? (
         <>
+          <WorkSwitch on="all" />
           <PageTitle title="All posts" sub={`${FAKE_POSTS.length} posts`} />
           <Filters
             values={{ q: "", type: "", status: "", warehouse: "", assignee: "", priority: "", overdue: true, nl: "", sort: "updated" }}
@@ -216,9 +268,17 @@ export default async function PreviewPage({
       ) : null}
       {view === "tickets" ? (
         <>
-          <PageTitle title="Tickets" sub="2 open · 1 waiting · 2 follow-up due" />
+          <PageTitle
+            title="Tickets"
+            sub={
+              <>
+                <Num>2</Num> open, <Num>1</Num> waiting, <Num tone="bad">2</Num> follow-up due.
+              </>
+            }
+            action={<Link prefetch={false} href="/dev/preview?view=newticket" className={buttonClass("primary", "shrink-0")}>+ Ticket</Link>}
+          />
           <TicketFilters values={{ q: "", platform: "", issue: "", tab: "open" }} counts={{ open_count: 2, waiting_count: 1, follow_up_due: 2, closed_count: 1 }} />
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className="g-cards">
             {FAKE_TICKETS.map((t) => {
               const post: TicketPost | null = FAKE_POSTS.find((p) => p.id === t.post_id) ?? null;
               return (
@@ -235,13 +295,14 @@ export default async function PreviewPage({
         </>
       ) : null}
       {view === "ticket" || view === "newticket" ? (
-        <div className="mx-auto max-w-2xl">
+        <div>
           <PageTitle title={view === "ticket" ? "VR-T-118" : "New ticket"} />
           <TicketForm
             key={view}
             ticketId={view === "ticket" ? FAKE_TICKETS[0].id : undefined}
             today={today}
             linkedPost={view === "newticket" ? { id: FAKE_POSTS[0].id, number: FAKE_POSTS[0].number, title: FAKE_POSTS[0].title } : null}
+            aside={view === "ticket" ? <LinkedPostCard post={{ id: FAKE_POSTS[0].id, number: FAKE_POSTS[0].number, title: FAKE_POSTS[0].title }} /> : undefined}
             initial={
               view === "ticket"
                 ? {
@@ -263,7 +324,7 @@ export default async function PreviewPage({
         <ExpensesBoard month="2026-10" months={FAKE_EXPENSE_MONTHS} previous={FAKE_EXPENSE_MONTHS[1]} expenses={FAKE_EXPENSES} whatsapp={sp.wa === "none" ? { ...FAKE_WHATSAPP, linkedAs: null, groupId: null, groupName: null } : FAKE_WHATSAPP} today={today} plan={sp.budget === "none" ? { ...FAKE_BUDGET_PLAN, lines: [] } : FAKE_BUDGET_PLAN} locked={sp.locked === "none" ? [] : FAKE_LOCKED} />
       ) : null}
       {view === "notifications" ? (
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-[780px]">
           <PageTitle title="Notifications" sub="3 unread" action={<MarkAllReadButton />} />
           <PushSettings userId={me.id} />
           <NotificationList items={[...FAKE_ALERTS, ...FAKE_NOTIFICATIONS]} />
@@ -303,14 +364,14 @@ export default async function PreviewPage({
       ) : null}
       {view.startsWith("f") ? <FlipkartPreview view={view} sp={sp} role={role} /> : null}
       {view === "settings" ? (
-        <div className="mx-auto max-w-2xl">
+        <div>
           <PageTitle title="Settings" sub="Thresholds for the Stock page. They apply the next time anyone opens it." />
-          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10", money_low_margin_percent: "10", money_default_fee_percent: "12", money_unpaid_after_days: "15", money_fee_deviation_points: "2", money_upload_reminder_days: "14", money_keep_months: "12" }} />
+          <SettingsForm initial={{ low_stock_threshold: "100", weight_alert_limit: "2000", new_inactive_days: "2", price_drop_percent: "15", dispatch_sla_days: "2", running_out_days: "7", return_rate_percent: "10", return_claim_days: "7", target_sales_month: "1500000", target_profit_month: "", money_low_margin_percent: "10", money_default_fee_percent: "12", money_unpaid_after_days: "15", money_fee_deviation_points: "2", money_upload_reminder_days: "14", money_keep_months: "12" }} />
         </div>
       ) : null}
       {view === "users" ? <UsersAdmin users={users} warehouses={FAKE_WAREHOUSES} meId={me.id} /> : null}
       {view === "password" ? (
-        <div className="mx-auto max-w-sm sp-card p-5">
+        <div className="sp-card g-pad mx-auto max-w-[400px]">
           <ChangePasswordForm />
         </div>
       ) : null}
@@ -323,14 +384,14 @@ function FlipkartPreview({ view, sp, role }: { view: string; sp: Record<string, 
   const today = todayIST();
   const wh = FAKE_WAREHOUSES.map((w) => ({ id: w.id, name: w.name }));
   const stage = sp.stage === "running" || sp.stage === "failed" || sp.stage === "nobackfill" ? sp.stage : "ok";
-  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fprices" ? "prices" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : view === "fstockouts" ? "stockouts" : "health";
+  const active = view === "fneeds" ? "needs" : FAKE_ORDER_VIEW[view] ? "orders" : view === "freturns" || view === "frates" ? "returns" : view === "fclaim" ? "claim" : view === "fprices" ? "prices" : view === "flistcheck" ? "listingcheck" : view === "fforecast" ? "forecast" : view === "fmasters" ? "masters" : view === "foverfill" ? "overfill" : view === "fstockouts" ? "stockouts" : "health";
   const ordersView = FAKE_ORDER_VIEW[view]?.view ?? "sku";
   const needs = view === "fneeds" ? fakeNeedsAction() : null;
   const health = view === "fhealth" ? fakeHealthRows() : null;
   return (
     <>
       <PageTitle title="Flipkart" sub="Fake data" />
-      <TabBar tabs={tabsFor(role)} active={active} />
+      <TabBar tabs={tabsFor(role)} active={active} counts={active === "returns" || active === "claim" ? { claim: fakeClaimRows(today).filter((r) => r.daysLeft >= 0).length } : {}} />
       {needs ? (
         <NeedsAction
           sections={needs.sections}
@@ -353,6 +414,8 @@ function FlipkartPreview({ view, sp, role }: { view: string; sp: Record<string, 
       {view === "freturns" || view === "frates" ? (
         <ReturnsTab initialPage={fakeReturnsPage().page} initialSummary={fakeReturnsPage().summary} rates={fakeReturnRates(sp.ready !== "0")} historyReady={sp.ready !== "0"} rateLimit={10} warehouses={wh} state={fakeOrderSync(stage)} canSync today={today} />
       ) : null}
+      {view === "flistcheck" ? <ListingCheckTab rows={fakeCheckRows()} checkedOn={sp.empty === "1" ? null : today} ready={sp.ready !== "0"} today={today} /> : null}
+      {view === "fclaim" ? <ClaimsTab rows={fakeClaimRows(today)} checkedThisWeek={4} ready={sp.ready !== "0"} warehouses={wh} today={today} /> : null}
       {view === "fprices" ? <PricesTab rows={fakePriceRows()} today={today} dropLimit={15} snapshotDate={today} /> : null}
       {view === "foverfill" ? (
         <OverfillTab

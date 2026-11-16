@@ -1,4 +1,5 @@
 import "server-only";
+import { forUser } from "@/server/short-cache-user";
 import { dispatchToday, dryAndSelling, heroFor, KIND_TAG, ordersTrend, outOfStock, outOfStockSub, rankQueue, SEVERITY, urgentCount, warehouseHealth, type Health, type Hero, type LoadRow, type OutOfStock, type QueueItem } from "@/lib/deck";
 import { ticketHref } from "@/lib/flipkart-analysis";
 import { buildRows, topMovers } from "@/lib/forecast";
@@ -120,17 +121,17 @@ export async function loadDeck(user: SessionUser): Promise<DeckData> {
     soft("overfill", [], () => loadEmpties(supabase)),
     supabase.rpc("flipkart_order_lines", { p_wh: null, p_status: "active", p_q: null, p_sort: "due", p_dir: "asc", p_limit: 16, p_offset: 0 }),
     soft("series", null as Series | null, async () => {
-      const { data, error } = await supabase.rpc("deck_series", { p_low: 100 });
+      const { data, error } = await forUser("deck_series", [{ p_low: 100 }], async () => await supabase.rpc("deck_series", { p_low: 100 }));
       if (error) throw error;
       return data as Series;
     }),
-    supabase.rpc("dispatch_series", { p_days: 7 }),
+    forUser("dispatch_series", [{ p_days: 7 }], async () => await supabase.rpc("dispatch_series", { p_days: 7 })),
     supabase.from("tickets").select("id, number, ticket_id, sku, next_follow_up, status").in("status", ["open", "waiting_marketplace"]).lte("next_follow_up", today).order("next_follow_up").limit(12),
     supabase.from("tickets").select("id", { count: "exact", head: true }).in("status", ["open", "waiting_marketplace"]),
     supabase.from("posts").select("id, number, title, priority, priority_rank, status, due_date").eq("assignee_id", user.id).in("status", ACTIVE_STATUSES).order("due_date", { ascending: true, nullsFirst: false }).limit(12),
     // Orders placed per day (the last 15 days) and still waiting by dispatch day: the top card and the orders graph.
     soft("order load", [] as LoadRow[], async () => {
-      const { data, error } = await (supabase as unknown as Loose).rpc("team_order_load", { p_days: 15 });
+      const { data, error } = await forUser("team_order_load", [{ p_days: 15 }], async () => await (supabase as unknown as Loose).rpc("team_order_load", { p_days: 15 }));
       if (error) throw error;
       return readLoad(data);
     }),

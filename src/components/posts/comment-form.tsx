@@ -30,23 +30,23 @@ export function CommentThread({ postId, comments, names }: Props) {
 
   return (
     <>
-      <h2 className="mb-3 text-base font-semibold">
-        Comments{all.length ? <span className="font-semibold text-muted"> · {all.length}</span> : null}
+      <h2 className="t-card-title g-head">
+        Comments{all.length ? <span className="text-muted"> · {all.length}</span> : null}
       </h2>
       {all.length ? (
         <ul className="mb-4 flex flex-col gap-3">
           {all.map((comment) => (
-            <li key={comment.id} className="rounded-lg bg-canvas p-3">
-              <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                <span className="font-bold">{names[comment.author_id] ?? "Unknown"}</span>
-                <span className="text-xs text-muted">{formatDateTime(comment.created_at)}</span>
+            <li key={comment.id} className="sp-inner p-3">
+              <p className="t-body flex flex-wrap items-baseline gap-x-2">
+                <span className="font-semibold">{names[comment.author_id] ?? "Unknown"}</span>
+                <span className="t-caption">{formatDateTime(comment.created_at)}</span>
               </p>
-              <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-relaxed">{comment.body}</p>
+              <p className="t-body mt-1 whitespace-pre-wrap break-words">{comment.body}</p>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mb-4 text-sm text-muted">No comments yet. Ask a question or post an update here.</p>
+        <p className="t-caption mb-4">No comments yet. Ask a question or post an update here.</p>
       )}
 
       <form

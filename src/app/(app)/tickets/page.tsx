@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
-import { buttonClass, EmptyState, PageTitle } from "@/components/ui";
+import { buttonClass, EmptyState, Num, PageTitle } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
 import { formatNumber, todayIST } from "@/lib/format";
@@ -108,7 +108,12 @@ export default async function TicketsPage({
     <>
       <PageTitle
         title="Tickets"
-        sub={`${formatNumber(counts.open_count)} open · ${formatNumber(counts.waiting_count)} waiting · ${formatNumber(counts.follow_up_due)} follow-up due`}
+        sub={
+          <>
+            <Num>{formatNumber(counts.open_count)}</Num> open, <Num>{formatNumber(counts.waiting_count)}</Num> waiting,{" "}
+            <Num tone={counts.follow_up_due ? "bad" : "ink"}>{formatNumber(counts.follow_up_due)}</Num> follow-up due.
+          </>
+        }
         action={
           <Link prefetch={false} href="/tickets/new" className={buttonClass("primary", "shrink-0")}>
             + Ticket
@@ -120,11 +125,11 @@ export default async function TicketsPage({
       {tickets.length ? (
         <>
           {tabTotal > tickets.length ? (
-            <p className="mb-2 text-sm text-muted">
+            <p className="t-caption mb-2">
               Showing the first {formatNumber(tickets.length)} of {formatNumber(tabTotal)}. Search or filter to see the rest.
             </p>
           ) : null}
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className="g-cards">
             {tickets.map((ticket) => {
               const post = ticket.post_id ? (posts.get(ticket.post_id) ?? null) : null;
               return (

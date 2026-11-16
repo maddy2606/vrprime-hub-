@@ -103,7 +103,7 @@ export function Sheet({
 
   const place =
     variant === "popover"
-      ? "sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-[76px] sm:w-[440px] sm:max-h-[min(82vh,760px)] sm:rounded-[26px] vr-pop"
+      ? "sm:inset-x-auto sm:bottom-auto sm:right-4 sm:top-[76px] sm:w-[440px] sm:max-h-[min(82vh,760px)] sm:rounded-[var(--radius-lg)] vr-pop"
       : "sm:mx-auto sm:max-w-lg";
 
   return createPortal(
@@ -115,7 +115,7 @@ export function Sheet({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`vr-sheet absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-[28px] border border-line bg-panel2 shadow-[0_-18px_50px_-20px_rgba(0,0,0,0.6)] outline-none ${place}`}
+        className={`sp-pop vr-sheet absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden !rounded-b-none outline-none sm:!rounded-b-[var(--radius-lg)] ${place}`}
       >
         <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} className="touch-none sm:touch-auto">
           <div className="flex justify-center pt-2.5 sm:hidden" aria-hidden="true">
@@ -123,17 +123,17 @@ export function Sheet({
           </div>
           <header className="flex items-start gap-2 px-5 pb-3 pt-2 sm:pt-5">
             <div className="min-w-0 flex-1">
-              <h2 id={titleId} className="font-display text-xl font-semibold tracking-tight">
+              <h2 id={titleId} className="t-card-title">
                 {title}
               </h2>
-              {subtitle ? <p className="mt-0.5 text-sm text-muted">{subtitle}</p> : null}
+              {subtitle ? <p className="t-caption mt-0.5">{subtitle}</p> : null}
             </div>
             {headerAction}
             <button
               type="button"
               onClick={() => close.current()}
               aria-label="Close"
-              className="focus-ring -mr-2 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface2 hover:text-ink"
+              className="focus-ring -mr-2 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-160 hover:bg-surface2 hover:text-ink"
             >
               <CloseIcon className="h-5 w-5" />
             </button>
@@ -141,7 +141,7 @@ export function Sheet({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">{children}</div>
         {footer ? (
-          <div className="border-t border-line-soft bg-panel2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>
+          <div className="border-t border-line-soft px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>
         ) : (
           <div className="pb-[env(safe-area-inset-bottom)]" />
         )}

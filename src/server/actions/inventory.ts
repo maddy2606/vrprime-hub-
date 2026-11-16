@@ -6,6 +6,7 @@ import type { InventoryLine } from "@/lib/inventory-report";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/types";
 import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
+import { clearShortCache } from "@/server/short-cache";
 
 // The VR Prime inventory report, uploaded on the Forecasting tab (read in the browser, checked again here and in the
 // database). Owner and admin only.
@@ -13,6 +14,15 @@ import { dbError, NOT_SIGNED_IN } from "@/server/action-helpers";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function uploadInventory(fileName: unknown, month: unknown, lines: unknown): Promise<ActionResult> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await uploadInventoryRun(fileName, month, lines);
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function uploadInventoryRun(fileName: unknown, month: unknown, lines: unknown): Promise<ActionResult> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   if (user.role !== "owner" && user.role !== "admin") return { ok: false, message: "Only the owner or an admin can upload the inventory report." };
@@ -42,6 +52,15 @@ export async function uploadInventory(fileName: unknown, month: unknown, lines: 
 
 /** "Sync now": asks the database to read live stock from the VR Prime API. The answer arrives a few seconds later. */
 export async function syncInventoryNow(): Promise<ActionResult> {
+  // The short cache (graphite-spec 10.2) is cleared at the end, so the next page shows what this changed.
+  try {
+    return await syncInventoryNowRun();
+  } finally {
+    clearShortCache();
+  }
+}
+
+async function syncInventoryNowRun(): Promise<ActionResult> {
   const user = await getActiveUser();
   if (!user) return NOT_SIGNED_IN;
   if (user.role !== "owner" && user.role !== "admin") return { ok: false, message: "Only the owner or an admin can sync the stock." };

@@ -3,8 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AlertCenter } from "@/components/alerts/alert-center";
 import { SignOutButton } from "@/components/auth/sign-out-button";
-import { PushPrompt } from "@/components/notifications/push-prompt";
-import { CommandBar } from "@/components/shell/command-bar";
+import { CommandBar, SyncControl } from "@/components/shell/command-bar";
 import { Rail } from "@/components/shell/rail";
 import { ThemeSwitch } from "@/components/shell/theme-switch";
 import { buttonClass } from "@/components/ui";
@@ -41,12 +40,10 @@ export async function AppShell({
   const theme = readThemeMode((await cookies()).get(THEME_COOKIE)?.value);
   return (
     <div className="vr-shell min-h-dvh">
-      <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} />
+      <Rail isOwner={user.role === "owner"} isStaff={user.role !== "warehouse"} sync={{ syncedAt, scope, canSync: user.role !== "warehouse" }} />
       <CommandBar
-        user={{ name: user.name, role: user.role, sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}
+        user={{ name: user.name, role: user.role, roleLabel: ROLE_LABEL[user.role], sub: `${ROLE_LABEL[user.role]}${user.email ? ` · ${user.email}` : ""}` }}
         unread={unread}
-        scope={scope}
-        syncedAt={syncedAt}
         menu={
           <>
             <ThemeSwitch initial={theme} />
@@ -65,9 +62,11 @@ export async function AppShell({
           </>
         }
       />
-      <main className="mx-auto w-full max-w-[1280px] px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-5 min-[561px]:pb-12 lg:px-8 lg:pt-6">
-        {/* The offer to turn on alerts: one line, on the Command Deck only (the component checks the route). */}
-        {user.id ? <PushPrompt userId={user.id} /> : null}
+      <main className="vr-page pb-[calc(5.5rem+env(safe-area-inset-bottom))] min-[700px]:pb-12">
+        {/* Phone: the sync status (and Sync now for the owner and admin) leaves the top bar and leads the page. */}
+        <div className="mb-3 min-[700px]:hidden">
+          <SyncControl since={syncedAt} scope={scope} canSync={user.role !== "warehouse"} />
+        </div>
         {children}
       </main>
       <AlertCenter initial={alerts} total={unread} />

@@ -164,7 +164,7 @@ export function CostsTable({ costs, missing, today }: { costs: CostRow[]; missin
           <p className="mt-0.5 text-xs">These SKUs have sales in the settled reports but no cost, so their profit is not shown. Tap one to add its cost.</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {missing.map((sku) => (
-              <button key={sku} type="button" onClick={() => setAdding(sku)} className="focus-ring min-h-9 rounded-full border border-warn/50 bg-surface px-3 font-mono text-xs font-bold">
+              <button key={sku} type="button" onClick={() => setAdding(sku)} className="focus-ring min-h-10 rounded-full border border-warn/50 bg-surface px-3 font-mono text-xs font-bold">
                 {sku}
               </button>
             ))}

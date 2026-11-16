@@ -1,6 +1,6 @@
-import { PageSkeleton } from "@/components/ui";
+import { Loader } from "@/components/ui";
 
-/** This route's loading screen: the page header, a KPI row, then two cards (graphite-spec 10.4). */
+/** This route's loading screen: the centred loader, naming what is loading. */
 export default function Loading() {
-  return <PageSkeleton />;
+  return <Loader label="Loading settings…" />;
 }

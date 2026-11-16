@@ -51,7 +51,8 @@ import { PushSettings } from "@/components/notifications/push-settings";
 import { TicketCard, type TicketPost } from "@/components/tickets/ticket-card";
 import { TicketFilters } from "@/components/tickets/ticket-filters";
 import { LinkedPostCard, TicketForm } from "@/components/tickets/ticket-form";
-import { buttonClass, Num, PageTitle, PostListSkeleton } from "@/components/ui";
+import { buttonClass, CardLoader, LiveLogo, Loader, Num, PageTitle } from "@/components/ui";
+import { Logo } from "@/components/icons";
 import { buildLookups } from "@/lib/data";
 import {
   FAKE_ALERTS,
@@ -372,7 +373,34 @@ export default async function PreviewPage({
           <ChangePasswordForm />
         </div>
       ) : null}
-      {view === "loading" ? <PostListSkeleton rows={4} /> : null}
+      {view === "loading" ? (
+        <div>
+          {/* The 2 px bar a navigation shows along the top, held part-way for the preview. */}
+          <div aria-hidden="true" className="vr-nav-bar" style={{ width: "62%" }} />
+          <PageTitle title="Loading" sub="The page loader, the small ring for a card, and the Neon V logo" />
+          <div className="sp-card">
+            <Loader label="Loading Flipkart…" />
+          </div>
+          <div className="g-grid mt-[14px]">
+            <div className="sp-card g-pad span-4">
+              <CardLoader label="Loading stock health…" className="h-40" />
+            </div>
+            <div className="sp-card g-pad span-4">
+              <p className="t-label mb-3">Logo sizes: 16, 24, 30, 56</p>
+              <div className="flex items-end gap-4">
+                <Logo size={16} />
+                <Logo size={24} />
+                <Logo size={30} />
+                <Logo size={56} />
+              </div>
+            </div>
+            <div className="sp-card g-pad span-4 flex flex-col items-center">
+              <p className="t-label mb-3 self-start">Sign-in logo</p>
+              <LiveLogo size={64} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AppShell>
   );
 }

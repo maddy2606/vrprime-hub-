@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDownIcon } from "@/components/icons";
 import { Caption } from "@/components/flipkart/kit";
-import { Chip, EmptyState, buttonClass } from "@/components/ui";
+import { CardLoader, Chip, EmptyState, buttonClass } from "@/components/ui";
 import { formatDue, isRed, urgency } from "@/lib/flipkart-analysis";
 import { formatNumber } from "@/lib/format";
 import { BUCKET_LABEL, BUCKETS, shortBy, type Bucket, type SkuDetail, type SkuRow, type StatusFilter } from "@/lib/orders-view";
@@ -118,10 +118,7 @@ export function SkuGroups({ rows, total, orders, units, warehouses, now, status,
                 {expanded ? (
                   <div className="border-t border-line-soft bg-surface2 px-3 py-3 sm:px-4">
                     {!detail || detail.state === "loading" ? (
-                      <div aria-busy="true" aria-label="Loading this SKU's orders">
-                        <div className="skeleton mb-2 h-5 w-40" />
-                        <div className="skeleton h-24 w-full" />
-                      </div>
+                      <CardLoader label="Loading this SKU's orders…" className="h-24" />
                     ) : detail.state === "failed" ? (
                       <p role="alert" className="tone-row tone-bad"><span className="tone-row-title">Could not load this SKU. Close it and open it again.</span></p>
                     ) : (

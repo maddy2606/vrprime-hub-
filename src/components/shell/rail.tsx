@@ -12,7 +12,7 @@ type Group = { label: string; items: Item[] };
 
 /**
  * The navigation (graphite-spec section 8), in three groups with no headings and a 14px gap between them: Command
- * Centre, Dashboard and Business (owner), Work board, Tickets, Team (owner and admin); Flipkart, Forecast, Ads tracker and Review
+ * Centre, Dashboard and Business (owner), Work board, Tickets, Team (owner and admin); Flipkart, Forecast, Ads Desk and Review
  * tracker (owner and admin); P&L, People, Settings (owner). Who sees what is exactly as before.
  * Under 700px it is a bottom bar of five: Deck, Work, Tickets and Flipkart within thumb reach, with the rest under More.
  */
@@ -34,7 +34,7 @@ function groups(isOwner: boolean, isStaff: boolean): Group[] {
     { key: "forecast", href: "/flipkart?tab=forecast", label: "Forecast", icon: TrendIcon },
     ...(isStaff
       ? [
-          { key: "ads", href: "/ads", label: "Ads tracker", icon: MegaphoneIcon },
+          { key: "ads", href: "/ads/desk", label: "Ads Desk", icon: MegaphoneIcon },
           { key: "reviews", href: "/reviews", label: "Review tracker", icon: StarIcon },
         ]
       : []),

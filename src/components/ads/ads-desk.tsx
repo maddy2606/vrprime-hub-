@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useMemo, useState, useTransition, type ReactNode } from "react";
 import { MegaphoneIcon, RefreshIcon } from "@/components/icons";
@@ -378,10 +377,7 @@ export function AdsDesk({ raw, today }: { raw: unknown; today: string }) {
         <h1 className="t-h1">Ads Desk</h1>
         <p className="t-headline mt-1">Flipkart &amp; Shopsy · PLA ads</p>
         <p className="t-caption mt-0.5">
-          {range ? `${span(range.from, range.to)}${range.hasPrev ? `, compared with ${span(range.pFrom, range.pTo)}` : ""}` : "No reports synced yet."}{" "}
-          <Link href="/ads" prefetch={false} className="font-semibold text-accent-text underline-offset-2 hover:underline">
-            Ads tracker →
-          </Link>
+          {range ? `${span(range.from, range.to)}${range.hasPrev ? `, compared with ${span(range.pFrom, range.pTo)}` : ""}` : "No reports synced yet."}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">

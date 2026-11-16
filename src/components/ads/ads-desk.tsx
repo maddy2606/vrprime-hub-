@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createContext, useContext, useMemo, useState, useTransition, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { MegaphoneIcon, RefreshIcon } from "@/components/icons";
 import { Sheet } from "@/components/shell/sheet";
 import { useToast } from "@/components/toast";
@@ -230,10 +230,18 @@ const nameCell = (title: string, sub?: string) => (
 
 // ---- Sync: the four Seller Hub reports -----------------------------------------------------------------------------------
 
+/** Seller Hub, and the page there that the reports are downloaded from. */
+const SELLER_HUB = "https://seller.flipkart.com";
+const SELLER_HUB_REPORTS = `${SELLER_HUB}/index.html#dashboard/ads/reports/others`;
+
 function SyncButton() {
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  const [last, setLast] = useState<string | null>(null);
+  // The Seller Hub tab this page opened, and the hand-overs already taken from it.
+  const sellerHub = useRef<Window | null>(null);
+  const taken = useRef(new Set<string>());
   const sync = async (files: File[]) => {
     const done: string[] = [];
     try {
@@ -272,10 +280,54 @@ function SyncButton() {
       toast.result({ ok: false, message: "A file could not be read. Upload the reports as downloaded (CSV)." });
     } finally {
       setBusy(null);
+      setLast(`${done.length ? `Synced: ${done.join(", ")}` : "Nothing synced"} (${files.length} file${files.length === 1 ? "" : "s"})`);
       router.refresh();
     }
   };
+
+  // Reports handed over by the Seller Hub tab opened with "Connect Seller Hub" (the scheduled sync): only from that tab,
+  // only from Seller Hub's own address, and each hand-over once. They go through the same Sync as files chosen by hand.
+  const syncRef = useRef(sync);
+  useEffect(() => {
+    syncRef.current = sync;
+  });
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== SELLER_HUB || !sellerHub.current || e.source !== sellerHub.current) return;
+      const d = e.data as { type?: unknown; id?: unknown; files?: unknown } | null;
+      if (!d || d.type !== "vrprime-ads-reports" || typeof d.id !== "string" || !Array.isArray(d.files)) return;
+      sellerHub.current.postMessage({ type: "vrprime-ads-ack", id: d.id }, SELLER_HUB);
+      if (taken.current.has(d.id)) return;
+      taken.current.add(d.id);
+      const files = (d.files as { name?: unknown; blob?: unknown }[])
+        .filter((f) => f && typeof f.name === "string" && f.blob instanceof Blob)
+        .slice(0, 12)
+        .map((f) => new File([f.blob as Blob], String(f.name).slice(0, 200), { type: "text/csv" }));
+      if (files.length) void syncRef.current(files);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
   return (
+    <>
+    {last ? (
+      <span id="desk-sync-last" className="t-caption" role="status">
+        {last}
+      </span>
+    ) : null}
+    <button
+      type="button"
+      id="desk-connect-seller"
+      className={buttonClass("secondary")}
+      disabled={Boolean(busy)}
+      title="Opens Seller Hub's ads reports in a new tab, so reports downloaded there can be handed to this page"
+      onClick={() => {
+        sellerHub.current = window.open(SELLER_HUB_REPORTS, "vrprime-seller-hub");
+      }}
+    >
+      Connect Seller Hub
+    </button>
     <label className={buttonClass("primary", busy ? "pointer-events-none opacity-70" : "cursor-pointer")} title="Upload the Seller Hub ads reports (any of the four, several at once)">
       <RefreshIcon className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
       {busy ?? "Sync reports"}
@@ -292,6 +344,7 @@ function SyncButton() {
         }}
       />
     </label>
+    </>
   );
 }
 

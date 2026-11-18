@@ -81,15 +81,20 @@ function PlatformPill({ platform }: { platform: ReviewPlatform }) {
   );
 }
 
-/** The seller SKU, or a clear note when the link's FSN / product ID matches nothing in the catalogue. */
-function SkuTag({ l, className = "" }: { l: ReviewLine; className?: string }) {
-  return l.sellerSku ? (
-    <span className={`truncate font-mono text-ink ${className}`} title={`SKU ${l.sellerSku} · ${l.platform} ID ${l.listingId}`}>
-      {l.sellerSku}
+/** A link's heading: its seller SKU, or a clear note when its FSN matches nothing in the catalogue. */
+function SkuTitle({ l, className = "" }: { l: ReviewLine; className?: string }) {
+  return (
+    <span className={`block truncate font-bold ${l.sellerSku ? "" : "text-warn"} ${className}`} title={`${l.product} · SKU ${l.sellerSku ?? "not found"} · FSN ${l.listingId}`}>
+      {l.sellerSku ?? "No SKU found"}
     </span>
-  ) : (
-    <span className={`truncate text-warn ${className}`} title={`No catalogue listing has the ${l.platform} ID ${l.listingId}`}>
-      No SKU found
+  );
+}
+
+/** The link's FSN (Shopsy product ID on Shopsy), under the SKU. */
+function Fsn({ l, className = "" }: { l: ReviewLine; className?: string }) {
+  return (
+    <span className={`truncate font-mono text-muted ${className}`} title={`FSN ${l.listingId}`}>
+      {l.listingId}
     </span>
   );
 }
@@ -414,10 +419,10 @@ function LinkCard({ l, index }: { l: ReviewLine; index: number }) {
     >
       <TargetRing reviews={l.reviews} target={l.target} color={PLATFORM_COLOR[l.platform]} />
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold">{l.product}</span>
+        <SkuTitle l={l} className="text-sm" />
         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
           <PlatformPill platform={l.platform} />
-          <SkuTag l={l} className="text-[11px] font-semibold" />
+          <Fsn l={l} className="text-[10px]" />
         </span>
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
           {l.status === "Not checked" ? (
@@ -498,7 +503,7 @@ function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDa
         <thead>
           <tr>
             {head("priority", "Priority", false)}
-            {plain("Product")}
+            {plain("SKU · FSN")}
             {plain("Platform")}
             {head("reviews", "Reviews")}
             {prevDay ? (
@@ -517,10 +522,10 @@ function LinkTable({ list, prevDay, sort, onSort }: { list: ReviewLine[]; prevDa
               <tr key={l.rowNo} className="align-top">
                 <td className="font-bold">{priorityName(l.priority)}</td>
                 <td className="min-w-[13rem]">
-                  <a href={l.url} target="_blank" rel="noopener noreferrer" className="focus-ring rounded font-bold hover:underline">
-                    {l.product}
+                  <a href={l.url} target="_blank" rel="noopener noreferrer" className="focus-ring block rounded hover:underline">
+                    <SkuTitle l={l} />
                   </a>
-                  <SkuTag l={l} className="block text-[11px] font-semibold" />
+                  <Fsn l={l} className="block text-[11px]" />
                 </td>
                 <td>
                   <PlatformPill platform={l.platform} />
@@ -643,7 +648,7 @@ function EveryLink({ lines, prevDay, filters, setFilters }: { lines: ReviewLine[
             </option>
           ))}
         </select>
-        <input id="reviews-search" type="search" className="input min-w-[10rem] flex-1 sm:max-w-56" placeholder="Search product, SKU or ID" aria-label="Search product, SKU or ID" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <input id="reviews-search" type="search" className="input min-w-[10rem] flex-1 sm:max-w-56" placeholder="Search SKU, FSN or product" aria-label="Search SKU, FSN or product" value={query} onChange={(e) => setQuery(e.target.value)} />
         {filtered ? (
           <button
             type="button"

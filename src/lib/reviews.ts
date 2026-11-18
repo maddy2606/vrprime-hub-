@@ -9,7 +9,10 @@ export type ReviewLink = {
   rowNo: number;
   platform: ReviewPlatform;
   product: string;
-  sku: string;
+  /** The FSN / Shopsy product ID the link points at (review_links.sku). Not the seller SKU. */
+  listingId: string;
+  /** The seller SKU of that listing in the Flipkart catalogue (stock_listings.sku), or null when none matches. */
+  sellerSku: string | null;
   url: string;
   /** Priority on Aman's sheet: 1 to 7, and 8 for "Last". */
   priority: number | null;

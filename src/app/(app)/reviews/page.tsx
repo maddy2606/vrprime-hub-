@@ -15,6 +15,7 @@ type DbErr = { code?: string; message?: string } | null;
 const missingTable = (e: DbErr) => !!e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|schema cache/i.test(e.message ?? ""));
 
 type LinkRow = { row_no: number; platform: ReviewPlatform; product: string; sku: string; url: string; shares_with: number | null; priority: number | null; target: number | null };
+type SkuRow = { sku: string; product_id: string | null };
 type CheckRow = { id: string; checked_on: string; note: string | null; created_at: string };
 type CountRow = { check_id: string; row_no: number; reviews: number | null };
 
@@ -31,11 +32,19 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   ]);
   if (missingTable(linkRes.error) || missingTable(checkRes.error)) return <ReviewTracker view={null} />;
 
-  const links: ReviewLink[] = ((linkRes.data ?? []) as LinkRow[]).map((r) => ({
+  // review_links.sku holds the FSN / Shopsy product ID. The seller SKU is the catalogue listing with that product ID
+  // (Shopsy listings sit in the Flipkart catalogue too, under their own SH_ SKUs).
+  const linkRows = (linkRes.data ?? []) as LinkRow[];
+  const fsns = [...new Set(linkRows.map((r) => r.sku))];
+  const skuRes = fsns.length ? await db.from("stock_listings").select("sku, product_id").eq("platform", "flipkart").in("product_id", fsns) : { data: [] };
+  const skusByFsn = new Map<string, string[]>();
+  for (const r of (skuRes.data ?? []) as SkuRow[]) if (r.product_id) skusByFsn.set(r.product_id, [...(skusByFsn.get(r.product_id) ?? []), r.sku]);
+  const links: ReviewLink[] = linkRows.map((r) => ({
     rowNo: r.row_no,
     platform: r.platform,
     product: r.product,
-    sku: r.sku,
+    listingId: r.sku,
+    sellerSku: skusByFsn.get(r.sku)?.sort().join(", ") || null,
     url: r.url,
     sharesWith: r.shares_with,
     priority: r.priority,

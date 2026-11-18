@@ -7,7 +7,9 @@ export function fakeReviews(): ReviewsView {
     rowNo: i + 1,
     platform: i % 3 === 2 ? ("Shopsy" as const) : ("Flipkart" as const),
     product: `Fake Product ${i + 1}`,
-    sku: `FAKE-RV-SKU-${i + 1}`,
+    listingId: `FAKEFSN${i + 1}`,
+    // One link with no match in the catalogue, to show how that reads.
+    sellerSku: i === 8 ? null : `FAKE-RV-SKU-${i + 1}`,
     url: "https://example.test/fake-listing",
     priority: i < 8 ? i + 1 : null,
     target: i % 4 === 3 ? null : 100 + i * 40,

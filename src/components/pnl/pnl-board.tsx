@@ -113,7 +113,7 @@ function Unlinked({ m, masters }: { m: MonthPnl; masters: { id: string; name: st
   );
 }
 
-function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; masters: { id: string; name: string }[] }) {
+function MonthView({ m, feePct, masters, cutoff }: { m: MonthPnl; feePct: number; masters: { id: string; name: string }[]; cutoff?: { days: number; date: string } | null }) {
   const t = m.total;
   const mg = margin(t);
   // The days the month covers: Flipkart's report and the synced orders together.
@@ -130,7 +130,12 @@ function MonthView({ m, feePct, masters }: { m: MonthPnl; feePct: number; master
             {t.ads > 0 ? ", after ads" : ""}
             {mg !== null ? <Chip tone={mg < 0 ? "bad" : mg < 10 ? "warn" : "ok"}>{mg}% margin</Chip> : null}
           </h2>
-          {span.from && span.to ? <span className="t-caption">Orders {day(span.from)} to {day(span.to)}</span> : null}
+          {span.from && span.to ? (
+            <span className="t-caption">
+              Orders {day(span.from)} to {day(span.to)}
+              {cutoff ? ` · up to ${day(cutoff.date)}, the last ${cutoff.days} days left out` : ""}
+            </span>
+          ) : null}
         </div>
         <StatStrip className="wrap-5" ariaLabel={`${m.label} in figures`}>
           <Stat label="Sales (seller price)" value={money(t.sales)} sub={`${formatNumber(t.units)} units sold`} />
@@ -464,7 +469,7 @@ function FeesReport({ reportSkus, feePct }: { reportSkus: number; feePct: number
   );
 }
 
-export function PnlBoard({ months, month, costing, uploads, feePct, reportSkus, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; reportSkus: number; error: string | null }) {
+export function PnlBoard({ months, month, costing, uploads, feePct, reportSkus, cutoff = null, error }: { months: MonthPnl[]; month: string | null; costing: CostingRow[]; uploads: AdsUpload[]; feePct: number; reportSkus: number; cutoff?: { days: number; date: string } | null; error: string | null }) {
   const m = months.find((x) => x.month === month) ?? null;
   return (
     <div className="flex min-w-0 flex-col">
@@ -487,9 +492,9 @@ export function PnlBoard({ months, month, costing, uploads, feePct, reportSkus, 
         }
       />
       {error ? <p className="sp-card tone-row tone-bad tone-row-title mb-4">The month figures could not be loaded: {error}</p> : null}
-      {m ? <MonthView m={m} feePct={feePct} masters={costing.map((c) => ({ id: c.id, name: c.name }))} /> : <EmptyState title="No orders yet" body="No orders yet to work out a profit from." />}
+      {m ? <MonthView m={m} feePct={feePct} cutoff={cutoff} masters={costing.map((c) => ({ id: c.id, name: c.name }))} /> : <EmptyState title="No orders yet" body="No orders yet to work out a profit from." />}
       <p className="t-caption mt-4">
-        How it is worked out: for orders Flipkart&apos;s P&amp;L report covers, its own net units, seller price (your revenue) and net earnings; Flipkart fees are the seller price
+        {cutoff ? `Orders placed in the last ${cutoff.days} days are left out until their returns and fees are final (setting pnl_cutoff_days). ` : ""}How it is worked out: for orders Flipkart&apos;s P&amp;L report covers, its own net units, seller price (your revenue) and net earnings; Flipkart fees are the seller price
         less net earnings. Later orders: units sold are orders not cancelled less customer and courier returns, priced from each SKU&apos;s report figures. Product cost is your cost per unit
         times units sold. Ads come from the Flipkart Ads reports, plus 18% GST. Storage, other Flipkart charges and warehouse expenses are not included.
       </p>
